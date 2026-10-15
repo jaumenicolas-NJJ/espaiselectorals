@@ -41,10 +41,16 @@ PUESTA EN MARCHA EN NETLIFY (una sola vez, unos 10 minutos)
    Espera a que ponga «Published».
 
 6. Abre https://espaiselectorals.netlify.app
-   La primera vez aparece la pantalla de «Instalación»: escribe la clave del paso 4,
-   tu nombre (será tu usuario, por ejemplo Rosana) y tu contraseña (mínimo 8 caracteres).
-   Ya eres la administradora. A partir de aquí la clave de instalación no sirve para nada
-   más: el programa no se puede volver a instalar encima.
+   La primera vez aparece la pantalla de «Instalación» con cuatro casillas:
+     Clave de instalación   → la misma que pusiste en ESPAIS_CLAVE_INICIAL (paso 4)
+     Tu nombre              → será tu usuario (por ejemplo, Rosana)
+     Contraseña             → mínimo 8 caracteres
+     Repite la contraseña
+   Pulsa «Instalar y crear administrador». Ya eres la administradora. Esta pantalla solo
+   sale una vez: a partir de aquí la clave de instalación no sirve para nada más y el
+   programa no se puede volver a instalar encima.
+   Si en lugar de «Instalación» aparece un aviso de que falta la variable, repite el
+   paso 5 (Trigger deploy) y vuelve a abrir la dirección.
 
    Opcional: la variable ESPAIS_SECRET (una cadena aleatoria de 32 caracteres o más) fija
    la firma de las sesiones. Si no se crea, el programa genera una por su cuenta.
@@ -88,6 +94,16 @@ DATOS, COPIAS Y SEGURIDAD
       datos, pero así nadie ve el código.
 
 
+PRUEBAS
+-------
+La carpeta pruebas/ contiene la batería completa: reglas del servidor, interfaz en el
+navegador (administración, tres candidaturas y un usuario de consulta a la vez, con el
+Excel de ejemplo de pruebas/datos) y carga con 20 usuarios simultáneos. GitHub la pasa
+sola en cada cambio (pestaña «Actions» del repositorio: marca verde = todo correcto).
+Para pasarla en un ordenador:  bash pruebas/ejecutar.sh --carga
+Usa un servidor de pruebas con el almacén vacío: nunca toca los datos reales.
+
+
 ACTUALIZAR EL PROGRAMA SIN PERDER NADA
 --------------------------------------
 Cada cambio que se sube a la rama main de GitHub se publica solo en Netlify en un par de
@@ -104,3 +120,5 @@ netlify/functions/api/core.mjs       el servidor: reglas, usuarios, turnos, copi
 netlify/functions/api/index.mjs      enlace con Netlify y sus almacenes
 netlify.toml                         configuración de Netlify y cabeceras de seguridad
 package.json, package-lock.json      dependencia @netlify/blobs
+pruebas/                             batería de pruebas y servidor de pruebas
+.github/workflows/pruebas.yml        pasa las pruebas en GitHub en cada cambio

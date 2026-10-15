@@ -1,0 +1,26 @@
+# Pasa la batería de pruebas de Espais electorals en cada cambio que se sube a GitHub.
+# Usa un servidor de pruebas con el almacén vacío: nunca toca los datos reales de Netlify.
+name: Pruebas
+on:
+  push:
+    branches: [main, desarrollo]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependencias
+        run: npm ci
+      - name: Navegador y lector de PDF para las pruebas
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Reglas del servidor, interfaz y carga con 20 usuarios
+        run: bash pruebas/ejecutar.sh --carga
