@@ -1,5 +1,6 @@
 // Espais electorals · lógica del servidor (independiente de Netlify para poder probarla en local).
-// Almacén: db (datos), auth (usuarios), meta (contadores para sondeo barato), cfg (secreto), hist/* (copias).
+// Almacén principal: db (datos), auth (usuarios), meta (contadores para sondeo barato), cfg (secreto).
+// Almacén de copias (aparte): hist/* copias completas, day/* copia diaria permanente, jr/* copia de cada modificación.
 import { pbkdf2 as _pbkdf2, randomBytes, timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 const pbkdf2 = promisify(_pbkdf2);
@@ -18,7 +19,7 @@ const IF = {
 const GF = { sig: 40, nom: 200, col: 7, rep: 150, tel: 60, mail: 150, nota: 1000 };
 const ITER = 210000;
 const TOKEN_HOURS = 12;
-const SNAP_EVERY = 15 * 60000;
+const SNAP_EVERY = 10 * 60000;
 const MAX_HIST = 300;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -43,6 +44,31 @@ const activeAdmins = (auth) => Object.values(auth.users).filter((u) => !u.x && u
 const slotOK = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}[MT]$/.test(s);
 function effOrder(c) { const o = (c.order || []).slice(); return c.snake && (c.round || 1) % 2 === 0 ? o.reverse() : o; }
 const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.turn || 0] || null : null);
+/* cuántos elementos puede tener cada partido: su cupo del reparto (si lo hay) o el máximo general (0 = sin límite) */
+const lim = (c, g) => (c && c.cup && c.cup[g] != null ? c.cup[g] : c && c.max > 0 ? c.max : Infinity);
+const METH = ['', 'prop', 'dhondt', 'igual'];
+const TIPOS = ['generales', 'municipales', 'autonomicas', 'europeas'];
+const XCATS = ['esp', 'ban', 'pan', 'pri', 'par'];
+/* campos propios que añade el Ayuntamiento: definición en la configuración y valores en cada registro (xv) */
+function xfOK(xf) {
+  if (xf == null) return {};
+  if (typeof xf !== 'object' || Array.isArray(xf)) return null;
+  const o = {};
+  for (const t in xf) {
+    if (!XCATS.includes(t) || !Array.isArray(xf[t]) || xf[t].length > 15) return null;
+    const ids = new Set();
+    o[t] = [];
+    for (const d of xf[t]) { if (!d || typeof d.id !== 'string' || !/^[a-z0-9]{1,12}$/.test(d.id) || ids.has(d.id) || typeof d.n !== 'string' || !d.n.trim() || d.n.length > 40) return null; ids.add(d.id); o[t].push(d.h ? { id: d.id, n: d.n.trim(), h: true } : { id: d.id, n: d.n.trim() }); }
+  }
+  return o;
+}
+function xvOK(xv) {
+  if (xv == null) return {};
+  if (typeof xv !== 'object' || Array.isArray(xv) || Object.keys(xv).length > 40) return null;
+  const o = {};
+  for (const k in xv) { const v = xv[k]; if (!/^[a-z0-9]{1,12}$/.test(k) || !(v == null || (typeof v === 'string' && v.length <= 500))) return null; if (v != null && v.trim() !== '') o[k] = v.trim(); }
+  return o;
+}
 function totals(db, t) { const n = {}; for (const k in db.E) { const e = db.E[k]; if (e.k === 'r' && !e.x && e.t === t) n[e.g] = (n[e.g] || 0) + 1; } return n; }
 function freeLeft(db, t) {
   /* ¿queda algo libre en esta categoría? (para dar por terminada la selección) */
@@ -63,12 +89,22 @@ function advance(db, c) {
     c.turn = (c.turn || 0) + 1;
     if (c.turn >= n) { c.turn = 0; c.round = (c.round || 1) + 1; }
     const g = effOrder(c)[c.turn];
-    if (db.E['g:' + g] && !db.E['g:' + g].x && !(c.max > 0 && (tot[g] || 0) >= c.max)) { c.done = !freeLeft(db, c.t); return; }
+    if (db.E['g:' + g] && !db.E['g:' + g].x && (tot[g] || 0) < lim(c, g)) { c.done = !freeLeft(db, c.t); return; }
   }
   c.done = true;
 }
 
-export function makeHandler({ store, env = {}, now = () => Date.now() }) {
+/* si el turno lo tiene un partido que ya no puede elegir (sin cupo, cupo completo o eliminado), pasa al siguiente que pueda */
+function settle(db, c) {
+  if (c.mode !== 'turnos' || c.done) return false;
+  const g = curParty(c), tot = totals(db, c.t);
+  if (g && db.E['g:' + g] && !db.E['g:' + g].x && (tot[g] || 0) < lim(c, g)) return false;
+  advance(db, c);
+  return true;
+}
+
+export function makeHandler({ store, backup, env = {}, now = () => Date.now() }) {
+  const bk = backup || store; /* las copias van a un almacén distinto del de los datos */
   /* ---------- almacén con escritura condicional y reintentos ---------- */
   const pad = (n) => String(n).padStart(9, '0');
   async function getJ(key) { const v = await store.get(key, { type: 'json' }); return v == null ? null : v; }
@@ -80,7 +116,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
   }
   async function read(name) { return { data: (await vread(name)).data }; }
   async function update(name, init, fn) {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 40; i++) {
       const head = await vread(name);
       const cur = head.data || init();
       const out = await fn(cur);
@@ -92,7 +128,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         if (rec.v % 50 === 0) prune(name, rec.v);
         return { cur, out };
       }
-      await sleep(20 + Math.random() * 160);
+      await sleep(10 + Math.random() * Math.min(400, 30 * (i + 1)));
     }
     throw new HttpErr(503, 'El servidor está muy ocupado. Inténtalo de nuevo.');
   }
@@ -113,14 +149,27 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
     secret.cache = data.secret;
     return data.secret;
   }
+  /* copia completa (datos y usuarios) en el almacén de copias; además, la primera de cada día queda como copia diaria permanente */
   async function snapshot(db, why) {
-    const key = 'hist/' + new Date(now()).toISOString().replace(/[:.]/g, '-') + (why ? '_' + why : '');
-    await store.setJSON(key, { at: now(), why: why || 'auto', db });
-    try { const { blobs } = await store.list({ prefix: 'hist/' }); const ks = blobs.map((b) => b.key).sort(); while (ks.length > MAX_HIST) await store.delete(ks.shift()); } catch (e) { /* la poda puede esperar */ }
+    const iso = new Date(now()).toISOString(), key = 'hist/' + iso.replace(/[:.]/g, '-') + (why ? '_' + why : '');
+    let auth = null; try { auth = (await read('auth')).data; } catch (e) { /* la copia de datos va igualmente */ }
+    const rec = { at: now(), why: why || 'auto', db, auth };
+    await bk.setJSON(key, rec);
+    try { await bk.setJSON('day/' + iso.slice(0, 10), rec, { onlyIfNew: true }); } catch (e) { console.error('copia diaria', e); }
+    try { const { blobs } = await bk.list({ prefix: 'hist/' }); const ks = blobs.map((b) => b.key).sort(); while (ks.length > MAX_HIST) await bk.delete(ks.shift()); } catch (e) { /* la poda puede esperar */ }
   }
+  /* copia de cada modificación: lo que ha cambiado, quién y cuándo (permite reconstruirlo todo desde la última copia completa) */
+  async function journal(E, who, what) {
+    const keys = Object.keys(E || {}); if (!keys.length) return;
+    try { await bk.setJSON('jr/' + new Date(now()).toISOString().replace(/[:.]/g, '-') + '-' + randomBytes(3).toString('hex'), { at: now(), by: who ? who.u.name : '', what, E }); }
+    catch (e) { console.error('copia de la modificación', e); }
+  }
+  let snapSeen = 0;
   async function maybeSnap(why) {
+    if (!why && now() - snapSeen < SNAP_EVERY) return;
     const { data: pre } = await read('db');
-    if (pre && Object.keys(pre.E).length && (why || now() - (pre.lastSnap || 0) > SNAP_EVERY)) { await snapshot(pre, why || ''); await update('db', initDB, (d) => { d.lastSnap = now(); return null; }); }
+    if (pre) snapSeen = pre.lastSnap || 0;
+    if (pre && Object.keys(pre.E).length && (why || now() - (pre.lastSnap || 0) > SNAP_EVERY)) { await snapshot(pre, why || ''); await update('db', initDB, (d) => { d.lastSnap = now(); return null; }); snapSeen = now(); }
   }
 
   /* ---------- sesiones firmadas ---------- */
@@ -146,7 +195,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
   /* los datos de contacto de los partidos solo los ve el Ayuntamiento (y cada partido los suyos) */
   const redact = (E, who) => {
     if (who.u.role === 'admin') return E;
-    const o = {}; for (const k in E) { const e = E[k]; o[k] = e && e.k === 'g' && !(who.u.role === 'partido' && k === 'g:' + who.u.party) ? Object.assign({}, e, { rep: '', tel: '', mail: '', nota: '' }) : e; } return o;
+    const o = {}; for (const k in E) { const e = E[k]; o[k] = e && e.k === 'g' && !(who.u.role === 'partido' && k === 'g:' + who.u.party) ? Object.assign({}, e, { rep: '', tel: '', mail: '', nota: '', xv: {} }) : e; } return o;
   };
   const since = (db, n) => { const o = {}; for (const k in db.E) if ((db.E[k].s || 0) > n) o[k] = db.E[k]; return o; };
   const stamp = (db, key, e, who, t) => { e.u = Math.max(t, ((db.E[key] && db.E[key].u) || 0) + 1); e.b = who.u.name; e.s = ++db.seq; db.E[key] = e; };
@@ -165,8 +214,14 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
       if (!(ch.d0 == null || ch.d0 === '' || isISO(ch.d0)) || !(ch.d1 == null || ch.d1 === '' || isISO(ch.d1))) return 'Fechas de campaña no válidas.';
       if (ch.d0 && ch.d1 && ch.d1 < ch.d0) return 'La fecha final de la campaña es anterior a la inicial.';
       if (ch.d0 && ch.d1 && (Date.parse(ch.d1) - Date.parse(ch.d0)) / 86400000 > 60) return 'La campaña no puede durar más de 60 días.';
-      for (const f of ['org', 'tit', 'nota']) if (!(ch[f] == null || (typeof ch[f] === 'string' && ch[f].length <= (f === 'nota' ? 3000 : 200)))) return 'Configuración no válida.';
-      e = { k: 's', org: (ch.org || '').trim(), tit: (ch.tit || '').trim(), d0: ch.d0 || '', d1: ch.d1 || '', nota: (ch.nota || '').trim() };
+      for (const f of ['org', 'tit', 'nota', 'rv']) if (!(ch[f] == null || (typeof ch[f] === 'string' && ch[f].length <= (f === 'nota' ? 3000 : 200)))) return 'Configuración no válida.';
+      const rmin = intOr(ch.rmin, 0, 99); if (Number.isNaN(rmin)) return 'Mínimo por candidatura no válido.';
+      const rm = ch.rmeth == null ? {} : ch.rmeth; if (typeof rm !== 'object' || Array.isArray(rm)) return 'Método de reparto no válido.';
+      const rmeth = {}; for (const t in rm) { if (!CATS.includes(t) || !METH.includes(rm[t])) return 'Método de reparto no válido.'; rmeth[t] = rm[t]; }
+      if (!(ch.dv == null || ch.dv === '' || isISO(ch.dv))) return 'Día de la votación no válido.';
+      if (!(ch.tipo == null || ch.tipo === '' || TIPOS.includes(ch.tipo))) return 'Tipo de elecciones no válido.';
+      const xf = xfOK(ch.xf); if (!xf) return 'Campos propios no válidos.';
+      e = { k: 's', org: (ch.org || '').trim(), tit: (ch.tit || '').trim(), d0: ch.d0 || '', d1: ch.d1 || '', nota: (ch.nota || '').trim(), rv: (ch.rv || '').trim(), rmin: rmin || 0, rmeth, tipo: ch.tipo || 'generales', dv: ch.dv || '', xf };
     } else if (kind === 'g') {
       if (ch.x) {
         if (!cur) return null;
@@ -177,6 +232,8 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         for (const f in GF) { const v = ch[f]; if (v == null || v === '') o[f] = ''; else if (typeof v === 'string' && v.length <= GF[f]) o[f] = v.trim(); else return 'Dato del partido no válido: ' + f + '.'; }
         if (o.col && !/^#[0-9a-fA-F]{6}$/.test(o.col)) return 'Color no válido.';
         o.ord = intOr(ch.ord, 0, 999); if (Number.isNaN(o.ord)) return 'Orden no válido.';
+        o.vot = intOr(ch.vot, 0, 99999999); if (Number.isNaN(o.vot)) return 'Número de votos no válido.';
+        o.xv = xvOK(ch.xv); if (!o.xv) return 'Campos propios no válidos.';
         e = o;
       }
     } else if (kind === 'i') {
@@ -192,6 +249,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         for (const f in D.s) { const v = ch[f]; if (v == null || v === '') o[f] = ''; else if (typeof v === 'string' && v.length <= D.s[f]) o[f] = v.trim(); else return 'Dato no válido: ' + f + '.'; }
         o.ord = intOr(ch.ord, 0, 9999); if (Number.isNaN(o.ord)) return 'Número de orden no válido.';
         for (const f of D.n) { o[f] = intOr(ch[f], 0, 9999); if (Number.isNaN(o[f])) return 'Número no válido: ' + f + '.'; }
+        o.xv = xvOK(ch.xv); if (!o.xv) return 'Campos propios no válidos.';
         if (tt === 'esp') {
           const b = ch.blk == null ? {} : ch.blk;
           if (typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length > 200) return 'Disponibilidad no válida.';
@@ -201,16 +259,20 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         e = o;
       }
     } else if (kind === 'c') {
-      const t = key.slice(2); if (!CATS.includes(t)) return 'Categoría no válida.';
+      const cat = key.slice(2); if (!CATS.includes(cat)) return 'Categoría no válida.';
       if (!MODES.includes(ch.mode)) return 'Modo no válido.';
       const order = Array.isArray(ch.order) ? ch.order : [];
       if (order.length > 100 || new Set(order).size !== order.length || !order.every((g) => typeof g === 'string' && db.E['g:' + g] && !db.E['g:' + g].x)) return 'Orden de partidos no válido.';
       const quota = intOr(ch.quota, 1, 99), max = intOr(ch.max, 0, 9999);
       if (quota == null || Number.isNaN(quota) || max == null || Number.isNaN(max)) return 'Cupos no válidos.';
       if (!(ch.msg == null || (typeof ch.msg === 'string' && ch.msg.length <= 1500))) return 'Mensaje no válido.';
+      const cu = ch.cup == null ? {} : ch.cup, cup = {};
+      if (typeof cu !== 'object' || Array.isArray(cu) || Object.keys(cu).length > 100) return 'Cupos no válidos.';
+      for (const g in cu) { const n = intOr(cu[g], 0, 9999); if (n == null) continue; if (Number.isNaN(n) || !/^[\w-]{1,60}$/.test(g)) return 'Cupos no válidos.'; if (db.E['g:' + g] && !db.E['g:' + g].x) cup[g] = n; }
       const c0 = cur || { turn: 0, round: 1, used: 0 };
-      e = { k: 'c', t, mode: ch.mode, order, quota, max, auto: ch.auto !== false, snake: !!ch.snake, msg: (ch.msg || '').trim(), turn: Math.min(c0.turn || 0, Math.max(order.length - 1, 0)), round: c0.round || 1, used: c0.used || 0, done: !!c0.done };
-      if (!cur || cur.mode !== e.mode) log(db, who, t, 'cambió la selección de ' + CATN[t].toLowerCase() + ' a «' + { cerrado: 'cerrada', turnos: 'por turnos', libre: 'libre' }[e.mode] + '»', t);
+      e = { k: 'c', t: cat, mode: ch.mode, order, quota, max, cup, auto: ch.auto !== false, snake: !!ch.snake, msg: (ch.msg || '').trim(), turn: Math.min(c0.turn || 0, Math.max(order.length - 1, 0)), round: c0.round || 1, used: c0.used || 0, done: !!c0.done };
+      if (!cur || cur.mode !== e.mode) log(db, who, t, 'cambió la selección de ' + CATN[cat].toLowerCase() + ' a «' + { cerrado: 'cerrada', turnos: 'por turnos', libre: 'libre' }[e.mode] + '»', cat);
+      if (settle(db, e)) log(db, who, t, 'el turno pasa a ' + (curParty(e) ? pname(db, curParty(e)) : 'nadie (selección terminada)') + ' porque el partido anterior no tiene cupo disponible', cat);
     }
     stamp(db, key, e, who, t);
     return null;
@@ -240,14 +302,17 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         if (!inTurn) throw new HttpErr(403, 'No es vuestro turno. Ahora elige ' + (cp ? pname(db, cp) : 'nadie') + '.');
         if ((c.used || 0) >= c.quota) throw new HttpErr(403, 'Ya habéis hecho las ' + c.quota + ' elecciones de este turno.');
       }
-      if (c.max > 0 && (tot[g] || 0) >= c.max) throw new HttpErr(403, 'Habéis llegado al máximo de ' + c.max + ' en ' + CATN[cat].toLowerCase() + '.');
+      const L = lim(c, g);
+      if ((tot[g] || 0) >= L) throw new HttpErr(403, L === 0 ? 'No tenéis cupo en ' + CATN[cat].toLowerCase() + '.' : c.cup && c.cup[g] != null ? 'Habéis completado vuestro cupo de ' + L + ' en ' + CATN[cat].toLowerCase() + '.' : 'Habéis llegado al máximo de ' + L + ' en ' + CATN[cat].toLowerCase() + '.');
     }
     const r = { k: 'r', t: cat, i: body.i, slot, g, by: who.u.name, ts: t, rk: inTurn ? (c.round || 1) + '.' + (c.turn || 0) : '' };
     stamp(db, key, r, who, t);
     log(db, who, t, (admin && who.u.party !== g ? 'asignó a ' + pname(db, g) + ' ' : 'reservó ') + '«' + iname(it) + slotTxt(slot) + '»', cat, g);
     if (inTurn) {
       const nc = Object.assign({}, c); nc.used = (c.used || 0) + 1;
-      if (nc.auto && nc.used >= nc.quota) { advance(db, nc); log(db, who, t, 'turno completado; ahora elige ' + (curParty(nc) ? pname(db, curParty(nc)) : 'nadie (selección terminada)'), cat); }
+      /* el turno pasa solo al completar las elecciones del turno, o si el partido ya ha llegado a su máximo (no puede elegir más) */
+      const full = nc.auto && nc.used >= nc.quota, atMax = (tot[g] || 0) + 1 >= lim(c, g);
+      if (full || atMax) { advance(db, nc); log(db, who, t, (full ? 'turno completado' : pname(db, g) + ' ha completado su cupo') + '; ahora elige ' + (curParty(nc) ? pname(db, curParty(nc)) : 'nadie (selección terminada)'), cat); }
       else if (!freeLeft(db, cat)) nc.done = true;
       stamp(db, 'c:' + cat, nc, who, t);
     }
@@ -278,7 +343,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
       if (body.op === 'next') { advance(db, c); log(db, who, t, 'avanzó el turno; ahora elige ' + (curParty(c) ? pname(db, curParty(c)) : 'nadie (selección terminada)'), cat); }
       else if (body.op === 'prev') { const n = (c.order || []).length; if (!n) throw new HttpErr(400, 'No hay partidos en el orden.'); c.turn = (c.turn || 0) - 1; if (c.turn < 0) { if ((c.round || 1) > 1) { c.round--; c.turn = n - 1; } else c.turn = 0; } c.used = 0; c.done = false; log(db, who, t, 'volvió al turno de ' + pname(db, curParty(c)), cat); }
       else if (body.op === 'goto') { const i = effOrder(c).indexOf(body.g); if (i < 0) throw new HttpErr(400, 'Ese partido no está en el orden.'); c.turn = i; c.used = 0; c.done = false; log(db, who, t, 'dio el turno a ' + pname(db, body.g), cat); }
-      else if (body.op === 'reset') { c.turn = 0; c.round = 1; c.used = 0; c.done = !(c.order || []).length; log(db, who, t, 'reinició los turnos (ronda 1, empieza ' + (curParty(c) ? pname(db, curParty(c)) : '—') + ')', cat); }
+      else if (body.op === 'reset') { c.turn = 0; c.round = 1; c.used = 0; c.done = !(c.order || []).length; settle(db, c); log(db, who, t, 'reinició los turnos (ronda ' + (c.round || 1) + ', empieza ' + (curParty(c) ? pname(db, curParty(c)) : '—') + ')', cat); }
       else throw new HttpErr(400, 'Operación desconocida.');
     }
     stamp(db, 'c:' + cat, c, who, t);
@@ -340,16 +405,18 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
 
     'POST sync': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
-      const changes = body.changes || {}, keys = Object.keys(changes), s0 = +body.since || 0;
+      const changes = body.changes || {}, keys = Object.keys(changes);
       if (keys.length > 800) throw new HttpErr(413, 'Demasiados cambios a la vez.');
       await maybeSnap(keys.some((k) => changes[k] && changes[k].x) ? 'antes-de-eliminar' : '');
+      let s0 = 0;
       const { cur: db, out } = await update('db', initDB, (d) => {
-        const rejected = [], t = now();
+        s0 = d.seq; const rejected = [], t = now();
         keys.forEach((k) => { const r = applyChange(d, k, changes[k], who, t); if (r) rejected.push({ key: k, reason: r }); });
         return rejected.length === keys.length ? { noWrite: true, rejected } : { rejected };
       });
       await bumpMeta(db.seq, null);
-      const E = since(db, s0); out.rejected.forEach((r) => { if (db.E[r.key]) E[r.key] = db.E[r.key]; });
+      if (out.rejected.length < keys.length) await journal(since(db, s0), who, 'cambios');
+      const E = since(db, +body.since || 0); out.rejected.forEach((r) => { if (db.E[r.key]) E[r.key] = db.E[r.key]; });
       return json({ seq: db.seq, E, rejected: out.rejected });
     },
 
@@ -357,21 +424,24 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
       const who = await authed(req); need(who, ['admin', 'partido']);
       if (!/^[\w-]{1,60}$/.test(String(body.i || ''))) throw new HttpErr(400, 'Reserva no válida.');
       await maybeSnap('');
-      const { cur: db } = await update('db', initDB, (d) => { reserve(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null);
+      let s0 = 0;
+      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; reserve(d, body, who, now()); return null; });
+      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'reserva');
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST release': async (req, body) => {
       const who = await authed(req); need(who, ['admin', 'partido']);
       if (!/^[\w-]{1,60}$/.test(String(body.i || '')) || !(body.slot == null || body.slot === '' || slotOK(body.slot))) throw new HttpErr(400, 'Reserva no válida.');
-      const { cur: db } = await update('db', initDB, (d) => { release(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null);
+      let s0 = 0;
+      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; release(d, body, who, now()); return null; });
+      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'liberación');
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST turn': async (req, body) => {
       const who = await authed(req); need(who, ['admin', 'partido']);
-      const { cur: db } = await update('db', initDB, (d) => { turnOp(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null);
+      let s0 = 0;
+      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; turnOp(d, body, who, now()); return null; });
+      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'turno');
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
 
@@ -420,6 +490,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         x.urev++; return null;
       });
       await bumpMeta(null, a.urev);
+      try { await bk.setJSON('jr/' + new Date(now()).toISOString().replace(/[:.]/g, '-') + '-u' + randomBytes(3).toString('hex'), { at: now(), by: who.u.name, what: 'usuarios: ' + op, auth: a }); } catch (e) { console.error('copia de usuarios', e); }
       return json({ users: publicUsers(a), urev: a.urev });
     },
 
@@ -432,9 +503,9 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
       const who = await authed(req); need(who, ['admin']);
       if (!body || !body.E || typeof body.E !== 'object') throw new HttpErr(400, 'Ese archivo no es una copia de Espais electorals.');
       await maybeSnap('antes-de-importar');
-      let added = 0;
+      let added = 0, s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => {
-        added = 0;
+        added = 0; s0 = d.seq;
         for (const k in body.E) {
           const x = body.E[k];
           if (!/^[gicsrh]:[\w:-]{1,160}$/.test(k) || !x || typeof x !== 'object' || x.k !== k[0] || typeof x.u !== 'number') continue;
@@ -444,21 +515,22 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         }
         return added ? null : { noWrite: true };
       });
-      await bumpMeta(db.seq, null);
+      await bumpMeta(db.seq, null); if (added) await journal(since(db, s0), who, 'importación');
       return json({ added, seq: db.seq });
     },
     'GET history': async (req) => {
       const who = await authed(req); need(who, ['admin']);
-      const { blobs } = await store.list({ prefix: 'hist/' });
-      return json({ items: blobs.map((b) => b.key).sort().reverse().slice(0, 120) });
+      const [h, dd, jr] = await Promise.all([bk.list({ prefix: 'hist/' }), bk.list({ prefix: 'day/' }), bk.list({ prefix: 'jr/' })]);
+      return json({ items: h.blobs.map((b) => b.key).sort().reverse().slice(0, 150), days: dd.blobs.map((b) => b.key).sort().reverse(), changes: jr.blobs.length });
     },
     'POST restore': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
-      if (!str(body.key, 6, 200) || body.key.indexOf('hist/') !== 0) throw new HttpErr(400, 'Copia no válida.');
-      const h = await getJ(body.key); if (!h || !h.db) throw new HttpErr(404, 'Esa copia ya no existe.');
+      if (!str(body.key, 6, 200) || !/^(hist|day)\//.test(body.key)) throw new HttpErr(400, 'Copia no válida.');
+      const h = await bk.get(body.key, { type: 'json' }); if (!h || !h.db) throw new HttpErr(404, 'Esa copia ya no existe.');
       const { data: pre } = await read('db'); if (pre) await snapshot(pre, 'antes-de-restaurar');
+      let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => {
-        const t = now(), S = h.db.E, keys = new Set(Object.keys(d.E).concat(Object.keys(S)));
+        s0 = d.seq; const t = now(), S = h.db.E, keys = new Set(Object.keys(d.E).concat(Object.keys(S)));
         keys.forEach((k) => {
           const c = d.E[k];
           if (k[0] === 'h') { if (!c && S[k]) d.E[k] = Object.assign({}, S[k], { s: ++d.seq }); return; } /* el registro nunca se borra */
@@ -468,7 +540,7 @@ export function makeHandler({ store, env = {}, now = () => Date.now() }) {
         log(d, who, t, 'restauró una copia de seguridad del servidor (' + body.key.slice(5, 21).replace('T', ' ') + ')');
         return null;
       });
-      await bumpMeta(db.seq, null);
+      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'restauración');
       return json({ ok: true, seq: db.seq });
     }
   };

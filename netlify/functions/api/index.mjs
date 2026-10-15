@@ -8,6 +8,7 @@ export default async (req) => {
   // El almacén se crea en cada petición: el permiso temporal de Blobs caduca si se reutiliza.
   const handler = makeHandler({
     store: getStore({ name: 'espais', consistency: 'strong', region: 'eu-central-1' }),
+    backup: getStore({ name: 'espais-copias', consistency: 'strong', region: 'eu-central-1' }),
     env: { ESPAIS_CLAVE_INICIAL: envGet('ESPAIS_CLAVE_INICIAL'), ESPAIS_SECRET: envGet('ESPAIS_SECRET') }
   });
   return handler(req);

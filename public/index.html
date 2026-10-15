@@ -610,6 +610,18 @@ table.cgrid{border-collapse:separate;border-spacing:0;font-size:12px}
 body.waiting,body.waiting *{cursor:progress!important}
 .lnk{border:0;background:none;padding:0;color:var(--brand);cursor:pointer;font:inherit;font-weight:inherit}.lnk:hover{text-decoration:underline}
 .stat h3 .lnk{font-weight:700}
+.two4{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.rp th small{display:block;font-weight:400;color:var(--mute);font-size:11px}
+.rp td.num input{text-align:right}
+.rp tr.mine td{background:#eef8f1}
+.rp tfoot td{font-weight:700;background:#f6f8fb;border-top:2px solid var(--line)}
+.rp td.over{color:#C62828}
+.sug{display:block;color:#7a5600;font-size:11px;font-weight:600}
+#printdoc .pr-sign td{height:12mm}
+#printdoc .pr-legal{font-size:9pt;line-height:1.4}#printdoc .pr-legal ul{margin:4px 0;padding-left:16px}#printdoc .pr-legal li{margin:3px 0}
+.prsel{cursor:default}.prsel select{max-width:260px}
+.olist .orow input[type=text]{flex:1}
+.rp td{vertical-align:middle}
 </style>
 </head>
 <body>
@@ -663,7 +675,7 @@ const fShort = fmt({ weekday: 'short', day: 'numeric', month: 'short' });
 const fLong = fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 const fDMY = (t) => { const d = new Date(t); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear(); };
-const fStamp = (ms) => { const d = new Date(ms); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+const fStamp = (ms) => { if (!Number.isFinite(+ms)) return ''; const d = new Date(+ms); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
 const hhmm = (ms) => { const d = new Date(ms); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); };
 const slotTxt = (s) => (s ? cap(fShort(parseISO(s.slice(0, 10)))) + ' · ' + (s[10] === 'M' ? 'mañana' : 'tarde') : '');
 
@@ -765,7 +777,11 @@ async function loadAll() {
 async function act(path, body, okMsg) {
   if (ST.busy) return false;
   ST.busy = true; document.body.classList.add('waiting');
-  try { const r = await api(path, Object.assign({ since: ST.seq }, body)); applyServer(r); ST.online = true; if (okMsg) toast(okMsg); return true; }
+  try {
+    let r;
+    for (let i = 0; ; i++) { try { r = await api(path, Object.assign({ since: ST.seq }, body)); break; } catch (e) { if (e.status !== 503 || i >= 2) throw e; await new Promise((ok) => setTimeout(ok, 400 + Math.random() * 600)); } }
+    applyServer(r); ST.online = true; if (okMsg) toast(okMsg); return true;
+  }
   catch (e) {
     if (e.status === 401) { sessionExpired(e.message); return false; }
     if (e.net || e.status >= 500) toast('No se ha podido completar: sin conexión con el servidor. Vuelve a intentarlo.', 'err');
@@ -884,8 +900,19 @@ function idx() {
 }
 const conf = () => { const e = ST.db && ST.db.E['s:conf']; return e && !e.x ? e : {}; };
 const orgName = () => conf().org || 'Ajuntament de Santa Coloma de Gramenet';
+/* tipo de elecciones (por defecto, las Generales al Congreso de los Diputados) */
+const TIPON = { generales: 'Elecciones Generales · Congreso de los Diputados y Senado', municipales: 'Elecciones Municipales', autonomicas: 'Elecciones al Parlament de Catalunya', europeas: 'Elecciones al Parlamento Europeo' };
+const TIPOREF = { generales: 'Generales 2023 · Congreso · Santa Coloma de Gramenet', municipales: 'Municipales 2023 · Santa Coloma de Gramenet', autonomicas: 'Parlament de Catalunya 2024 · Santa Coloma de Gramenet', europeas: 'Europeas 2024 · Santa Coloma de Gramenet' };
+const tipo = () => (TIPON[conf().tipo] ? conf().tipo : 'generales');
+/* campos propios añadidos por el Ayuntamiento: 'x_<id>' en las columnas y el valor en r.xv[id] */
+const xfOf = (t) => ((conf().xf || {})[t] || []).filter((d) => !d.h);
+const colsOf = (t) => COLS[t].concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
+const fv = (r, k) => (k.indexOf('x_') === 0 ? (r.xv || {})[k.slice(2)] : r[k]);
 function campDays() { const c = conf(), a = parseISO(c.d0), b = parseISO(c.d1), o = []; if (a == null || b == null || b < a) return o; for (let t = a; t <= b && o.length < 61; t += DAY) o.push(t); return o; }
-const cfgOf = (t) => idx().cfg[t] || { t, mode: 'cerrado', order: [], quota: 1, max: 0, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false };
+const cfgOf = (t) => idx().cfg[t] || { t, mode: 'cerrado', order: [], quota: 1, max: 0, cup: {}, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false };
+/* cuántos puede tener un partido: su cupo del reparto o, si no tiene, el máximo general (Infinity = sin límite) */
+const limOf = (c, g) => (c.cup && c.cup[g] != null ? c.cup[g] : c.max > 0 ? c.max : Infinity);
+const hasCup = (c) => !!(c.cup && Object.keys(c.cup).length);
 function effOrder(c) { const o = (c.order || []).slice(); return c.snake && (c.round || 1) % 2 === 0 ? o.reverse() : o; }
 const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.turn || 0] || null : null);
 const resKey = (i, slot) => i + (slot ? ':' + slot : '');
@@ -909,7 +936,8 @@ function canPick(t) {
     if (curParty(c) !== g) return { ok: false, why: 'No es vuestro turno: ahora elige ' + pName(curParty(c)) + '.' };
     if ((c.used || 0) >= c.quota) return { ok: false, why: 'Ya habéis hecho las elecciones de este turno.' };
   }
-  if (c.max > 0 && myCount(t, g) >= c.max) return { ok: false, why: 'Habéis llegado al máximo de ' + c.max + '.' };
+  const L = limOf(c, g);
+  if (myCount(t, g) >= L) return { ok: false, why: L === 0 ? 'No tenéis cupo en ' + CATN[t].toLowerCase() + '.' : c.cup && c.cup[g] != null ? 'Habéis completado vuestro cupo de ' + L + ' en ' + CATN[t].toLowerCase() + '.' : 'Habéis llegado al máximo de ' + L + '.' };
   return { ok: true };
 }
 const canRelease = (r) => r && (isAdmin() || (isParty() && r.g === myParty() && cfgOf(r.t).mode !== 'cerrado'));
@@ -920,7 +948,7 @@ const LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="18" wid
 const empty = (t, s) => '<div class="empty"><b>' + esc(t) + '</b>' + (s || '') + '</div>';
 function toast(msg, kind) { const t = $('#toast'); if (!t) return; t.textContent = msg; t.className = 'toast on' + (kind === 'err' ? ' err' : ''); clearTimeout(ST.toastT); ST.toastT = setTimeout(() => { t.className = 'toast'; }, 4200); }
 function TABS() {
-  const t = [['panel', 'Panel'], ['esp', 'Espacios'], ['ban', 'Banderolas'], ['pan', 'Pancartas'], ['pri', 'Prismas'], ['partidos', 'Partidos']];
+  const t = [['panel', 'Panel'], ['esp', 'Espacios'], ['ban', 'Banderolas'], ['pan', 'Pancartas'], ['pri', 'Prismas'], ['partidos', 'Partidos'], ['reparto', 'Reparto']];
   if (isAdmin()) t.push(['turnos', 'Turnos y reglas']);
   return t.concat([['registro', 'Registro'], ['ajustes', 'Ajustes'], ['ayuda', 'Ayuda']]);
 }
@@ -935,7 +963,8 @@ function paintSync() {
 function paintTop() {
   $('#org').textContent = orgName(); $('#tit').textContent = conf().tit || 'Selección de espacios electorales';
   $('#who').innerHTML = esc(ST.user) + ' · ' + esc(ROLES[myRole()]) + (isParty() && idx().pmap[myParty()] ? ' ' + pChip(myParty(), true) : '');
-  document.title = 'Espais electorals' + (conf().tit ? ' · ' + conf().tit : '');
+  const myTurn = isParty() && CATS.some((t) => cfgOf(t).mode === 'turnos' && curParty(cfgOf(t)) === myParty());
+  document.title = (myTurn ? '🟢 Es vuestro turno · ' : '') + 'Espais electorals' + (conf().tit ? ' · ' + conf().tit : '');
 }
 function paintTabs() { $('#tabs').innerHTML = TABS().map((t) => '<button data-a="tab" data-v="' + t[0] + '" class="' + (ST.view === t[0] ? 'on' : '') + '">' + t[1] + (isParty() && CATS.includes(t[0]) && cfgOf(t[0]).mode === 'turnos' && curParty(cfgOf(t[0])) === myParty() ? ' <span class="dot-turn" title="Es vuestro turno"></span>' : '') + '</button>').join(''); }
 function paintBanner() {
@@ -956,7 +985,7 @@ function renderView() {
   const gs = $('.gscroll'), gl = gs ? gs.scrollLeft : 0;
   let s0 = null, s1 = null; try { if (fid) { s0 = ae.selectionStart; s1 = ae.selectionEnd; } } catch (e) { /* nada */ }
   let h = '';
-  if (v === 'panel') h = viewPanel(); else if (CATS.includes(v)) h = viewCat(v); else if (v === 'partidos') h = viewPartidos(); else if (v === 'turnos' && isAdmin()) h = viewTurnos();
+  if (v === 'panel') h = viewPanel(); else if (CATS.includes(v)) h = viewCat(v); else if (v === 'partidos') h = viewPartidos(); else if (v === 'reparto') h = viewReparto(); else if (v === 'turnos' && isAdmin()) h = viewTurnos();
   else if (v === 'registro') h = viewRegistro(); else if (v === 'ajustes') h = viewAjustes(); else if (v === 'ayuda') h = viewAyuda(); else { ST.view = 'panel'; h = viewPanel(); }
   el.innerHTML = h;
   if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { if (s0 != null) n.setSelectionRange(s0, s1); } catch (e) { /* nada */ } } }
@@ -970,14 +999,14 @@ function statusHTML(t, full) {
   let h = '<div class="card stat"><div class="fhead"><h3>' + (full ? '' : '<button class="lnk" data-a="tab" data-v="' + t + '">') + CATN[t] + (full ? '' : '</button>') + ' <span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></h3>' +
     (isAdmin() ? '<button class="btn sm" data-a="tab" data-v="turnos">Reglas y turnos</button>' : '') + '</div>' +
     '<div class="kpis"><div><b>' + taken + ' / ' + tot + '</b><span>' + (t === 'esp' ? 'franjas reservadas' : 'reservados') + '</span></div><div><b>' + Math.max(tot - taken, 0) + '</b><span>libres</span></div>' +
-    (isParty() ? '<div><b>' + myCount(t, g) + (c.max > 0 ? ' / ' + c.max : '') + '</b><span>vuestras reservas</span></div>' : '<div><b>' + (c.max > 0 ? c.max : 'Sin límite') + '</b><span>máximo por partido</span></div>') + '</div>';
+    (isParty() ? '<div><b>' + myCount(t, g) + (limOf(c, g) < Infinity ? ' / ' + limOf(c, g) : '') + '</b><span>' + (c.cup && c.cup[g] != null ? 'vuestras reservas / cupo' : 'vuestras reservas') + '</span></div>' : '<div><b>' + (hasCup(c) ? 'Según el reparto' : c.max > 0 ? c.max : 'Sin límite') + '</b><span>' + (hasCup(c) ? 'cupo de cada partido' : 'máximo por partido') + '</span></div>') + '</div>';
   if (c.mode === 'turnos') {
     const ord = effOrder(c), tots = {}; ord.forEach((x) => { tots[x] = myCount(t, x); });
     h += c.done ? '<div class="turnbox done"><b>Selección por turnos terminada.</b></div>'
       : '<div class="turnbox' + (cp && cp === g ? ' mine' : '') + '"><span>Ronda ' + (c.round || 1) + ' · Turno de</span> ' + pChip(cp) + '<span>' + (c.used || 0) + ' de ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' hechas en este turno</span>' +
         (cp && (isAdmin() || cp === g) ? '<button class="btn sm" data-a="pass" data-t="' + t + '">' + (isAdmin() ? 'Pasar al siguiente' : 'Terminar mi turno') + '</button>' : '') + '</div>';
-    h += '<div class="order">' + ord.map((x, i) => '<span class="oi' + (i === (c.turn || 0) && !c.done ? ' cur' : '') + (c.max > 0 && tots[x] >= c.max ? ' full' : '') + '"><small>' + (i + 1) + '</small>' + pChip(x, true) + '<small>' + tots[x] + '</small></span>').join('<span class="oarr">›</span>') + '</div>' +
-      '<p class="muted small">Orden de elección' + (c.snake ? ' (se invierte en cada ronda)' : '') + ' · ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' por turno' + (c.max > 0 ? ' · máximo ' + c.max + ' por partido' : '') + '. El número de la derecha es lo que lleva cada partido.</p>';
+    h += '<div class="order">' + ord.map((x, i) => { const L = limOf(c, x); return '<span class="oi' + (i === (c.turn || 0) && !c.done ? ' cur' : '') + (tots[x] >= L ? ' full' : '') + '"><small>' + (i + 1) + '</small>' + pChip(x, true) + '<small>' + tots[x] + (L < Infinity ? '/' + L : '') + '</small></span>'; }).join('<span class="oarr">›</span>') + '</div>' +
+      '<p class="muted small">Orden de elección' + (c.snake ? ' (se invierte en cada ronda)' : '') + ' · ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' por turno' + (hasCup(c) ? ' · cupos según el reparto' : c.max > 0 ? ' · máximo ' + c.max + ' por partido' : '') + '. A la derecha de cada partido, lo que lleva' + (hasCup(c) || c.max > 0 ? ' y su límite; quien lo completa ya no tiene turno' : '') + '.</p>';
   } else if (c.mode === 'libre') h += '<div class="turnbox"><b>Selección libre:</b>&nbsp;cada partido elige cuando quiere' + (c.max > 0 ? ', hasta ' + c.max : '') + '.</div>';
   else h += '<div class="turnbox closed"><b>Selección cerrada.</b>&nbsp;' + (isAdmin() ? 'Solo el Ayuntamiento puede asignar. Ábrela en «Turnos y reglas».' : 'El Ayuntamiento la abrirá cuando corresponda.') + '</div>';
   if (c.msg) h += '<div class="hint"><b>Aviso del Ayuntamiento:</b> ' + esc(c.msg).replace(/\n/g, '<br>') + '</div>';
@@ -988,13 +1017,14 @@ function statusHTML(t, full) {
 /* ---------- panel ---------- */
 function viewPanel() {
   const I = idx(), c = conf(), days = campDays();
-  let h = '<div class="hero card"><div><h2>' + esc(c.tit || 'Selección de espacios electorales') + '</h2><p class="muted">' + esc(orgName()) + (days.length ? ' · Campaña: ' + esc(fLong(days[0])) + ' → ' + esc(fLong(days[days.length - 1])) : '') + '</p>' +
+  let h = '<div class="hero card"><div><h2>' + esc(c.tit || 'Selección de espacios electorales') + '</h2><p class="muted">' + esc(orgName()) + ' · ' + esc(TIPON[tipo()]) + (c.dv && parseISO(c.dv) != null ? ' · Votación: ' + esc(fLong(parseISO(c.dv))) : '') + (days.length ? '<br>Campaña: ' + esc(fLong(days[0])) + ' → ' + esc(fLong(days[days.length - 1])) : '') + '</p>' +
     (c.nota ? '<div class="hint">' + esc(c.nota).replace(/\n/g, '<br>') + '</div>' : '') + '</div><button class="btn prt" data-a="pr-menu">🖨 Imprimir resultados</button></div>';
   if (isAdmin() && (!I.parties.length || !CATS.some((t) => I.items[t].length) || !days.length)) {
     h += '<div class="card setupc"><h3>Puesta en marcha</h3><ol>' +
-      '<li class="' + (days.length ? 'ok' : '') + '">Indica el título y las <b>fechas de la campaña</b> en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
+      '<li class="' + (days.length ? 'ok' : '') + '">Indica el tipo de elecciones y el <b>día de la votación</b> (la campaña se calcula sola) en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
       '<li class="' + (CATS.some((t) => I.items[t].length) ? 'ok' : '') + '"><b>Importa el Excel</b> de espacios, banderolas, pancartas y prismas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
       '<li class="' + (I.parties.length ? 'ok' : '') + '">Da de alta los <b>partidos</b> y su orden de preferencia en <button class="lnk" data-a="tab" data-v="partidos">Partidos</button>, y crea un usuario para cada uno.</li>' +
+      '<li class="' + (I.parties.some((p) => p.vot > 0) ? 'ok' : '') + '">Escribe los votos de las anteriores elecciones y calcula el orden y los cupos en <button class="lnk" data-a="tab" data-v="reparto">Reparto</button>.</li>' +
       '<li>Abre cada categoría <b>por turnos</b> o <b>libre</b> en <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button>.</li></ol></div>';
   }
   h += '<div class="grid2">' + CATS.map((t) => statusHTML(t)).join('') + '</div>';
@@ -1021,7 +1051,7 @@ function logRows(L) {
 
 /* ---------- categoría: lista o cuadrante ---------- */
 function rin(kind, r, f, type, w, label, ro, extra) {
-  const id = 'r' + kind + '-' + r.id + '-' + f, v = ST.drafts[id] != null ? ST.drafts[id] : (r[f] == null ? '' : r[f]);
+  const id = 'r' + kind + '-' + r.id + '-' + f, v = ST.drafts[id] != null ? ST.drafts[id] : (fv(r, f) == null ? '' : fv(r, f));
   return '<input type="' + (type || 'text') + '" id="' + id + '" data-r="' + kind + '" data-f="' + f + '" data-id="' + r.id + '" data-draft value="' + esc(v) + '"' + (ro ? ' disabled' : '') + ' style="min-width:' + w + 'px;width:100%" aria-label="' + esc(label) + '"' + (type === 'number' ? ' min="0" max="9999"' : '') + (extra || '') + '>';
 }
 function partyOpts(sel, withEmpty) { return (withEmpty ? '<option value="">' + esc(withEmpty) + '</option>' : '') + idx().parties.map((p) => '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc((p.sig || p.nom) + (p.sig && p.nom ? ' · ' + p.nom : '')) + '</option>').join(''); }
@@ -1030,7 +1060,7 @@ function viewCat(t) {
   let h = statusHTML(t, true);
   const pick = canPick(t);
   h += '<div class="card"><div class="fhead"><h3>' + CATN[t] + ' <span class="n">' + I.items[t].length + '</span></h3><div class="btnrow" style="margin:0">' +
-    (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button>' : '') + '<button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
+    (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button><button class="btn sm" data-a="xf-open" data-t="' + t + '">Campos propios…</button>' : '') + '<button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
     '<button class="btn sm" data-a="csv" data-t="' + t + '">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-cat" data-t="' + t + '">🖨 Imprimir</button></div></div>';
   if (isParty() && !pick.ok) h += '<p class="hint">' + esc(pick.why) + '</p>';
   if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), isAdmin() ? 'Impórtalos desde el Excel o añádelos con «Editar lista».' : 'El Ayuntamiento los cargará en breve.') + '</div>';
@@ -1040,7 +1070,7 @@ function viewCat(t) {
 }
 function passFilter(t, it, r) {
   const f = ST.ui.flt[t] || 'all', q = norm(ST.ui.q[t] || '');
-  if (q && norm(COLS[t].map((c) => it[c[0]]).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
+  if (q && norm(colsOf(t).map((c) => fv(it, c[0])).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
   if (t === 'esp') return true;
   if (f === 'free') return !r; if (f === 'taken') return !!r; if (f === 'mine') return !!r && r.g === myParty();
   if (f.indexOf('p:') === 0) return !!r && r.g === f.slice(2);
@@ -1049,8 +1079,8 @@ function passFilter(t, it, r) {
 function listHTML(t, edit) {
   const I = idx(), pick = canPick(t), rows = I.items[t].map((it) => ({ it, r: activeRes(it.id) })).filter((x) => passFilter(t, x.it, x.r));
   if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
-  return '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + COLS[t].map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th><th></th></tr></thead><tbody>' +
-    rows.map(({ it, r }) => '<tr class="' + (r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + '">' + COLS[t].map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(it[c[0]] == null ? '' : it[c[0]])) + '</td>').join('') +
+  return '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th><th></th></tr></thead><tbody>' +
+    rows.map(({ it, r }) => '<tr class="' + (r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + '">' + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') +
       '<td class="nowrap">' + (r ? pChip(r.g) : '<span class="free-l">Libre</span>') + '</td><td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td></tr>').join('') + '</tbody></table></div>';
 }
 function rowAction(t, it, r, pick, edit) {
@@ -1063,7 +1093,7 @@ function rowAction(t, it, r, pick, edit) {
 function gridHTML(edit) {
   const I = idx(), days = campDays(), E = I.items.esp.filter((it) => passFilter('esp', it, null)), f = ST.ui.flt.esp || 'all';
   let h = '';
-  if (edit) h += '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + COLS.esp.map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr>' + COLS.esp.map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
+  if (edit) h += '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr>' + colsOf('esp').map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
   if (!days.length) return h + '<p class="hint warn">Para ver el cuadrante hay que indicar las fechas de la campaña en Ajustes.</p>';
   h += '<p class="muted small">Pulsa una casilla para ' + (isAdmin() ? 'asignarla, liberarla o marcar su disponibilidad; pulsa el nombre de un espacio para marcar su disponibilidad en bloque (varios días o franjas a la vez)' : isParty() ? 'reservarla o liberarla' : 'ver su detalle') + '. Mañana (M) y tarde (T) de cada día de campaña.</p>' +
     '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>';
@@ -1089,7 +1119,7 @@ function gridHTML(edit) {
 function modalCell(i, s) {
   const it = idx().imap[i]; if (!it) return;
   const r = activeRes(i, s), b = (it.blk || {})[s], pick = canPick('esp');
-  let h = '<h2>' + esc(it.nom) + '</h2><p><b>' + esc(slotTxt(s)) + '</b>' + (it.dir ? ' · ' + esc(it.dir) : '') + (it.hor ? '<br><span class="muted">Horario: ' + esc(it.hor) + '</span>' : '') + '</p>';
+  let h = '<h2>' + esc(it.nom) + '</h2><p><b>' + esc(slotTxt(s)) + '</b>' + (it.dir ? ' · ' + esc(it.dir) : '') + (it.hor ? '<br><span class="muted">Horario: ' + esc(it.hor) + '</span>' : '') + xfOf('esp').filter((d) => (it.xv || {})[d.id]).map((d) => '<br><span class="muted">' + esc(d.n) + ': ' + esc(it.xv[d.id]) + '</span>').join('') + (it.nota ? '<br><span class="muted">Notas: ' + esc(it.nota) + '</span>' : '') + '</p>';
   if (r) h += '<p>Reservado por ' + pChip(r.g) + ' <span class="muted">(' + fStamp(r.ts) + ' · ' + esc(r.by) + ')</span></p>';
   else if (b === 'nd') h += '<p class="hint warn">No disponible en esta franja.</p>';
   else h += '<p>' + (b === 'rs' ? '<span class="hint warn">⚠ Con restricciones: consulta las condiciones de uso antes de reservar.</span>' : '<span class="free-l">Libre</span>') + '</p>';
@@ -1136,10 +1166,12 @@ function viewPartidos() {
   let h = '<div class="card"><div class="fhead"><h3>Partidos y formaciones <span class="n">' + I.parties.length + '</span></h3>' + (adm ? '<div class="btnrow" style="margin:0"><button class="btn primary sm" data-a="g-add">+ Añadir partido</button><button class="btn sm" data-a="g-paste">Pegar desde Excel…</button><button class="btn sm" data-a="imp-xls">Importar Excel…</button></div>' : '') + '</div>' +
     '<p class="muted">El <b>orden</b> es la preferencia para elegir: el 1 elige primero. ' + (adm ? 'Cada partido necesita un usuario para entrar (botón «+ Usuario»). Los datos de contacto solo los ve el Ayuntamiento.' : '') + '</p>';
   if (!I.parties.length) return h + empty('Todavía no hay partidos', adm ? 'Añádelos, pégalos desde Excel o impórtalos.' : '') + '</div>';
-  if (!adm) return h + '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Siglas</th><th>Nombre</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '</tr></thead><tbody>' + I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + '</td><td>' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div></div>';
-  return h + '<div class="tblwrap"><table class="tbl ftbl"><thead><tr><th>Orden</th><th>Color</th><th>Siglas</th><th>Nombre</th><th>Representante</th><th>Teléfono</th><th>Correo</th><th>Notas</th><th>Usuarios</th><th></th></tr></thead><tbody>' +
-    I.parties.map((p) => '<tr><td style="width:70px">' + rin('g', p, 'ord', 'number', 46, 'Orden') + '</td><td><input type="color" data-r="g" data-f="col" data-id="' + p.id + '" value="' + esc(p.col) + '" aria-label="Color"></td><td>' + rin('g', p, 'sig', 'text', 90, 'Siglas') + '</td><td>' + rin('g', p, 'nom', 'text', 200, 'Nombre') + '</td><td>' + rin('g', p, 'rep', 'text', 140, 'Representante') + '</td><td>' + rin('g', p, 'tel', 'tel', 100, 'Teléfono') + '</td><td>' + rin('g', p, 'mail', 'email', 150, 'Correo') + '</td><td>' + rin('g', p, 'nota', 'text', 140, 'Notas') + '</td>' +
-      '<td class="nowrap">' + (users(p.id).map(esc).join(', ') || '<span class="muted">—</span>') + ' <button class="btn sm" data-a="u-add" data-g="' + p.id + '">+ Usuario</button></td><td><button class="btn sm ghost" data-a="g-del" data-id="' + p.id + '" title="Eliminar">✕</button></td></tr>').join('') + '</tbody></table></div></div>';
+  if (!adm) return h + '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Siglas</th><th>Nombre</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + '</td><td>' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '<td>' + (!isParty() || p.id === myParty() ? '<button class="btn sm prt" data-a="pr-party" data-g="' + p.id + '" title="Imprimir sus asignaciones">🖨</button>' : '') + '</td></tr>').join('') + '</tbody></table></div></div>';
+  const XP = xfOf('par');
+  return h + '<div class="tblwrap"><table class="tbl ftbl"><thead><tr><th>Orden</th><th>Color</th><th>Siglas</th><th>Nombre</th><th>Representante</th><th>Teléfono</th><th>Correo</th><th>Notas</th>' + XP.map((d) => '<th>' + esc(d.n) + '</th>').join('') + '<th>Usuarios</th><th></th></tr></thead><tbody>' +
+    I.parties.map((p) => '<tr><td style="width:70px">' + rin('g', p, 'ord', 'number', 46, 'Orden') + '</td><td><input type="color" data-r="g" data-f="col" data-id="' + p.id + '" value="' + esc(p.col) + '" aria-label="Color"></td><td>' + rin('g', p, 'sig', 'text', 90, 'Siglas') + '</td><td>' + rin('g', p, 'nom', 'text', 200, 'Nombre') + '</td><td>' + rin('g', p, 'rep', 'text', 140, 'Representante') + '</td><td>' + rin('g', p, 'tel', 'tel', 100, 'Teléfono') + '</td><td>' + rin('g', p, 'mail', 'email', 150, 'Correo') + '</td><td>' + rin('g', p, 'nota', 'text', 140, 'Notas') + '</td>' + XP.map((d) => '<td>' + rin('g', p, 'x_' + d.id, 'text', 120, d.n) + '</td>').join('') +
+      '<td class="nowrap">' + (users(p.id).map(esc).join(', ') || '<span class="muted">—</span>') + ' <button class="btn sm" data-a="u-add" data-g="' + p.id + '">+ Usuario</button></td><td class="nowrap"><button class="btn sm prt" data-a="pr-party" data-g="' + p.id + '" title="Imprimir sus asignaciones">🖨</button> <button class="btn sm ghost" data-a="g-del" data-id="' + p.id + '" title="Eliminar">✕</button></td></tr>').join('') + '</tbody></table></div>' +
+    '<div class="btnrow"><button class="btn sm" data-a="xf-open" data-t="par">Campos propios de las candidaturas…</button></div></div>';
 }
 
 /* ---------- turnos y reglas (Ayuntamiento) ---------- */
@@ -1150,17 +1182,18 @@ function viewTurnos() {
       const c = cfgOf(t), inOrd = new Set(c.order || []), rest = I.parties.filter((p) => !inOrd.has(p.id));
       return '<div class="card"><div class="fhead"><h3>' + CATN[t] + '</h3><span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></div>' +
         '<div class="field"><span>Modo de selección</span><div class="seg">' + ['cerrado', 'turnos', 'libre'].map((m) => '<button data-a="cfg-mode" data-t="' + t + '" data-v="' + m + '" class="' + (c.mode === m ? 'on' : '') + '">' + MODEN[m] + '</button>').join('') + '</div></div>' +
-        '<div class="two3"><label class="field"><span>Elecciones por turno</span><input type="number" min="1" max="99" data-cfg="' + t + '" data-f="quota" value="' + c.quota + '"></label><label class="field"><span>Máximo por partido (0 = sin límite)</span><input type="number" min="0" max="9999" data-cfg="' + t + '" data-f="max" value="' + c.max + '"></label></div>' +
+        '<div class="two3"><label class="field"><span>Elecciones por turno</span><input type="number" min="1" max="99" data-cfg="' + t + '" data-f="quota" value="' + c.quota + '"></label><label class="field"><span>Máximo por partido (0 = sin límite)' + (hasCup(c) ? ' · no se aplica a quien tiene cupo' : '') + '</span><input type="number" min="0" max="9999" data-cfg="' + t + '" data-f="max" value="' + c.max + '"></label></div>' +
         '<label class="chk"><input type="checkbox" data-cfg="' + t + '" data-f="auto"' + (c.auto !== false ? ' checked' : '') + '> Pasar el turno automáticamente al completar las elecciones del turno</label>' +
         '<label class="chk"><input type="checkbox" data-cfg="' + t + '" data-f="snake"' + (c.snake ? ' checked' : '') + '> Invertir el orden en cada ronda (1-2-3, 3-2-1, 1-2-3…)</label>' +
-        '<div class="field"><span>Orden de turnos</span><div class="olist">' + ((c.order || []).map((g, i) => '<div class="orow"><b>' + (i + 1) + '</b>' + pChip(g) + '<span class="muted">' + esc((I.pmap[g] || {}).nom || '') + '</span><span class="sp"></span><button class="btn sm ghost" data-a="o-up" data-t="' + t + '" data-i="' + i + '" title="Subir"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm ghost" data-a="o-down" data-t="' + t + '" data-i="' + i + '" title="Bajar"' + (i < c.order.length - 1 ? '' : ' disabled') + '>↓</button><button class="btn sm ghost" data-a="o-del" data-t="' + t + '" data-i="' + i + '" title="Quitar del orden">✕</button></div>').join('') || '<p class="muted">Sin partidos en el orden.</p>') + '</div>' +
+        (hasCup(c) ? '<p class="hint">Esta categoría tiene <b>cupos por partido</b> fijados en la pestaña <button class="lnk" data-a="tab" data-v="reparto">Reparto</button>: cada partido elige hasta completar el suyo y después ya no tiene turno.</p>' : '') +
+        '<div class="field"><span>Orden de turnos</span><div class="olist">' + ((c.order || []).map((g, i) => '<div class="orow"><b>' + (i + 1) + '</b>' + pChip(g) + '<span class="muted">' + esc((I.pmap[g] || {}).nom || '') + (c.cup && c.cup[g] != null ? ' · cupo ' + c.cup[g] : '') + '</span><span class="sp"></span><button class="btn sm ghost" data-a="o-up" data-t="' + t + '" data-i="' + i + '" title="Subir"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm ghost" data-a="o-down" data-t="' + t + '" data-i="' + i + '" title="Bajar"' + (i < c.order.length - 1 ? '' : ' disabled') + '>↓</button><button class="btn sm ghost" data-a="o-del" data-t="' + t + '" data-i="' + i + '" title="Quitar del orden">✕</button></div>').join('') || '<p class="muted">Sin partidos en el orden.</p>') + '</div>' +
         '<div class="btnrow"><button class="btn sm" data-a="o-def" data-t="' + t + '">Usar el orden de la pestaña Partidos</button>' + (rest.length ? '<select data-oadd="' + t + '"><option value="">Añadir partido…</option>' + rest.map((p) => '<option value="' + p.id + '">' + esc(p.sig || p.nom) + '</option>').join('') + '</select>' : '') + '</div></div>' +
         '<label class="field"><span>Aviso para los partidos (aparece en el panel y en la pestaña)</span><textarea data-cfg="' + t + '" data-f="msg" style="min-height:56px">' + esc(c.msg || '') + '</textarea></label>' +
         (c.mode === 'turnos' ? '<div class="turnbox">' + (c.done ? '<b>Selección terminada.</b>' : 'Ronda ' + (c.round || 1) + ' · Turno de ' + pChip(curParty(c)) + ' · ' + (c.used || 0) + '/' + c.quota) + '</div><div class="btnrow"><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="reset">⟲ Reiniciar turnos (ronda 1)</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="prev">◀ Retroceder</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="next">Avanzar ▶</button><select data-goto="' + t + '"><option value="">Dar el turno a…</option>' + effOrder(c).map((g) => '<option value="' + g + '">' + esc(pName(g)) + '</option>').join('') + '</select></div>' : '') +
         '</div>';
     }).join('');
 }
-function cfgPut(t, patch) { const c = Object.assign({}, cfgOf(t), patch); delete c.id; put('c:' + t, Object.assign({ k: 'c', t }, c)); }
+function cfgPut(t, patch, quiet) { const c = Object.assign({}, cfgOf(t), patch); delete c.id; (quiet ? putQuiet : put)('c:' + t, Object.assign({ k: 'c', t }, c)); }
 
 /* ---------- registro ---------- */
 function viewRegistro() {
@@ -1176,34 +1209,174 @@ function viewAjustes() {
   const adm = isAdmin(), c = conf();
   let h = '<div class="set" style="max-width:980px"><div class="card"><h3>Mi cuenta</h3><p>Has entrado como <b>' + esc(ST.user) + '</b> · ' + esc(ROLES[myRole()]) + (isParty() ? ' · ' + pChip(myParty()) : '') + '. <span class="muted">Versión del programa: ' + APP_VERSION + '.</span></p><div class="btnrow"><button class="btn" data-a="mypw">Cambiar mi contraseña</button></div></div>';
   if (!adm) return h + '</div>';
-  h += '<div class="card"><h3>Datos del proceso</h3><div class="two"><label class="field"><span>Ayuntamiento</span><input type="text" data-conf="org" value="' + esc(c.org || '') + '" placeholder="Ajuntament de Santa Coloma de Gramenet"></label><label class="field"><span>Título</span><input type="text" data-conf="tit" value="' + esc(c.tit || '') + '" placeholder="Elecciones Generales 2027 · Espacios electorales"></label></div>' +
-    '<div class="two"><label class="field"><span>Primer día de campaña</span><input type="date" data-conf="d0" value="' + esc(c.d0 || '') + '"></label><label class="field"><span>Último día de campaña</span><input type="date" data-conf="d1" value="' + esc(c.d1 || '') + '"></label></div>' +
+  h += '<div class="card"><h3>Datos del proceso</h3><div class="two"><label class="field"><span>Ayuntamiento</span><input type="text" data-conf="org" value="' + esc(c.org || '') + '" placeholder="Ajuntament de Santa Coloma de Gramenet"></label><label class="field"><span>Tipo de elecciones</span><select data-conf="tipo">' + Object.keys(TIPON).map((k) => '<option value="' + k + '"' + (tipo() === k ? ' selected' : '') + '>' + TIPON[k] + '</option>').join('') + '</select></label></div>' +
+    '<label class="field"><span>Título</span><input type="text" data-conf="tit" value="' + esc(c.tit || '') + '" placeholder="Elecciones Generales · Espacios electorales"></label>' +
+    '<div class="two3"><label class="field"><span>Día de la votación</span><input type="date" data-conf="dv" value="' + esc(c.dv || '') + '"></label><label class="field"><span>Primer día de campaña</span><input type="date" data-conf="d0" value="' + esc(c.d0 || '') + '"></label><label class="field"><span>Último día de campaña</span><input type="date" data-conf="d1" value="' + esc(c.d1 || '') + '"></label></div>' +
+    '<div class="btnrow"><button class="btn sm" data-a="camp-calc">Calcular la campaña a partir del día de la votación</button><span class="muted small">La campaña dura 15 días y acaba a las cero horas del día anterior a la votación (art. 51 LOREG).</span></div>' +
     '<label class="field"><span>Instrucciones generales para los partidos (aparecen en el panel)</span><textarea data-conf="nota" style="min-height:70px">' + esc(c.nota || '') + '</textarea></label></div>';
+  h += '<div class="card"><h3>Campos de las listas</h3><p class="muted">Además de los campos de siempre, puedes añadir campos propios a cada lista (por ejemplo «Aforo», «Metros» o «Tipo de soporte»). Aparecen en las listas, en la edición, en los impresos y en el CSV, y al importar se rellenan si el Excel tiene una columna con ese mismo nombre. Quitar un campo solo lo oculta: sus datos se conservan.</p><div class="btnrow">' + CATS.concat(['par']).map((t) => '<button class="btn sm" data-a="xf-open" data-t="' + t + '">' + (t === 'par' ? 'Candidaturas' : CATN[t]) + ' <span class="muted">(' + xfOf(t).length + ')</span></button>').join('') + '</div></div>';
   h += '<div class="card"><h3>Importar desde Excel</h3><p class="muted">Carga los espacios electorales, las banderolas, las pancartas y los prismas desde el Excel del Ayuntamiento (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES) y, si las hay, la lista de partidos. Solo añade lo nuevo y rellena campos vacíos: nunca borra ni cambia lo que ya hay ni toca las reservas.</p><button class="btn primary" data-a="imp-xls">Importar desde Excel…</button></div>';
   const us = ST.users.slice().sort((a, b) => ({ admin: 0, partido: 1, consulta: 2 }[a.role] - { admin: 0, partido: 1, consulta: 2 }[b.role]) || norm(a.name).localeCompare(norm(b.name)));
   h += '<div class="card"><div class="fhead"><h3>Usuarios <span class="n">' + us.length + '</span></h3><button class="btn primary sm" data-a="u-add">+ Añadir usuario</button></div><div class="tblwrap"><table class="tbl"><thead><tr><th>Usuario</th><th>Rol</th><th>Partido</th><th></th></tr></thead><tbody>' +
     us.map((u) => '<tr><td><b>' + esc(u.name) + '</b>' + (ST.me && u.id === ST.me.id ? ' <span class="tag">tú</span>' : '') + (u.mc ? ' <span class="tag">contraseña provisional</span>' : '') + '</td><td>' + (ST.me && u.id === ST.me.id ? esc(ROLES[u.role]) : '<select data-urole="' + u.id + '">' + Object.keys(ROLES).map((r) => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + ROLES[r] + '</option>').join('') + '</select>') + '</td><td>' + (u.role === 'partido' ? '<select data-uparty="' + u.id + '">' + partyOpts(u.party, '— sin partido —') + '</select>' : '<span class="muted">—</span>') + '</td><td class="nowrap" style="text-align:right"><button class="btn sm" data-a="u-reset" data-id="' + u.id + '">Restablecer contraseña</button> ' + (ST.me && u.id === ST.me.id ? '' : '<button class="btn sm danger" data-a="u-del" data-id="' + u.id + '">Dar de baja</button>') + '</td></tr>').join('') + '</tbody></table></div></div>';
-  const hist = ST.hist;
-  h += '<div class="card"><h3>Copias de seguridad</h3><p class="muted">Todo se guarda en el servidor al momento. Además, el servidor guarda una copia automática cada 15 minutos de actividad y siempre antes de eliminar, importar o restaurar. Puedes descargar una copia completa en tu ordenador.</p><div class="btnrow"><button class="btn" data-a="bak-dl">Descargar copia (.json)</button><button class="btn" data-a="bak-imp">Importar copia…</button><button class="btn" data-a="h-load">Ver copias del servidor</button></div>' +
-    (!hist ? '' : hist.length ? '<table class="plist" style="margin-top:8px"><thead><tr><th>Copias guardadas en el servidor</th><th></th></tr></thead><tbody>' + hist.slice(0, 60).map((k) => '<tr><td>' + esc(k.slice(5, 24).replace(/T(\d\d)-(\d\d)-(\d\d)/, ' $1:$2:$3')) + ' <span class="muted">' + esc((k.split('_')[1] || 'automática').replace(/-/g, ' ')) + '</span></td><td style="text-align:right"><button class="btn sm" data-a="h-restore" data-key="' + esc(k) + '">Restaurar</button></td></tr>').join('') + '</tbody></table>' : '<p class="muted">Todavía no hay copias en el servidor.</p>') + '</div>';
+  const hist = ST.hist, loc = localCopy();
+  const kt = (k) => { const m = /(\d{4})-(\d\d)-(\d\d)T(\d\d)-(\d\d)-(\d\d)/.exec(k); return m ? fStamp(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : k; };
+  const why = (k) => ({ 'antes-de-eliminar': 'antes de eliminar', 'antes-de-importar': 'antes de importar', 'antes-de-restaurar': 'antes de restaurar' }[k.split('_')[1]] || 'automática');
+  const hrow = (when, what, k) => '<tr><td>' + esc(when) + ' <span class="muted">' + esc(what) + '</span></td><td style="text-align:right"><button class="btn sm" data-a="h-restore" data-key="' + esc(k) + '">Restaurar</button></td></tr>';
+  h += '<div class="card"><h3>Copias de seguridad</h3><p class="muted">Todo es automático. Cada cambio se guarda en el servidor al momento y, además, queda una <b>copia de esa modificación</b> en un almacén de copias aparte. El servidor hace una <b>copia completa</b> (datos y usuarios) cada 10 minutos de actividad y siempre antes de eliminar, importar o restaurar, y guarda una <b>copia diaria</b> que no se borra nunca. Este navegador guarda otra copia cada 5 minutos. Además puedes descargar una copia completa cuando quieras.</p>' +
+    '<div class="btnrow"><button class="btn" data-a="bak-dl">Descargar copia completa (.json)</button><button class="btn" data-a="bak-local"' + (loc ? '' : ' disabled') + '>Descargar la copia de este navegador' + (loc ? ' (' + esc(fStamp(loc.at)) + ')' : '') + '</button><button class="btn" data-a="bak-imp">Importar copia…</button><button class="btn" data-a="h-load">Ver copias del servidor</button></div>' +
+    (!hist ? '' : '<p class="muted small" style="margin-top:8px">' + hist.items.length + ' copias completas recientes · ' + hist.days.length + (hist.days.length === 1 ? ' copia diaria' : ' copias diarias') + ' · ' + hist.changes + ' modificaciones copiadas una a una.</p>' +
+      (hist.items.length || hist.days.length ? '<table class="plist"><thead><tr><th>Copias guardadas en el servidor (hora de este ordenador)</th><th></th></tr></thead><tbody>' + hist.items.slice(0, 60).map((k) => hrow(kt(k), why(k), k)).join('') + hist.days.map((k) => hrow(fDMY(parseISO(k.slice(4))), 'copia diaria permanente', k)).join('') + '</tbody></table>' : '<p class="muted">Todavía no hay copias en el servidor.</p>')) + '</div>';
   return h + '</div>';
 }
+
+/* ============================================================
+   REPARTO SEGÚN LA LEY (LOREG, arts. 55 a 57)
+   ============================================================ */
+const METHN = { '': 'Sin cupos', prop: 'Proporcional a los votos (restos mayores)', dhondt: 'Proporcional a los votos (D’Hondt)', igual: 'A partes iguales' };
+const DEF_METH = { esp: '', ban: 'prop', pan: 'prop', pri: 'prop' };
+const rmeth = (t) => { const m = conf().rmeth; return m && m[t] != null ? m[t] : DEF_METH[t]; };
+const fmtN = (n) => (n == null ? '' : String(Math.round(+n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+const pct = (v, V) => (V ? (v * 100 / V).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
+const cupOf = (t, g) => { const k = cfgOf(t).cup || {}; return k[g] != null ? k[g] : null; };
+const totVot = () => idx().parties.reduce((s, p) => s + (p.vot || 0), 0);
+/* reparte n elementos entre los partidos (en su orden de preferencia): primero el mínimo a cada uno y el resto según el método.
+   Los empates se resuelven a favor de quien tiene más votos y, después, de quien va antes en el orden. */
+function repartir(n, ps, meth, minp) {
+  const out = {}; ps.forEach((p) => { out[p.id] = 0; });
+  if (!ps.length || n <= 0 || !meth) return out;
+  let left = n; const m = Math.min(minp || 0, Math.floor(n / ps.length));
+  if (m > 0) { ps.forEach((p) => { out[p.id] = m; }); left -= m * ps.length; }
+  const vot = ps.filter((p) => p.v > 0), V = vot.reduce((s, p) => s + p.v, 0);
+  if (meth === 'igual' || !V) { const q = Math.floor(left / ps.length); let r = left - q * ps.length; ps.forEach((p) => { out[p.id] += q + (r-- > 0 ? 1 : 0); }); return out; }
+  if (meth === 'dhondt') {
+    const s = {}; vot.forEach((p) => { s[p.id] = 0; });
+    for (let k = 0; k < left; k++) { let best = null, bq = -1; vot.forEach((p) => { const q = p.v / (s[p.id] + 1); if (q > bq) { bq = q; best = p; } }); s[best.id]++; }
+    vot.forEach((p) => { out[p.id] += s[p.id]; }); return out;
+  }
+  const ex = vot.map((p) => { const q = left * p.v / V; return { p, q, f: Math.floor(q) }; }), used = ex.reduce((s, x) => s + x.f, 0);
+  ex.slice().sort((a, b) => (b.q - b.f) - (a.q - a.f) || b.p.v - a.p.v).slice(0, left - used).forEach((x) => { x.f++; });
+  ex.forEach((x) => { out[x.p.id] += x.f; });
+  return out;
+}
+function repPlan() { const ps = idx().parties.map((p) => ({ id: p.id, v: p.vot || 0 })), minp = +conf().rmin || 0, out = {}; CATS.forEach((t) => { out[t] = rmeth(t) ? repartir(slotsOf(t), ps, rmeth(t), minp) : null; }); return out; }
+
+/* texto legal (ayuda e impresos) */
+function legalHTML() {
+  return '<p>La propaganda en los lugares públicos y los actos de campaña en locales municipales los regula la <b>Ley Orgánica 5/1985, de 19 de junio, del Régimen Electoral General (LOREG)</b>:</p><ul>' +
+    '<li><b>Carteles, pancartas y banderolas (arts. 55 y 56).</b> El Ayuntamiento reserva lugares gratuitos y, dentro de los siete días siguientes a la convocatoria, comunica a la Junta Electoral de Zona los emplazamientos disponibles. La Junta los distribuye <b>atendiendo al número de votos que obtuvo cada partido, federación, coalición o agrupación en las anteriores elecciones equivalentes en la misma circunscripción</b>, y las preferencias de cada candidatura se atienden <b>por orden, de más a menos votos</b>. El segundo día posterior a la proclamación de candidatos, la Junta comunica a cada candidatura los lugares que le corresponden. Fuera de estos lugares gratuitos solo se puede colocar propaganda en los espacios comerciales autorizados.</li>' +
+    '<li><b>Locales oficiales y lugares públicos para actos (art. 57).</b> El Ayuntamiento comunica a la Junta, dentro de los diez días siguientes a la convocatoria, los locales y lugares que reserva, con los días y horas en que se pueden usar, y la relación se publica en el Boletín Oficial de la Provincia. Las candidaturas los solicitan y la Junta los atribuye; si varias piden lo mismo, prima la <b>igualdad de oportunidades</b> y, de forma subsidiaria, la preferencia de quien obtuvo <b>más votos</b> en las últimas elecciones equivalentes.</li>' +
+    '<li><b>Quién decide.</b> El reparto es competencia de la Junta Electoral de Zona. El Ayuntamiento organiza la elección de emplazamientos con los criterios que fije la Junta: si acuerda un método, un mínimo para las candidaturas sin resultados anteriores o un orden concreto, se configura así en el programa. Ante cualquier duda de interpretación, prevalece el acuerdo de la Junta.</li></ul>';
+}
+/* guía para las candidaturas (ayuda e impreso para entregar a los partidos) */
+function guideHTML() {
+  const url = location.origin && /^https?:/.test(location.origin) ? location.origin : 'la dirección que os facilite el Ayuntamiento';
+  return '<p><b>1. Entrar.</b> Abrid <b>' + esc(url) + '</b> con Edge o Chrome (también desde el móvil) y entrad con el usuario y la contraseña provisional que os ha dado el Ayuntamiento. La primera vez el programa os pedirá que elijáis vuestra propia contraseña. Cada candidatura tiene su usuario: no lo compartáis.</p>' +
+    '<p><b>2. Qué os corresponde.</b> En la pestaña <b>Reparto</b> veréis el orden de elección (de más a menos votos en las anteriores elecciones equivalentes) y vuestro <b>cupo</b> en cada categoría: cuántos espacios, tramos de banderolas, pancartas y prismas podéis elegir.</p>' +
+    '<p><b>3. Los turnos.</b> El Ayuntamiento abre cada categoría cuando corresponde. En el <b>Panel</b> se ve de quién es el turno. Cuando sea el vuestro aparecerá un aviso verde <b>«Es vuestro turno»</b> con el número de elecciones que podéis hacer en ese turno. Al hacerlas, el turno pasa solo a la siguiente candidatura. Si no queréis elegir más en esa ronda, pulsad <b>«Terminar mi turno»</b>. Quien completa su cupo ya no tiene más turnos.</p>' +
+    '<p><b>4. Elegir.</b> En Banderolas, Pancartas y Prismas pulsad <b>«Reservar»</b> en la fila que queráis; con el filtro podéis ver solo lo libre y con el buscador encontrar una calle o un lugar. En <b>Espacios</b> hay un cuadrante con mañana (M) y tarde (T) de cada día de campaña: pulsad una casilla libre y confirmad. Las casillas con ⚠ tienen restricciones de uso y las grises (N/D) no están disponibles.</p>' +
+    '<p><b>5. Lo elegido es vuestro.</b> En cuanto confirmáis, queda reservado y aparece ocupado para las demás candidaturas, que ya no lo pueden coger. Si dos candidaturas pulsan a la vez, el servidor solo acepta la primera y a la otra le avisa.</p>' +
+    '<p><b>6. Cambiar de opinión.</b> Mientras la selección esté abierta podéis <b>liberar</b> lo vuestro (botón «Liberar» en la fila, en la casilla o en «Vuestras reservas» del Panel). Si lo hacéis durante vuestro turno, recuperáis esa elección. Con la selección cerrada, pedídselo al Ayuntamiento.</p>' +
+    '<p><b>7. Resultado.</b> En el Panel, «Imprimir resultados» → «Nuestras asignaciones» genera la hoja con todo lo que tenéis asignado. Todas las reservas, liberaciones y cambios de turno quedan en el Registro con fecha, hora y usuario.</p>';
+}
+
+function viewReparto() {
+  const I = idx(), adm = isAdmin(), c = conf(), V = totVot(), plan = repPlan(), g0 = myParty();
+  let h = '<div class="card"><div class="fhead"><h3>Reparto según la ley</h3><div class="btnrow" style="margin:0"><button class="btn sm prt" data-a="pr-reparto">🖨 Imprimir el reparto</button><button class="btn sm" data-a="help-rep">¿Cómo se hace el reparto?</button></div></div>' +
+    '<p class="muted">Los emplazamientos para carteles, pancartas y banderolas se distribuyen según los <b>votos que obtuvo cada candidatura en las anteriores elecciones equivalentes</b> y se eligen por orden, <b>de más a menos votos</b> (art. 56 LOREG). Los locales y lugares para actos se atribuyen con <b>igualdad de oportunidades</b> y, si coinciden solicitudes, con preferencia para quien obtuvo más votos (art. 57 LOREG). El reparto lo acuerda la Junta Electoral de Zona; aquí se aplica.</p>' +
+    (c.rv ? '<p><b>Elecciones de referencia:</b> ' + esc(c.rv) + '</p>' : '') + '</div>';
+  if (adm) {
+    h += '<div class="card"><h3>Cómo se calcula</h3><div class="two"><label class="field"><span>Elecciones de referencia (las anteriores equivalentes)</span><input type="text" data-conf="rv" value="' + esc(c.rv || '') + '" placeholder="' + esc(TIPOREF[tipo()]) + '"></label><label class="field"><span>Mínimo para cada candidatura, también las que no tenían votos (0 = ninguno)</span><input type="number" min="0" max="99" data-conf="rmin" value="' + esc(+c.rmin || 0) + '"></label></div>' +
+      '<div class="two4">' + CATS.map((t) => '<label class="field"><span>' + CATN[t] + ' <small class="muted">(' + slotsOf(t) + (t === 'esp' ? ' franjas' : '') + ')</small></span><select data-rmeth="' + t + '">' + Object.keys(METHN).map((m) => '<option value="' + m + '"' + (rmeth(t) === m ? ' selected' : '') + '>' + METHN[m] + '</option>').join('') + '</select></label>').join('') + '</div>' +
+      '<div class="btnrow"><button class="btn" data-a="rp-order">1 · Ordenar las candidaturas por votos</button><button class="btn primary" data-a="rp-calc">2 · Calcular y fijar los cupos</button><button class="btn ghost" data-a="rp-clear">Quitar los cupos</button></div>' +
+      '<p class="muted small">«Ordenar por votos» fija el orden de preferencia (elige primero quien tuvo más votos) en la pestaña Partidos y en los turnos de las cuatro categorías. «Calcular» fija el cupo de cada candidatura en las categorías con método; después cualquier número se puede retocar a mano en la tabla. Para los espacios de actos se recomienda «A partes iguales» o «Sin cupos» (igualdad de oportunidades).</p></div>';
+  }
+  if (!I.parties.length) return h + '<div class="card">' + empty('Todavía no hay candidaturas', adm ? 'Dalas de alta en la pestaña Partidos o impórtalas del Excel.' : '') + '</div>';
+  if (adm && !V) h += '<p class="hint warn">Escribe los <b>votos</b> de cada candidatura en las elecciones de referencia para calcular el orden y los cupos. Las candidaturas nuevas, sin resultados anteriores, se dejan en 0.</p>';
+  h += '<div class="card"><div class="tblwrap"><table class="tbl rp"><thead><tr><th>Orden</th><th>Candidatura</th><th class="num">Votos</th><th class="num">%</th>' + CATS.map((t) => '<th class="num">' + CATN[t] + '<small>cupo · lleva</small></th>').join('') + '</tr></thead><tbody>' +
+    I.parties.map((p) => '<tr class="' + (p.id === g0 ? 'mine' : '') + '"><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + ' ' + esc(p.nom || '') + '</td>' +
+      '<td class="num">' + (adm ? '<input type="number" min="0" max="99999999" id="rg-' + p.id + '-vot" data-r="g" data-f="vot" data-id="' + p.id + '" data-draft value="' + esc(p.vot == null ? '' : p.vot) + '" style="width:104px" aria-label="Votos de ' + esc(p.sig || p.nom) + '">' : fmtN(p.vot || 0)) + '</td>' +
+      '<td class="num">' + pct(p.vot || 0, V) + '</td>' +
+      CATS.map((t) => { const cu = cupOf(t, p.id), sug = plan[t] ? plan[t][p.id] : null, n = myCount(t, p.id); return '<td class="num">' + (adm ? '<input type="number" min="0" max="9999" id="cup-' + t + '-' + p.id + '" data-cup="' + t + '" data-g="' + p.id + '" value="' + (cu == null ? '' : cu) + '" placeholder="—" style="width:64px" aria-label="Cupo de ' + esc(CATN[t]) + '">' : '<b>' + (cu == null ? '—' : cu) + '</b>') + ' <span class="muted small">· ' + n + '</span>' + (adm && sug != null && sug !== cu ? '<small class="sug">propuesta: ' + sug + '</small>' : '') + '</td>'; }).join('') + '</tr>').join('') +
+    '</tbody><tfoot><tr><td></td><td>Total</td><td class="num">' + fmtN(V) + '</td><td class="num">' + (V ? '100,00' : '') + '</td>' + CATS.map((t) => { const s = I.parties.reduce((a, p) => a + (cupOf(t, p.id) || 0), 0), tot = slotsOf(t); return '<td class="num' + (s > tot ? ' over' : '') + '">' + (hasCup(cfgOf(t)) ? s + ' / ' + tot : '— / ' + tot) + '</td>'; }).join('') + '</tr></tfoot></table></div>' +
+    '<p class="muted small">«Cupo» es lo que puede elegir cada candidatura en esa categoría y «lleva», lo que ya tiene reservado. «—» significa sin cupo propio: se aplica el máximo general de «Turnos y reglas», si lo hay. El total compara la suma de cupos con lo disponible.' + (adm ? ' La «propuesta» es el resultado del cálculo con los votos y el método actuales.' : '') + '</p>' +
+    CATS.map((t) => { const s = I.parties.reduce((a, p) => a + (cupOf(t, p.id) || 0), 0), tot = slotsOf(t); return hasCup(cfgOf(t)) && s > tot ? '<p class="hint warn">' + CATN[t] + ': la suma de cupos (' + s + ') supera lo disponible (' + tot + '). Las últimas candidaturas en elegir podrían no completar el suyo.</p>' : ''; }).join('') + '</div>';
+  return h;
+}
+async function repOrder() {
+  if (!adminOnly()) return;
+  const I = idx(); if (!I.parties.some((p) => p.vot > 0)) return toast('Primero escribe los votos de cada candidatura.', 'err');
+  const sorted = I.parties.slice().sort((a, b) => (b.vot || 0) - (a.vot || 0));
+  if (!(await confirmBox({ title: 'Ordenar las candidaturas por votos', text: 'El orden de preferencia quedará así:<br><br>' + sorted.map((p, i) => (i + 1) + '. <b>' + esc(p.sig || p.nom) + '</b> · ' + fmtN(p.vot || 0) + ' votos').join('<br>') + '<br><br>Se aplica en la pestaña Partidos y en el orden de turnos de las cuatro categorías. Las reservas hechas se mantienen.', ok: 'Ordenar' }))) return;
+  sorted.forEach((p, i) => { const k = 'g:' + p.id; if (ST.db.E[k].ord !== i + 1) putQuiet(k, Object.assign({}, ST.db.E[k], { ord: i + 1 })); });
+  const ids = sorted.map((p) => p.id); CATS.forEach((t) => cfgPut(t, { order: ids }, true));
+  markDirty(); toast('Orden de preferencia actualizado según los votos.');
+}
+async function repCalc() {
+  if (!adminOnly()) return;
+  const I = idx(), plan = repPlan(), cats = CATS.filter((t) => plan[t]);
+  if (!I.parties.length) return toast('Todavía no hay candidaturas.', 'err');
+  if (!cats.length) return toast('Elige un método de reparto en alguna categoría.', 'err');
+  const V = totVot();
+  const tbl = '<div class="tblwrap"><table class="tbl"><thead><tr><th>Candidatura</th>' + cats.map((t) => '<th class="num">' + CATN[t] + '</th>').join('') + '</tr></thead><tbody>' + I.parties.map((p) => '<tr><td>' + esc(p.sig || p.nom) + '</td>' + cats.map((t) => '<td class="num">' + plan[t][p.id] + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+  if (!(await confirmBox({ title: 'Fijar los cupos', text: (V ? '' : '<span class="hint warn">No hay votos: se repartirá a partes iguales.</span><br>') + 'Con los votos y los métodos elegidos' + (+conf().rmin ? ' (mínimo de ' + +conf().rmin + ' por candidatura)' : '') + ', los cupos quedan así:' + tbl + 'Después se puede retocar cualquier número a mano.', ok: 'Fijar los cupos' }))) return;
+  cats.forEach((t) => cfgPut(t, { cup: plan[t] }, true)); markDirty(); toast('Cupos fijados en ' + cats.map((t) => CATN[t].toLowerCase()).join(', ') + '.');
+}
+async function repClear() {
+  if (!adminOnly()) return;
+  const cats = CATS.filter((t) => hasCup(cfgOf(t))); if (!cats.length) return toast('No hay cupos que quitar.');
+  if (!(await confirmBox({ title: 'Quitar los cupos', text: 'Las candidaturas dejarán de tener cupo propio en ' + cats.map((t) => CATN[t].toLowerCase()).join(', ') + ' y se aplicará el máximo general de cada categoría. Las reservas hechas se mantienen.', ok: 'Quitar los cupos', danger: true }))) return;
+  cats.forEach((t) => cfgPut(t, { cup: {} }, true)); markDirty(); toast('Cupos quitados.');
+}
+function cupChange(el) {
+  if (!adminOnly()) { renderView(); return; }
+  const t = el.dataset.cup, g = el.dataset.g, v = el.value.trim(), cup = Object.assign({}, cfgOf(t).cup || {});
+  if (v === '') delete cup[g]; else { const n = parseInt(v, 10); if (isNaN(n) || n < 0 || n > 9999 || String(n) !== v.replace(/^0+(?=\d)/, '')) { toast('Escribe un número válido.', 'err'); renderView(); return; } cup[g] = n; }
+  cfgPut(t, { cup });
+}
+function rmethChange(el) {
+  if (!adminOnly()) { renderView(); return; }
+  const c = Object.assign({ k: 's', org: '', tit: '', d0: '', d1: '', nota: '' }, conf()); c.rmeth = Object.assign({}, DEF_METH, c.rmeth || {}, { [el.dataset.rmeth]: el.value });
+  put('s:conf', c);
+}
+document.addEventListener('change', (e) => { const d = e.target.dataset || {}; if (d.cup) cupChange(e.target); else if (d.rmeth) rmethChange(e.target); });
+function prReparto() {
+  const I = idx(), c = conf(), V = totVot(), minp = +c.rmin || 0;
+  const crit = CATS.map((t) => '<b>' + CATN[t] + ':</b> ' + (hasCup(cfgOf(t)) ? (rmeth(t) ? METHN[rmeth(t)].toLowerCase() : 'cupos fijados a mano') : 'sin cupos')).join(' · ') + (minp ? ' · <b>Mínimo por candidatura:</b> ' + minp : '');
+  const rows = I.parties.map((p) => [esc(p.ord != null ? p.ord : ''), '<b>' + esc(p.sig || '') + '</b>' + (p.nom ? ' · ' + esc(p.nom) : ''), fmtN(p.vot || 0), pct(p.vot || 0, V)].concat(CATS.map((t) => { const cu = cupOf(t, p.id); return cu == null ? '—' : '<b>' + cu + '</b>'; })));
+  rows.push(['', '<b>Total</b>', '<b>' + fmtN(V) + '</b>', V ? '100,00' : ''].concat(CATS.map((t) => hasCup(cfgOf(t)) ? I.parties.reduce((a, p) => a + (cupOf(t, p.id) || 0), 0) + ' de ' + slotsOf(t) : '— de ' + slotsOf(t))));
+  return prDoc('Reparto de emplazamientos y orden de elección', (c.rv ? '<p class="pr-p"><b>Elecciones de referencia:</b> ' + esc(c.rv) + '</p>' : '') + '<p class="pr-p">' + crit + '</p>' +
+    prTable(['Orden', 'Candidatura', 'Votos', '%'].concat(CATS.map((t) => CATN[t])), rows, 'No hay candidaturas.') +
+    '<p class="pr-p">El orden es el de elección: en cada turno elige la candidatura que corresponde, de más a menos votos, hasta completar su cupo. «—»: sin cupo propio.</p>' +
+    '<h2 class="pr-h2">Base legal</h2><div class="pr-legal">' + legalHTML() + '</div>' +
+    '<h2 class="pr-h2 pr-break">Conformidad de las candidaturas</h2>' + '<table class="pr-t pr-sign"><thead><tr><th>Candidatura</th><th>Representante</th><th>Firma</th><th>Fecha</th></tr></thead><tbody>' + I.parties.map((p) => '<tr><td><b>' + esc(p.sig || p.nom) + '</b></td><td></td><td></td><td></td></tr>').join('') + '</tbody></table>',
+    'Orden de preferencia y cupo de cada candidatura en cada categoría');
+}
+const REP_ACT = {
+  'rp-order': () => repOrder(), 'rp-calc': () => repCalc(), 'rp-clear': () => repClear(),
+  'help-rep': () => { gotoView('ayuda'); const h = $('#h-ley'); if (h) h.scrollIntoView({ block: 'start' }); },
+  'pr-reparto': () => { closeModal(); doPrint(prReparto()); },
+  'pr-guia': () => { closeModal(); doPrint(prDoc('Guía para las candidaturas', guideHTML(), 'Cómo elegir los espacios electorales, banderolas, pancartas y prismas')); }
+};
 /* ---------- ayuda ---------- */
 function viewAyuda() {
-  const sec = (n, t, b) => '<h3>' + n + '. ' + t + '</h3>' + b;
-  return '<div class="card help" style="max-width:900px"><div class="btnrow" style="justify-content:space-between;align-items:center"><h2 style="font-size:20px">Manual de Espais electorals <small class="muted" style="font-size:12px;font-weight:400">versión ' + APP_VERSION + '</small></h2><button class="btn" data-a="pr-help">Imprimir este manual</button></div>' +
-  '<p>Espais electorals sirve para que los partidos elijan, por turnos y según su orden de preferencia, los <b>espacios electorales</b> (por día y franja de mañana o tarde), las <b>banderolas</b>, las <b>pancartas</b> y los <b>prismas</b>, con la supervisión del Ayuntamiento. Lo que elige un partido queda reservado al instante y nadie más puede cogerlo, salvo que ese partido lo libere o lo haga el Ayuntamiento.</p>' +
-  '<div class="hint"><b>Para los partidos, en un minuto:</b> entra con el usuario y la contraseña que os ha dado el Ayuntamiento → en el <b>Panel</b> veréis de quién es el turno → cuando sea el vuestro aparece un aviso verde «Es vuestro turno» → id a la pestaña, pulsad «Reservar» (o una casilla libre del cuadrante) → al completar las elecciones del turno, el turno pasa solo al siguiente.</div>' +
-  sec(1, 'Entrar', '<p>Abre la dirección del programa en Edge o Chrome y entra con tu usuario y tu contraseña. La primera vez el programa te pide que elijas tu propia contraseña. Si la olvidas, el Ayuntamiento te la restablece. Tras 5 intentos fallidos el usuario se bloquea 10 minutos, y la sesión se cierra tras 30 minutos sin actividad.</p><ol><li><b>Administración (Ayuntamiento):</b> carga los datos, da de alta los partidos y sus usuarios, fija las reglas y los turnos, puede asignar o liberar cualquier cosa y gestiona las copias.</li><li><b>Partido:</b> ve todo y reserva o libera solo lo suyo, cuando le toca.</li><li><b>Consulta:</b> solo lectura (por ejemplo, para la Junta Electoral de Zona).</li></ol>') +
-  sec(2, 'Panel', '<p>Muestra, para cada categoría, si la selección está cerrada, por turnos o libre; de quién es el turno, cuántas elecciones lleva en ese turno y el orden de los partidos (con lo que lleva cada uno); cuánto queda libre; vuestras reservas; el resumen por partido y los últimos movimientos. La información se actualiza sola cada pocos segundos.</p>') +
-  sec(3, 'Elegir y liberar', '<p><b>Banderolas, pancartas y prismas:</b> en la lista, el botón «Reservar» de cada fila libre. Con el filtro se ven solo los libres, solo los vuestros o los de un partido, y el buscador encuentra por calle, tramo o lugar. <b>Espacios electorales:</b> el cuadrante tiene una fila por espacio y dos columnas por día de campaña (mañana y tarde); pulsa una casilla libre y confirma. Las casillas marcadas con ⚠ tienen restricciones de uso y las grises (N/D) no están disponibles.</p><p>Si dos partidos pulsan a la vez, el servidor solo acepta al primero y al segundo le avisa de que ya está reservado. Para <b>liberar</b> algo vuestro, botón «Liberar» (en la lista, en la casilla o en el Panel); mientras la selección esté abierta. Si liberáis algo durante vuestro turno, recuperáis esa elección.</p>') +
-  sec(4, 'Turnos y reglas (Ayuntamiento)', '<p>Para cada categoría se elige el modo: <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> o <b>libre</b> (cada partido elige cuando quiere). En modo por turnos se fija el <b>orden</b> (por defecto, el de la pestaña Partidos), las <b>elecciones por turno</b> y el <b>máximo por partido</b>; opcionalmente el orden se invierte en cada ronda. El turno pasa solo al completar las elecciones del turno, o cuando el partido pulsa «Terminar mi turno»; los partidos que ya tienen el máximo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a un partido o reiniciar, y escribir un aviso que verán los partidos.</p>') +
-  sec(5, 'Asignaciones y disponibilidad (Ayuntamiento)', '<p>El Ayuntamiento puede asignar cualquier elemento a un partido (por ejemplo, si lo pide por teléfono) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, y liberar cualquier reserva. En cada casilla del cuadrante se marca si la franja está disponible, con restricciones o no disponible. Con «Editar lista» se añaden, modifican o eliminan elementos (un elemento con reservas no se puede eliminar hasta liberarlas).</p>') +
-  sec(6, 'Partidos y usuarios (Ayuntamiento)', '<p>En <b>Partidos</b> se dan de alta las formaciones con su orden de preferencia, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. El botón «+ Usuario» crea el usuario del partido con una contraseña provisional, que el partido cambia al entrar. En Ajustes se gestionan todos los usuarios.</p>') +
-  sec(7, 'Importar desde Excel (Ayuntamiento)', '<p>«Importar desde Excel…» lee el Excel de espacios electorales (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES y, si existe, la lista de partidos) y muestra antes cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada.</p>') +
-  sec(8, 'Registro', '<p>Cada reserva, liberación, asignación y cambio de turno queda anotado con la fecha, la hora y el usuario. El registro no se puede borrar y se puede filtrar, exportar e imprimir.</p>') +
-  sec(9, 'Imprimir y exportar', '<p>Los botones «🖨 Imprimir» preparan documentos A4 limpios: el resultado de cada categoría, el cuadrante de espacios (A4 horizontal), la hoja de asignaciones de cada partido (una página por partido, para entregar) y el registro. En la ventana de impresión se puede elegir «Guardar como PDF». Cada lista tiene también «Exportar (.csv)» para Excel.</p>') +
-  sec(10, 'Seguridad y copias', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Todas las reglas (turnos, máximos, exclusividad) las comprueba el servidor, no el navegador. Los datos viven en el servidor: cambiar de ordenador no borra nada. Hay copia automática cada 15 minutos de actividad y antes de eliminar, importar o restaurar; el Ayuntamiento puede descargar copias completas y volver a cualquier copia del servidor sin perder el registro.</p>') +
+  const sec = (n, t, b, id) => '<h3' + (id ? ' id="' + id + '"' : '') + '>' + n + '. ' + t + '</h3>' + b;
+  return '<div class="card help" style="max-width:920px"><div class="btnrow" style="justify-content:space-between;align-items:center"><h2 style="font-size:20px">Manual de Espais electorals <small class="muted" style="font-size:12px;font-weight:400">versión ' + APP_VERSION + '</small></h2><span class="btnrow" style="margin:0"><button class="btn" data-a="pr-guia">🖨 Guía para las candidaturas</button><button class="btn" data-a="pr-help">🖨 Imprimir este manual</button></span></div>' +
+  '<p>Espais electorals sirve para que las candidaturas elijan, por turnos y según su orden de preferencia, los <b>espacios electorales</b> (por día y franja de mañana o tarde), las <b>banderolas</b>, las <b>pancartas</b> y los <b>prismas</b>, con la supervisión del Ayuntamiento. Lo que elige una candidatura queda reservado al instante y nadie más puede cogerlo, salvo que esa candidatura lo libere o lo haga el Ayuntamiento.</p>' +
+  '<div class="hint"><b>Para las candidaturas, en un minuto:</b> entrad con el usuario y la contraseña que os ha dado el Ayuntamiento → en <b>Reparto</b> veréis vuestro orden y vuestro cupo → cuando sea vuestro turno aparece un aviso verde «Es vuestro turno» → id a la pestaña, pulsad «Reservar» (o una casilla libre del cuadrante) → al completar las elecciones del turno, el turno pasa solo a la siguiente candidatura.</div>' +
+  sec(1, 'Entrar', '<p>El programa viene preparado para las <b>Elecciones Generales al Congreso de los Diputados</b>; en Ajustes se puede elegir otro tipo (Municipales, Parlament de Catalunya o Europeas), cambiar el nombre del Ayuntamiento y escribir el <b>día de la votación</b>, con el que se calculan solas las fechas de la campaña: empieza el día 38 posterior a la convocatoria, dura 15 días y acaba a las cero horas del día anterior a la votación (art. 51 LOREG). Por ejemplo, con la votación el 23 de julio, la campaña va del 7 al 21 de julio.</p><p>Abre la dirección del programa en Edge o Chrome (también funciona en el móvil) y entra con tu usuario y tu contraseña. La primera vez el programa pide que elijas tu propia contraseña. Si la olvidas, el Ayuntamiento te la restablece. Tras 5 intentos fallidos el usuario se bloquea 10 minutos, y la sesión se cierra tras 30 minutos sin actividad.</p><ol><li><b>Administración (Ayuntamiento):</b> carga los datos, da de alta las candidaturas y sus usuarios, hace el reparto, fija las reglas y los turnos, puede asignar o liberar cualquier cosa y gestiona las copias.</li><li><b>Partido:</b> ve todo y reserva o libera solo lo suyo, cuando le toca.</li><li><b>Consulta:</b> solo lectura (por ejemplo, para la Junta Electoral de Zona).</li></ol>') +
+  sec(2, 'Cómo se reparte según la ley', legalHTML(), 'h-ley') +
+  sec(3, 'Cómo se hace el reparto en el programa (Ayuntamiento)', '<ol><li>En <b>Partidos</b>, da de alta las candidaturas que concurren (o impórtalas del Excel).</li><li>En <b>Reparto</b>, escribe las <b>elecciones de referencia</b> y los <b>votos</b> que obtuvo cada candidatura en ellas. Las candidaturas nuevas, sin resultados anteriores, se dejan en 0.</li><li>Pulsa <b>«Ordenar las candidaturas por votos»</b>: la que tuvo más votos elige primero. Ese orden se aplica en Partidos y en los turnos de todas las categorías.</li><li>Elige el <b>método</b> de cada categoría y, si la Junta lo acuerda, un <b>mínimo</b> para cada candidatura:<ul><li><b>Proporcional (restos mayores):</b> cada candidatura recibe la parte entera de lo que le corresponde por sus votos, y lo que sobra va a los restos más altos. Es el más fiel al porcentaje de votos.</li><li><b>Proporcional (D’Hondt):</b> el mismo sistema que en el reparto de escaños; favorece un poco a las candidaturas con más votos.</li><li><b>A partes iguales:</b> lo mismo para todas; recomendado para los locales de actos (igualdad de oportunidades).</li><li><b>Sin cupos:</b> no hay límite por candidatura (se aplica, si lo hay, el máximo general de «Turnos y reglas»).</li></ul></li><li>Pulsa <b>«Calcular y fijar los cupos»</b>. Cada número de la tabla se puede retocar a mano si la Junta acuerda otra cosa.</li><li>En <b>Turnos y reglas</b>, abre la categoría <b>por turnos</b> con <b>1 elección por turno</b>: en cada ronda elige una vez cada candidatura, por orden de votos; las que completan su cupo dejan de tener turno, y la selección termina cuando todas lo han completado o no queda nada libre.</li><li>Imprime <b>«Reparto»</b> desde el Panel o desde la pestaña para la reunión con las candidaturas: incluye el orden, los votos, los cupos, la base legal y una hoja de conformidad para firmar.</li></ol>' +
+    '<div class="hint"><b>Ejemplo.</b> Hay 30 tramos de banderolas y 4 candidaturas que obtuvieron 12.000, 8.000, 4.000 y 1.000 votos, con un mínimo de 1 por candidatura. Primero cada una recibe 1 (quedan 26). Los 26 se reparten en proporción a los votos: 12,48 · 8,32 · 4,16 · 1,04. Las partes enteras suman 25 y el tramo que sobra va al resto más alto (0,48). Cupos: <b>14, 9, 5 y 2</b>. Después eligen por turnos, un tramo cada vez y en ese orden, hasta completar cada una su cupo.</div>') +
+  sec(4, 'Guía rápida para las candidaturas', guideHTML()) +
+  sec(5, 'Panel', '<p>Muestra, para cada categoría, si la selección está cerrada, por turnos o libre; de quién es el turno, cuántas elecciones lleva en ese turno y el orden de las candidaturas con lo que lleva cada una y su cupo; cuánto queda libre; vuestras reservas; el resumen por candidatura y los últimos movimientos. La información se actualiza sola cada pocos segundos, sin recargar la página.</p>') +
+  sec(6, 'Elegir y liberar', '<p><b>Banderolas, pancartas y prismas:</b> en la lista, el botón «Reservar» de cada fila libre. Con el filtro se ven solo los libres, solo los vuestros o los de una candidatura, y el buscador encuentra por calle, tramo o lugar. <b>Espacios electorales:</b> el cuadrante tiene una fila por espacio y dos columnas por día de campaña (mañana y tarde); pulsa una casilla libre y confirma. Las casillas con ⚠ tienen restricciones de uso y las grises (N/D) no están disponibles.</p><p>Si dos candidaturas pulsan a la vez, el servidor solo acepta la primera y a la segunda le avisa de quién lo tiene. Para <b>liberar</b> algo vuestro, botón «Liberar» (en la lista, en la casilla o en el Panel), mientras la selección esté abierta. Si liberáis algo durante vuestro turno, recuperáis esa elección.</p>') +
+  sec(7, 'Turnos y reglas (Ayuntamiento)', '<p>Cada categoría puede estar <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> o <b>libre</b> (cada candidatura elige cuando quiere, hasta su cupo o el máximo). En modo por turnos se fija el <b>orden</b> (por defecto, el de la pestaña Partidos), las <b>elecciones por turno</b> y, si no hay cupos del reparto, un <b>máximo por candidatura</b>; opcionalmente el orden se invierte en cada ronda (1-2-3, 3-2-1…). El turno pasa solo al completar las elecciones del turno, cuando la candidatura completa su cupo o cuando pulsa «Terminar mi turno»; las que ya lo tienen completo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a una candidatura o reiniciar, y escribir un aviso que verán todas.</p>') +
+  sec(8, 'Asignaciones y disponibilidad (Ayuntamiento)', '<p>El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, y liberar cualquier reserva. Estas asignaciones no están limitadas por los turnos ni por los cupos. En cada casilla del cuadrante se marca si la franja está disponible, con restricciones o no disponible. Para no ir casilla a casilla, pulsando el <b>nombre de un espacio</b> en el cuadrante se marca su disponibilidad <b>en bloque</b>: un rango de días, solo mañanas o solo tardes y los días de la semana que se quieran (por ejemplo, un centro cívico no disponible las mañanas de fin de semana). Las franjas ya reservadas no se tocan. Con «Editar lista» se modifican todos los campos de cada elemento y se añaden o eliminan elementos (un elemento con reservas no se puede eliminar hasta liberarlas).</p><p><b>Campos propios.</b> Si hace falta un dato más (por ejemplo «Aforo», «Metros» o «Tipo de soporte»), en «Editar lista» → «Campos propios…» (o en Ajustes → «Campos de las listas») se añade como una columna más en cualquiera de las listas y también en las candidaturas. Se puede renombrar en cualquier momento; quitarlo solo lo oculta, sin borrar los datos. Los campos propios salen en las listas, en los impresos y en el CSV, y al importar el Excel se rellenan si hay una columna con el mismo nombre.</p>') +
+  sec(9, 'Partidos y usuarios (Ayuntamiento)', '<p>En <b>Partidos</b> se dan de alta las candidaturas con su orden de preferencia, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. El botón «+ Usuario» crea el usuario de la candidatura con una contraseña provisional, que la candidatura cambia al entrar. En Ajustes se gestionan todos los usuarios: cambiar el rol, restablecer la contraseña o dar de baja (se queda fuera al momento).</p>') +
+  sec(10, 'Importar desde Excel (Ayuntamiento)', '<p>«Importar desde Excel…» lee el Excel de espacios electorales (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES y la lista de partidos que hay junto al cuadrante de la hoja GRAELLA) y muestra antes cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada. La disponibilidad del cuadrante (N/D, restricciones) se marca en el programa.</p>') +
+  sec(11, 'Registro, impresión y exportación', '<p>Cada reserva, liberación, asignación y cambio de turno queda anotado con la fecha, la hora y el usuario. El registro no se puede borrar y se puede filtrar, exportar e imprimir. Los botones «🖨 Imprimir» preparan documentos A4: la <b>hoja de asignaciones de una candidatura</b> (elegida en el menú de impresión o con el botón 🖨 de su fila en Partidos; cada partido imprime la suya desde «Nuestras asignaciones»), las hojas de todas las candidaturas (una página por candidatura, con espacio para la firma), la <b>relación completa de asignaciones</b> (todo lo asignado y a quién), el resultado de cada categoría, el cuadrante de espacios (A4 horizontal), el reparto con la hoja de conformidad, la guía para las candidaturas y el registro. En la ventana de impresión se puede elegir «Guardar como PDF». Cada lista tiene también «Exportar (.csv)» para Excel.</p>') +
+  sec(12, 'Seguridad, copias y trabajo simultáneo', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor, no el navegador, así que nadie puede saltárselas. Está pensado para que trabajen a la vez todas las candidaturas y el Ayuntamiento (probado con más de 20 usuarios conectados y eligiendo al mismo tiempo): cada pantalla se actualiza sola cada pocos segundos. Los datos viven en el servidor: cambiar de ordenador no borra nada. <b>No se pierde nada:</b> cada modificación se guarda al instante y, además, se copia una a una en un almacén de copias separado; el servidor hace una copia completa (datos y usuarios) cada 10 minutos de actividad y antes de eliminar, importar o restaurar, y una copia diaria que no se borra nunca; y el navegador de la administración guarda otra copia cada 5 minutos. Desde Ajustes se puede descargar una copia completa y volver a cualquier copia del servidor sin perder el registro.</p>') +
   '</div>';
 }
 
@@ -1222,8 +1395,8 @@ const csvq = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
 const csvOut = (name, rows) => download(name, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(csvq).join(';')).join('\r\n'));
 function exportCat(t) {
   const I = idx();
-  if (t === 'esp') { const days = campDays(); const rows = [COLS.esp.map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(COLS.esp.map((c) => it[c[0]]).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = (it.blk || {})[s]; return r ? pName(r.g) : b === 'nd' ? 'No disponible' : b === 'rs' ? 'Con restricciones' : ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
-  csvOut(t + '-' + CATN[t].toLowerCase().replace(/\s+/g, '-') + '.csv', [COLS[t].map((c) => c[1]).concat(['Partido', 'Reservado el', 'Por'])].concat(I.items[t].map((it) => { const r = activeRes(it.id); return COLS[t].map((c) => it[c[0]]).concat(r ? [pName(r.g), fStamp(r.ts), r.by] : ['', '', '']); })));
+  if (t === 'esp') { const days = campDays(); const rows = [colsOf('esp').map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(colsOf('esp').map((c) => fv(it, c[0])).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = (it.blk || {})[s]; return r ? pName(r.g) : b === 'nd' ? 'No disponible' : b === 'rs' ? 'Con restricciones' : ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
+  csvOut(t + '-' + CATN[t].toLowerCase().replace(/\s+/g, '-') + '.csv', [colsOf(t).map((c) => c[1]).concat(['Partido', 'Reservado el', 'Por'])].concat(I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => fv(it, c[0])).concat(r ? [pName(r.g), fStamp(r.ts), r.by] : ['', '', '']); })));
 }
 
 /* ---------- importar el Excel (solo añade y completa; nunca borra ni sobrescribe) ---------- */
@@ -1235,22 +1408,23 @@ function headerRow(sh, test, min) { for (let r = 0; r < Math.min(sh.rows.length,
 function colOf(sh, hr, re) { const hs = sh.rows[hr].map(hnorm); for (let c = 0; c < hs.length; c++) if (hs[c] && re.test(hs[c])) return c; return -1; }
 function parseWorkbook(sheets) {
   const out = { esp: [], ban: [], pan: [], pri: [], par: [], sheets: [] }, g = (row, c) => (c >= 0 ? row[c] : null), grids = [];
+  const addX = (T, sh, hr, row, o) => { const X = xfOf(T).map((d) => [d.id, colOf(sh, hr, new RegExp('^' + hnorm(d.n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'))]).filter((x) => x[1] >= 0); if (X.length) { o.xv = {}; X.forEach(([id, col]) => { const v = sval(row[col]); if (v) o.xv[id] = v; }); } return o; };
   sheets.forEach((sh) => {
     const T = sheetKind(sh.name); if (!T) return;
     if (T === 'grid') { grids.push(sh); return; }
     out.sheets.push(sh.name);
     if (T === 'par') { const hr = headerRow(sh, (h) => /sigl|nom|ordre|orden|representa|partit|partido/.test(h)); if (hr < 0) return; const c = { ord: colOf(sh, hr, /ordre|orden|^n$|^no$|numero/), sig: colOf(sh, hr, /sigl/), nom: colOf(sh, hr, /^nom|nombre|partit|partido|formaci|candidatura/), rep: colOf(sh, hr, /representa/), tel: colOf(sh, hr, /telef|^tel/), mail: colOf(sh, hr, /correu|correo|mail/) };
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], sig = sval(g(row, c.sig)), nom = sval(g(row, c.nom)); if (!sig && !nom) continue; out.par.push({ ord: ival(g(row, c.ord)), sig: sig || nom.slice(0, 40), nom, rep: sval(g(row, c.rep)), tel: sval(g(row, c.tel)), mail: sval(g(row, c.mail)) }); } return; }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], sig = sval(g(row, c.sig)), nom = sval(g(row, c.nom)); if (!sig && !nom) continue; out.par.push(addX('par', sh, hr, row, { ord: ival(g(row, c.ord)), sig: sig || nom.slice(0, 40), nom, rep: sval(g(row, c.rep)), tel: sval(g(row, c.tel)), mail: sval(g(row, c.mail)) })); } return; }
     const rx = { esp: /ordre|orden|^nom|horari|horario|adreca/, ban: /tram|banderol|plafon|partit|partido/, pan: /tram|lloc|lugar|limit|partit/, pri: /partit|partido|columnes|columnas/ }[T];
     const hr = headerRow(sh, (h) => rx.test(h), 2); if (hr < 0) return;
     if (T === 'esp') { const c = { ord: colOf(sh, hr, /ordre|orden|^n$/), nom: colOf(sh, hr, /^nom|nombre/), ot: colOf(sh, hr, /^o t$|tipus|tipo|obert/), dir: colOf(sh, hr, /adreca|direccion/), hor: colOf(sh, hr, /horari|horario/) };
-      let k = 0; for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], nom = sval(g(row, c.nom)); if (!nom || g(row, c.ord) == null) continue; k++; const o = ival(g(row, c.ord)); out.esp.push({ ord: o != null ? o : 100 + k, nom: (o == null ? sval(g(row, c.ord)) + '. ' : '') + nom, ot: sval(g(row, c.ot)), dir: sval(g(row, c.dir)), hor: sval(g(row, c.hor)) }); } }
+      let k = 0; for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], nom = sval(g(row, c.nom)); if (!nom || g(row, c.ord) == null) continue; k++; const o = ival(g(row, c.ord)); out.esp.push(addX('esp', sh, hr, row, { ord: o != null ? o : 100 + k, nom: (o == null ? sval(g(row, c.ord)) + '. ' : '') + nom, ot: sval(g(row, c.ot)), dir: sval(g(row, c.dir)), hor: sval(g(row, c.hor)) })); } }
     if (T === 'ban') { const c = { nom: colOf(sh, hr, /^nom|nombre|carrer|calle/), tram: colOf(sh, hr, /tram/), bf: colOf(sh, hr, /banderol/), pf: colOf(sh, hr, /plafon/) };
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof row[0] !== 'number' || !sval(g(row, c.nom))) continue; out.ban.push({ ord: ival(row[0]), nom: sval(g(row, c.nom)), tram: sval(g(row, c.tram)), bf: ival(g(row, c.bf)), pf: ival(g(row, c.pf)) }); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof row[0] !== 'number' || !sval(g(row, c.nom))) continue; out.ban.push(addX('ban', sh, hr, row, { ord: ival(row[0]), nom: sval(g(row, c.nom)), tram: sval(g(row, c.tram)), bf: ival(g(row, c.bf)), pf: ival(g(row, c.pf)) })); } }
     if (T === 'pan') { const c = { ord: colOf(sh, hr, /tram|^n$|num/), lloc: colOf(sh, hr, /lloc|lugar/), lim: colOf(sh, hr, /limit/) };
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof g(row, c.ord) !== 'number' || !sval(g(row, c.lloc))) continue; out.pan.push({ ord: ival(g(row, c.ord)), lloc: sval(g(row, c.lloc)), lim: sval(g(row, c.lim)) }); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof g(row, c.ord) !== 'number' || !sval(g(row, c.lloc))) continue; out.pan.push(addX('pan', sh, hr, row, { ord: ival(g(row, c.ord)), lloc: sval(g(row, c.lloc)), lim: sval(g(row, c.lim)) })); } }
     if (T === 'pri') { const cl = colOf(sh, hr, /columnes|columnas|lloc|lugar|ubicaci/), cp = colOf(sh, hr, /partit|partido/), cn = cl + 1 < cp ? cl + 1 : -1; let k = 0;
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], lloc = sval(g(row, cl)); if (!lloc || lloc.length > 80) continue; out.pri.push({ ord: ++k, lloc, num: sval(g(row, cn)) }); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], lloc = sval(g(row, cl)); if (!lloc || lloc.length > 80) continue; out.pri.push(addX('pri', sh, hr, row, { ord: ++k, lloc, num: sval(g(row, cn)) })); } }
   });
   /* lista de partidos al lado del cuadrante (siglas y número de orden). Se descartan las columnas con cabecera «Nom»/«Ordre»
      y los nombres de espacios, para no confundir la lista de espacios con la de partidos */
@@ -1265,7 +1439,15 @@ function parseWorkbook(sheets) {
 const IKEY = { esp: (r) => norm(r.nom), ban: (r) => norm(r.ord + '|' + r.nom + '|' + r.tram), pan: (r) => norm(r.ord + '|' + r.lloc + '|' + r.lim), pri: (r) => norm(r.ord + '|' + r.lloc + '|' + r.num) };
 function planImport(W) {
   const I = idx(), plan = {};
-  const fill = (cur, o) => { const ch = {}; for (const f in o) { const v = o[f]; if (v == null || v === '') continue; if (cur[f] == null || cur[f] === '') ch[f] = v; } return ch; };
+  const fill = (cur, o) => {
+    const ch = {};
+    for (const f in o) {
+      const v = o[f]; if (v == null || v === '') continue;
+      if (f === 'xv') { const nx = {}; for (const k in v) if (v[k] && !((cur.xv || {})[k])) nx[k] = v[k]; if (Object.keys(nx).length) ch.xv = Object.assign({}, cur.xv || {}, nx); continue; }
+      if (cur[f] == null || cur[f] === '') ch[f] = v;
+    }
+    return ch;
+  };
   CATS.forEach((t) => { const have = {}; I.items[t].forEach((r) => { have[IKEY[t](r)] = r; }); const P = plan[t] = { add: [], fill: [], same: 0 }; W[t].forEach((o) => { const k = IKEY[t](o), cur = have[k]; if (!cur) { P.add.push(o); have[k] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } }); });
   const byS = {}; I.parties.forEach((p) => { byS[norm(p.sig)] = p; byS[norm(p.nom)] = p; });
   const P = plan.par = { add: [], fill: [], same: 0 }; W.par.forEach((o) => { const cur = byS[norm(o.sig)] || (o.nom && byS[norm(o.nom)]); if (!cur) { P.add.push(o); byS[norm(o.sig)] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } });
@@ -1309,8 +1491,8 @@ window.addEventListener('afterprint', () => { document.body.classList.remove('pr
 function prSummary(t) { const by = {}; idx().items[t].forEach((it) => { if (t === 'esp') return; const r = activeRes(it.id); if (r) by[r.g] = (by[r.g] || 0) + 1; }); if (t === 'esp') { const R = idx().res; for (const k in R) if (!R[k].x && R[k].t === 'esp' && idx().imap[R[k].i]) by[R[k].g] = (by[R[k].g] || 0) + 1; } return Object.keys(by).length ? '<p class="pr-p"><b>Por partido:</b> ' + Object.keys(by).map((g) => esc(pName(g)) + ' (' + by[g] + ')').join(' · ') + '</p>' : ''; }
 function prCat(t) {
   const I = idx();
-  if (t !== 'esp') return prDoc(CATN[t], prSummary(t) + prTable(COLS[t].map((c) => c[1]).concat(['Partido']), I.items[t].map((it) => { const r = activeRes(it.id); return COLS[t].map((c) => (c[0] === 'nom' || c[0] === 'lloc' ? '<b>' + esc(it[c[0]] || '') + '</b>' : esc(it[c[0]] == null ? '' : it[c[0]]))).concat(r ? '<b>' + esc(pName(r.g)) + '</b>' : ''); })), I.items[t].length + ' elementos · ' + takenOf(t) + ' reservados');
-  const days = campDays(); let h = prSummary('esp') + prTable(['Nº', 'Espacio', 'Abierto / cerrado', 'Dirección', 'Horario'], I.items.esp.map((it) => [esc(it.ord != null ? it.ord : ''), '<b>' + esc(it.nom) + '</b>', esc(it.ot), esc(it.dir), esc(it.hor)]));
+  if (t !== 'esp') return prDoc(CATN[t], prSummary(t) + prTable(colsOf(t).map((c) => c[1]).concat(['Partido']), I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => (c[0] === 'nom' || c[0] === 'lloc' ? '<b>' + esc(fv(it, c[0]) || '') + '</b>' : esc(fv(it, c[0]) == null ? '' : fv(it, c[0])))).concat(r ? '<b>' + esc(pName(r.g)) + '</b>' : ''); })), I.items[t].length + ' elementos · ' + takenOf(t) + ' reservados');
+  const days = campDays(), XE = xfOf('esp'); let h = prSummary('esp') + prTable(['Nº', 'Espacio', 'Abierto / cerrado', 'Dirección', 'Horario'].concat(XE.map((d) => d.n)), I.items.esp.map((it) => [esc(it.ord != null ? it.ord : ''), '<b>' + esc(it.nom) + '</b>', esc(it.ot), esc(it.dir), esc(it.hor)].concat(XE.map((d) => esc((it.xv || {})[d.id] || '')))));
   for (let i = 0; i < days.length; i += 8) {
     const ch = days.slice(i, i + 8);
     h += '<h2 class="pr-h2 pr-break">Cuadrante · ' + esc(fShort(ch[0])) + ' – ' + esc(fShort(ch[ch.length - 1])) + '</h2><table class="pr-t pr-grid"><thead><tr><th rowspan="2">Espacio</th>' + ch.map((d) => '<th colspan="2">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + ch.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>' +
@@ -1321,12 +1503,24 @@ function prCat(t) {
 function prParty(g) {
   const I = idx(), p = I.pmap[g]; if (!p) return '';
   const R = Object.keys(I.res).map((k) => I.res[k]).filter((r) => !r.x && r.g === g && I.imap[r.i]);
-  const body = CATS.map((t) => { const L = R.filter((r) => r.t === t).sort((a, b) => String(a.slot).localeCompare(String(b.slot)) || ((I.imap[a.i].ord || 0) - (I.imap[b.i].ord || 0))); return '<h2 class="pr-h2">' + CATN[t] + ' (' + L.length + ')</h2>' + prTable(t === 'esp' ? ['Día y franja', 'Espacio', 'Dirección', 'Horario'] : COLS[t].map((c) => c[1]), L.map((r) => { const it = I.imap[r.i]; return t === 'esp' ? ['<b>' + esc(slotTxt(r.slot)) + '</b>', '<b>' + esc(it.nom) + '</b>', esc(it.dir), esc(it.hor)] : COLS[t].map((c) => esc(it[c[0]] == null ? '' : it[c[0]])); }), 'Ninguno.'); }).join('');
+  const body = CATS.map((t) => { const L = R.filter((r) => r.t === t).sort((a, b) => String(a.slot).localeCompare(String(b.slot)) || ((I.imap[a.i].ord || 0) - (I.imap[b.i].ord || 0))); return '<h2 class="pr-h2">' + CATN[t] + ' (' + L.length + ')</h2>' + prTable(t === 'esp' ? ['Día y franja', 'Espacio', 'Dirección', 'Horario'].concat(xfOf('esp').map((d) => d.n)) : colsOf(t).map((c) => c[1]), L.map((r) => { const it = I.imap[r.i]; return t === 'esp' ? ['<b>' + esc(slotTxt(r.slot)) + '</b>', '<b>' + esc(it.nom) + '</b>', esc(it.dir), esc(it.hor)].concat(xfOf('esp').map((d) => esc((it.xv || {})[d.id] || ''))) : colsOf(t).map((c) => esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))); }), 'Ninguno.'); }).join('');
   return prDoc('Asignaciones de ' + (p.sig || p.nom), body + '<h2 class="pr-h2">Conformidad</h2><p class="pr-p">Representante: ______________________________ &nbsp;&nbsp; Firma: ____________________ &nbsp;&nbsp; Fecha: ___________</p>', esc(p.nom || ''));
 }
+/* relación completa: cada candidatura con todo lo que tiene asignado en las cuatro categorías */
+function prAllRes() {
+  const I = idx(), R = Object.keys(I.res).map((k) => I.res[k]).filter((r) => !r.x && I.imap[r.i] && I.pmap[r.g]);
+  const rows = [];
+  I.parties.forEach((p) => {
+    const L = R.filter((r) => r.g === p.id).sort((a, b) => CATS.indexOf(a.t) - CATS.indexOf(b.t) || String(a.slot).localeCompare(String(b.slot)) || ((I.imap[a.i].ord || 0) - (I.imap[b.i].ord || 0)));
+    L.forEach((r, k) => { const it = I.imap[r.i]; rows.push([k ? '' : '<b>' + esc(p.sig || p.nom) + '</b>', CATN[r.t], '<b>' + esc(iName(it)) + '</b>' + (it.dir ? '<br><small>' + esc(it.dir) + '</small>' : ''), esc(slotTxt(r.slot))]); });
+  });
+  return prDoc('Relación completa de asignaciones', '<p class="pr-p"><b>Por candidatura:</b> ' + I.parties.map((p) => esc(p.sig || p.nom) + ' (' + R.filter((r) => r.g === p.id).length + ')').join(' · ') + '</p>' + prTable(['Candidatura', 'Categoría', 'Elemento', 'Día y franja'], rows, 'Todavía no hay nada asignado.'), R.length + ' asignaciones en total');
+}
 function modalPrint() {
-  const I = idx(), opts = CATS.map((t) => ['pr-cat', t, CATN[t], t === 'esp' ? 'Lista y cuadrante por días (A4 horizontal).' : 'Lista completa con el partido asignado.']).concat([['pr-parties', '', 'Hojas por partido', 'Una página por partido con todo lo que tiene asignado y espacio para la firma.'], ['pr-log', '', 'Registro de movimientos', 'Todas las reservas, liberaciones y cambios de turno.']]);
-  openModal('<h2>¿Qué quieres imprimir?</h2><p>Se prepara un documento A4 listo para la impresora o para guardar en PDF.</p><div class="prlist">' + opts.map(([a, t, n, d]) => '<button class="prop" data-a="' + a + '" data-t="' + t + '"><b>🖨 ' + n + '</b><span>' + d + '</span></button>').join('') + (isParty() ? '<button class="prop" data-a="pr-party" data-g="' + myParty() + '"><b>🖨 Nuestras asignaciones</b><span>Hoja con todo lo asignado a ' + esc(pName(myParty())) + '.</span></button>' : '') + '</div><div class="acts"><button class="btn" data-a="m-no">Cerrar</button></div>', true);
+  const I = idx(), opts = CATS.map((t) => ['pr-cat', t, CATN[t], t === 'esp' ? 'Lista y cuadrante por días (A4 horizontal).' : 'Lista completa con el partido asignado.']).concat([['pr-reparto', '', 'Reparto y orden de elección', 'Votos, orden, cupos de cada candidatura, base legal y hoja de conformidad.'], ['pr-parties', '', 'Hojas por candidatura', 'Una página por candidatura con todo lo que tiene asignado y espacio para la firma.'], ['pr-guia', '', 'Guía para las candidaturas', 'Cómo entrar, cómo funcionan los turnos y cómo reservar. Para entregar.'], ['pr-log', '', 'Registro de movimientos', 'Todas las reservas, liberaciones y cambios de turno.']]);
+  const one = isParty() ? '<button class="prop" data-a="pr-party" data-g="' + myParty() + '"><b>🖨 Nuestras asignaciones</b><span>Hoja con todo lo asignado a ' + esc(pName(myParty())) + ', para firmar.</span></button>'
+    : '<div class="prop prsel"><b>🖨 Asignaciones de una candidatura</b><span>Su hoja con todo lo que tiene asignado y espacio para la firma.</span><span class="btnrow" style="margin:4px 0 0"><select id="prParty">' + partyOpts('', 'Elige la candidatura…') + '</select><button class="btn sm primary" data-a="pr-party-sel">Imprimir</button></span></div>';
+  openModal('<h2>¿Qué quieres imprimir?</h2><p>Se prepara un documento A4 listo para la impresora o para guardar en PDF.</p><div class="prlist">' + one + '<button class="prop" data-a="pr-allres"><b>🖨 Relación completa de asignaciones</b><span>Todo lo asignado en las cuatro categorías y a qué candidatura, ordenado por candidatura.</span></button>' + opts.filter((o) => !(isParty() && o[0] === 'pr-parties')).map(([a, t, n, d]) => '<button class="prop" data-a="' + a + '" data-t="' + t + '"><b>🖨 ' + n + '</b><span>' + d + '</span></button>').join('') + '</div><div class="acts"><button class="btn" data-a="m-no">Cerrar</button></div>', true);
 }
 
 /* ---------- acceso ---------- */
@@ -1364,9 +1558,20 @@ async function startSession() {
 function startTimers() {
   stopTimers();
   /* actualización frecuente mientras alguna selección está abierta, para ver los turnos casi en directo */
-  ST.timers.push(setInterval(() => { if (!ST.db || document.hidden) return; const live = CATS.some((t) => cfgOf(t).mode !== 'cerrado'); ST.tick = (ST.tick || 0) + 1; if (live || ST.tick % 4 === 0) poll(); }, 4000));
+  ST.timers.push(setInterval(() => {
+    if (!ST.db) return;
+    /* cada 4 s mientras se trabaja o mientras una candidatura espera su turno; más espaciado si nadie toca nada o la pestaña está oculta */
+    const live = CATS.some((t) => cfgOf(t).mode !== 'cerrado'), waiting = isParty() && CATS.some((t) => cfgOf(t).mode === 'turnos' && !cfgOf(t).done);
+    const gap = !live ? 16000 : document.hidden ? 15000 : waiting || Date.now() - ST.lastAct < 120000 ? 4000 : 10000;
+    if (Date.now() - (ST.lastPoll || 0) >= gap - 200) { ST.lastPoll = Date.now(); poll(); }
+  }, 2000));
+  ST.timers.push(setInterval(saveLocalCopy, 5 * 60000)); ST.timers.push(setTimeout(saveLocalCopy, 3000));
   ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 30 * 60000) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
 }
+/* copia local en el navegador de la administración (tercera copia, además del servidor y del almacén de copias) */
+const LOCAL_KEY = 'espais.copia.local';
+function localCopy() { try { return JSON.parse(LS.get(LOCAL_KEY) || 'null'); } catch (e) { return null; } }
+function saveLocalCopy() { if (!isAdmin() || !ST.db) return; LS.set(LOCAL_KEY, JSON.stringify({ app: 'espais', kind: 'copia-local', at: Date.now(), by: ST.user, E: ST.db.E })); }
 function stopTimers() { ST.timers.forEach(clearInterval); ST.timers = []; clearTimeout(ST.saveT); clearTimeout(ST.retryT); }
 function endSession() { stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
 async function logout() {
@@ -1399,7 +1604,7 @@ async function backupImport() {
   if (!(await confirmBox({ title: 'Importar copia', text: 'Se incorporará lo que la copia tenga de nuevo o más reciente. No se borra nada, y antes se guarda una copia en el servidor.', ok: 'Importar' }))) return;
   try { await flush(); const r = await api('import', { E: o.E }); await poll(true); toast(r.added ? r.added + ' registros incorporados.' : 'La copia no tenía nada más reciente.'); } catch (e) { toast(e.message, 'err'); }
 }
-async function historyLoad() { try { const r = await api('history'); ST.hist = r.items || []; renderView(); } catch (e) { toast(e.message, 'err'); } }
+async function historyLoad() { try { const r = await api('history'); ST.hist = { items: r.items || [], days: r.days || [], changes: r.changes || 0 }; renderView(); } catch (e) { toast(e.message, 'err'); } }
 async function historyRestore(key) {
   if (!(await confirmBox({ title: 'Restaurar copia del servidor', text: 'Todo volverá a estar como en esa copia, también las reservas, para todos los usuarios. El registro de movimientos se conserva. Antes se guarda una copia del estado actual por si hubiera que deshacerlo.', ok: 'Restaurar', danger: true, word: 'RESTAURAR' }))) return;
   try { await flush(); await api('restore', { key }); await loadAll(); renderAll(); toast('Copia restaurada.'); historyLoad(); } catch (e) { toast(e.message, 'err'); }
@@ -1407,7 +1612,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1 · 15/10/2026';
+const APP_VERSION = '1.0 · 15/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -1465,18 +1670,50 @@ const ACT = {
   'pr-cat': (el) => { closeModal(); doPrint(prCat(el.dataset.t), el.dataset.t === 'esp'); },
   'pr-parties': () => { closeModal(); const P = idx().parties; doPrint(P.map((p, i) => '<div class="' + (i ? 'pr-break' : '') + '">' + prParty(p.id) + '</div>').join('') || prDoc('Asignaciones por partido', '<p class="pr-empty">No hay partidos.</p>')); },
   'pr-party': (el) => { closeModal(); doPrint(prParty(el.dataset.g)); },
+  'pr-party-sel': () => { const g = $('#prParty').value; if (!g) return toast('Elige la candidatura.', 'err'); closeModal(); doPrint(prParty(g)); },
+  'pr-allres': () => { closeModal(); doPrint(prAllRes()); },
+  'camp-calc': () => {
+    if (!adminOnly()) return; const c = conf(), v = parseISO(c.dv);
+    if (v == null) return toast('Primero indica el día de la votación.', 'err');
+    /* art. 51 LOREG: la campaña empieza el día 38 tras la convocatoria, dura 15 días y acaba a las 0 h del día anterior a la votación */
+    put('s:conf', Object.assign({ k: 's' }, c, { d0: toISO(v - 16 * DAY), d1: toISO(v - 2 * DAY) })); toast('Campaña: del ' + fDMY(v - 16 * DAY) + ' al ' + fDMY(v - 2 * DAY) + '.');
+  },
+  'xf-open': (el) => { if (adminOnly()) modalXF(el.dataset.t); },
+  'xf-add': (el) => { const t = el.dataset.t, n = ($('#xfNew').value || '').trim(); if (!n) return toast('Escribe el nombre del campo.', 'err'); if (n.length > 40) return toast('Nombre demasiado largo (máximo 40).', 'err'); const all = (conf().xf || {})[t] || []; if (all.some((d) => norm(d.n) === norm(n) && !d.h)) return toast('Ya hay un campo con ese nombre.', 'err'); if (all.length >= 15) return toast('Máximo 15 campos por lista.', 'err'); const old = all.find((d) => norm(d.n) === norm(n) && d.h); xfPut(t, old ? all.map((d) => (d === old ? { id: d.id, n } : d)) : all.concat([{ id: Date.now().toString(36).slice(-8), n }])); modalXF(t); toast(old ? 'Campo recuperado con sus datos.' : 'Campo añadido.'); },
+  'xf-hide': (el) => { const t = el.dataset.t; xfPut(t, ((conf().xf || {})[t] || []).map((d) => (d.id === el.dataset.id ? Object.assign({}, d, { h: true }) : d))); modalXF(t); toast('Campo quitado de la vista. Sus datos se conservan.'); },
+  'xf-show': (el) => { const t = el.dataset.t; xfPut(t, ((conf().xf || {})[t] || []).map((d) => (d.id === el.dataset.id ? { id: d.id, n: d.n } : d))); modalXF(t); toast('Campo visible de nuevo.'); },
   'pr-log': () => { closeModal(); doPrint(prDoc('Registro de movimientos', prTable(['Fecha y hora', 'Usuario', 'Movimiento', 'Categoría'], idx().logs.map((l) => [fStamp(l.ts), esc(l.by), esc(l.a), CATN[l.t] || '']))), true); },
   'pr-help': () => doPrint(prDoc('Manual de Espais electorals', $('#view .help').innerHTML.replace(/<button[^>]*>.*?<\/button>/g, ''))),
   'imp-xls': () => { if (!adminOnly()) return; const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xlsm,.csv'; i.hidden = true; i.addEventListener('change', () => { if (i.files[0]) importExcel(i.files[0]); i.remove(); }); document.body.appendChild(i); i.click(); },
   'imp-ok': () => { const plan = ST.imp; if (!plan) return; const sel = {}; $$('.impChk').forEach((c) => { sel[c.value] = c.checked; }); const n = applyImport(plan, sel); ST.imp = null; closeModal(true); toast(n ? 'Importados ' + n + ' registros. Se están guardando en el servidor…' : 'No había nada nuevo que importar.'); },
-  'bak-dl': () => backupDownload(), 'bak-imp': () => { if (adminOnly()) backupImport(); }, 'h-load': () => historyLoad(), 'h-restore': (el) => historyRestore(el.dataset.key)
+  'bak-dl': () => backupDownload(),
+  'bak-local': () => { const c = localCopy(); if (!c) return toast('Este navegador todavía no tiene copia.', 'err'); const d = new Date(c.at); download('ESPAIS-copia-navegador-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json', 'application/json', JSON.stringify(c)); toast('Copia del navegador descargada. Se puede volver a cargar con «Importar copia…».'); }, 'bak-imp': () => { if (adminOnly()) backupImport(); }, 'h-load': () => historyLoad(), 'h-restore': (el) => historyRestore(el.dataset.key)
 };
+Object.assign(ACT, REP_ACT);
+/* campos propios de cada lista: añadir, renombrar, quitar de la vista (los datos nunca se borran) */
+const XNAME = { esp: 'Espacios electorales', ban: 'Banderolas', pan: 'Pancartas', pri: 'Prismas', par: 'Candidaturas' };
+function xfPut(t, list) { const c = Object.assign({ k: 's' }, conf()); c.xf = Object.assign({}, c.xf || {}, { [t]: list }); put('s:conf', c); }
+function modalXF(t) {
+  const all = (conf().xf || {})[t] || [], vis = all.filter((d) => !d.h), hid = all.filter((d) => d.h);
+  openModal('<h2>Campos propios · ' + XNAME[t] + '</h2><p class="muted">Se añaden a la lista como una columna más, editable. Para cambiar el nombre, escríbelo y sal de la casilla. Quitar un campo solo lo oculta: los datos se conservan y vuelven si lo recuperas.</p>' +
+    (vis.length ? '<div class="olist">' + vis.map((d) => '<div class="orow"><input type="text" data-xfren="' + t + '" data-id="' + d.id + '" value="' + esc(d.n) + '" maxlength="40" aria-label="Nombre del campo"><button class="btn sm ghost" data-a="xf-hide" data-t="' + t + '" data-id="' + d.id + '" title="Quitar de la vista">✕</button></div>').join('') + '</div>' : '<p class="muted">Todavía no hay campos propios en esta lista.</p>') +
+    '<div class="btnrow"><input type="text" id="xfNew" placeholder="Nombre del campo nuevo (p. ej. Aforo)" maxlength="40" style="max-width:320px"><button class="btn primary" data-a="xf-add" data-t="' + t + '">+ Añadir campo</button></div>' +
+    (hid.length ? '<p class="muted small">Campos ocultos: ' + hid.map((d) => esc(d.n) + ' <button class="lnk" data-a="xf-show" data-t="' + t + '" data-id="' + d.id + '">mostrar</button>').join(' · ') + '</p>' : '') +
+    '<div class="acts"><button class="btn" data-a="m-no">Cerrar</button></div>');
+}
+document.addEventListener('change', (e) => {
+  const d = e.target.dataset || {}; if (!d.xfren || !isAdmin()) return;
+  const t = d.xfren, n = e.target.value.trim(), all = (conf().xf || {})[t] || [];
+  if (!n || n.length > 40) { toast('Escribe un nombre (máximo 40 caracteres).', 'err'); modalXF(t); return; }
+  xfPut(t, all.map((x) => (x.id === d.id ? Object.assign({}, x, { n }) : x))); toast('Nombre del campo cambiado.');
+});
 function recChange(t) {
   const kind = t.dataset.r, f = t.dataset.f, key = kind + ':' + t.dataset.id, cur = ST.db.E[key];
   if (!cur || !adminOnly()) { renderView(); return; }
   delete ST.drafts[t.id];
   let v = t.value.trim();
-  if (['ord', 'bf', 'pf'].includes(f)) { v = v === '' ? null : parseInt(v, 10); if (v != null && (isNaN(v) || v < 0)) { toast('Escribe un número válido.', 'err'); renderView(); return; } }
+  if (f.indexOf('x_') === 0) { const n = Object.assign({}, cur), xv = Object.assign({}, cur.xv || {}); if (v.length > 500) { toast('Texto demasiado largo (máximo 500).', 'err'); renderView(); return; } if (v) xv[f.slice(2)] = v; else delete xv[f.slice(2)]; n.xv = xv; put(key, n); return; }
+  if (['ord', 'bf', 'pf', 'vot'].includes(f)) { v = v === '' ? null : parseInt(v.replace(/\./g, ''), 10); if (v != null && (isNaN(v) || v < 0 || v > (f === 'vot' ? 99999999 : 9999))) { toast('Escribe un número válido.', 'err'); renderView(); return; } }
   const n = Object.assign({}, cur); n[f] = v; put(key, n);
 }
 document.addEventListener('click', (e) => {
@@ -1491,7 +1728,9 @@ document.addEventListener('change', async (e) => {
   if (d.r) recChange(t);
   else if (d.flt) { ST.ui.flt[d.flt] = t.value; renderView(); }
   else if (t.id === 'lflt') { ST.ui.lflt = t.value; renderView(); }
-  else if (d.conf && adminOnly()) { const c = Object.assign({ k: 's', org: '', tit: '', d0: '', d1: '', nota: '' }, conf()); c[d.conf] = t.value.trim(); if (c.d0 && c.d1 && c.d1 < c.d0) { toast('La fecha final es anterior a la inicial.', 'err'); return; } put('s:conf', c); toast('Guardado.'); }
+  else if (d.conf && adminOnly()) { const c = Object.assign({ k: 's', org: '', tit: '', d0: '', d1: '', nota: '' }, conf()); c[d.conf] = t.value.trim(); if (c.d0 && c.d1 && c.d1 < c.d0) { toast('La fecha final es anterior a la inicial.', 'err'); return; }
+    const v = d.conf === 'dv' && !c.d0 && !c.d1 ? parseISO(c.dv) : null; if (v != null) { c.d0 = toISO(v - 16 * DAY); c.d1 = toISO(v - 2 * DAY); }
+    put('s:conf', c); toast(v != null ? 'Guardado. Campaña calculada: del ' + fDMY(v - 16 * DAY) + ' al ' + fDMY(v - 2 * DAY) + '.' : 'Guardado.'); }
   else if (d.cfg && adminOnly()) { const f = d.f; let v = t.type === 'checkbox' ? t.checked : t.value; if (f === 'quota' || f === 'max') { v = parseInt(v, 10); if (isNaN(v) || v < (f === 'quota' ? 1 : 0)) { toast('Escribe un número válido.', 'err'); renderView(); return; } } cfgPut(d.cfg, { [f]: v }); }
   else if (d.oadd && t.value) { const o = cfgOf(d.oadd).order.slice(); o.push(t.value); cfgPut(d.oadd, { order: o }); }
   else if (d.goto && t.value) { const g = t.value; t.value = ''; await flush(); if (await act('turn', { t: d.goto, op: 'goto', g })) toast('Turno para ' + pName(g) + '.'); }

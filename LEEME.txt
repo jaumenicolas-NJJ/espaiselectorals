@@ -1,0 +1,106 @@
+ESPAIS ELECTORALS
+Selección de espacios electorales, banderolas, pancartas y prismas por las candidaturas
+Ajuntament de Santa Coloma de Gramenet
+======================================================================
+
+Qué hace
+--------
+Las candidaturas eligen, por turnos y según su orden de preferencia, los espacios
+electorales (por día y franja de mañana o tarde), las banderolas, las pancartas y los
+prismas. El Ajuntament carga los datos desde el Excel, da de alta las candidaturas y sus
+usuarios, hace el reparto según la ley (votos de las anteriores elecciones equivalentes,
+orden de elección y cupo de cada candidatura), abre cada categoría por turnos o libre y
+supervisa todo. Lo que elige una candidatura queda reservado al instante y nadie más
+puede cogerlo, salvo que esa candidatura lo libere o lo haga la administración.
+
+Dirección: https://espaiselectorals.netlify.app
+
+
+PUESTA EN MARCHA EN NETLIFY (una sola vez, unos 10 minutos)
+-----------------------------------------------------------
+1. Entra en https://app.netlify.com con la misma cuenta que usas para Eleccions.
+
+2. «Add new project» → «Import an existing project» → «GitHub».
+   Elige el repositorio  jaumenicolas-NJJ/espaiselectorals.
+   En «Branch to deploy» elige  main  (si aparece otra rama, cámbiala a main).
+   No hace falta tocar nada más. Pulsa «Deploy espaiselectorals».
+
+3. Nombre de la dirección:
+   «Project configuration» → «General» → «Project details» → «Change project name»
+   → escribe  espaiselectorals  → «Save».
+   La dirección pasa a ser  https://espaiselectorals.netlify.app
+
+4. Clave de instalación (solo sirve para crear la primera administradora):
+   «Project configuration» → «Environment variables» → «Add a variable»
+   → «Add a single variable»
+      Key:   ESPAIS_CLAVE_INICIAL
+      Value: una clave que inventes (mínimo 12 caracteres; no la compartas)
+   → «Create variable».
+
+5. «Deploys» → «Trigger deploy» → «Deploy project», para que la variable se aplique.
+   Espera a que ponga «Published».
+
+6. Abre https://espaiselectorals.netlify.app
+   La primera vez aparece la pantalla de «Instalación»: escribe la clave del paso 4,
+   tu nombre (será tu usuario, por ejemplo Rosana) y tu contraseña (mínimo 8 caracteres).
+   Ya eres la administradora. A partir de aquí la clave de instalación no sirve para nada
+   más: el programa no se puede volver a instalar encima.
+
+   Opcional: la variable ESPAIS_SECRET (una cadena aleatoria de 32 caracteres o más) fija
+   la firma de las sesiones. Si no se crea, el programa genera una por su cuenta.
+
+
+PRIMEROS PASOS DENTRO DEL PROGRAMA
+----------------------------------
+El Panel muestra una lista de «Puesta en marcha». En resumen:
+  1. Ajustes: tipo de elecciones (por defecto, Generales al Congreso de los Diputados),
+     nombre del Ajuntament y día de la votación (la campaña se calcula sola).
+  2. Ajustes → «Importar desde Excel…»: el Excel de espacios (hojas ESPAIS, BANDEROLES,
+     PANCARTES, PRISMES y la lista de partidos junto al cuadrante de GRAELLA).
+  3. Partidos: revisa las candidaturas y crea un usuario para cada una («+ Usuario»).
+  4. Reparto: votos de las anteriores elecciones equivalentes → «Ordenar por votos»
+     → «Calcular y fijar los cupos».
+  5. Turnos y reglas: abre cada categoría por turnos (1 elección por turno) o libre.
+  6. Imprime la «Guía para las candidaturas» y el «Reparto» para la reunión.
+La pestaña Ayuda lo explica todo con detalle, incluida la base legal (LOREG, arts. 51 y
+55 a 57).
+
+
+DATOS, COPIAS Y SEGURIDAD
+-------------------------
+- Los datos NO están en GitHub. Viven en Netlify Blobs (región de Frankfurt), en dos
+  almacenes separados:
+    espais          datos y usuarios (cada guardado crea una versión nueva)
+    espais-copias   copia de cada modificación, una a una; copia completa cada
+                    10 minutos de actividad y antes de eliminar, importar o restaurar;
+                    copia diaria que no se borra nunca.
+  Además, el navegador de la administración guarda una copia cada 5 minutos.
+- Desde Ajustes → «Copias de seguridad» se descargan copias completas (.json), se
+  importan y se vuelve a cualquier copia del servidor sin perder el registro.
+- Las contraseñas se guardan como huella irreversible (PBKDF2). 5 intentos fallidos
+  bloquean el usuario 10 minutos. La sesión se cierra tras 30 minutos sin actividad.
+- Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor.
+- Probado con 20 usuarios conectados a la vez y 13 candidaturas reservando al mismo
+  tiempo, sin errores ni casillas con dos dueños.
+- Recomendado en GitHub (Settings → General del repositorio):
+    · «Default branch» → botón ⇄ → main → «Update», para que la rama principal sea main.
+    · «Danger Zone» → «Change visibility» → «Make private». El repositorio no contiene
+      datos, pero así nadie ve el código.
+
+
+ACTUALIZAR EL PROGRAMA SIN PERDER NADA
+--------------------------------------
+Cada cambio que se sube a la rama main de GitHub se publica solo en Netlify en un par de
+minutos. Las actualizaciones solo sustituyen el programa (carpeta public y la función
+del servidor): los datos, los usuarios y las copias siguen en Netlify Blobs y no se
+tocan. Antes de publicar cualquier cambio conviene descargar una copia completa desde
+Ajustes.
+
+
+ARCHIVOS
+--------
+public/index.html                    el programa (pantallas, impresión, importación)
+netlify/functions/api/core.mjs       el servidor: reglas, usuarios, turnos, copias
+netlify/functions/api/index.mjs      enlace con Netlify y sus almacenes
+netlify.toml                         configuración de Netlify y cabeceras de seguridad
+package.json, package-lock.json      dependencia @netlify/blobs
