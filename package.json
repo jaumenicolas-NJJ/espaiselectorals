@@ -1,0 +1,10 @@
+{
+  "name": "espaiselectorals",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Espais electorals: selección por turnos de espacios, banderolas, pancartas y prismas por los partidos (Ayuntamiento)",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.3"
+  }
+}

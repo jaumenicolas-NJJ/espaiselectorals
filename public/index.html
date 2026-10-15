@@ -1,0 +1,1530 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#14305f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Espais electorals · Selección de espacios electorales</title>
+<style>
+:root{
+  --bg:#f2f4f8; --panel:#fff; --ink:#1a2333; --ink2:#44526a; --mute:#6c7a90; --line:#dbe1ea; --line2:#eceff5;
+  --brand:#14305f; --brand2:#264d92; --brand-ink:#fff; --focus:#2b6df0;
+  --ok:#17874d; --warn:#a96300; --bad:#c0262d; --bad-bg:#fdecec; --ok-bg:#e6f5ec; --warn-bg:#fff3dc; --info-bg:#e9f0fd;
+  --wknd:rgba(20,48,95,.045); --today:#c0262d;
+  --r:8px; --shadow:0 1px 2px rgba(16,24,40,.06),0 6px 20px rgba(16,24,40,.07);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+h1,h2,h3{margin:0;line-height:1.2}
+small{color:var(--mute)}
+.muted{color:var(--mute)}
+.nowrap{white-space:nowrap}
+
+/* ---------- botones y campos ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;font-weight:600;font-size:13px;color:var(--ink);transition:background .12s,border-color .12s}
+.btn:hover{background:#f3f6fb;border-color:#c5cfdd}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand2);border-color:var(--brand2)}
+.btn.danger{color:var(--bad);border-color:#efc4c6}
+.btn.danger:hover{background:var(--bad-bg)}
+.btn.danger.solid{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field>span,.lbl{font-size:12px;font-weight:600;color:var(--ink2)}
+input[type=text],input[type=password],input[type=date],input[type=number],input[type=tel],input[type=email],input[type=time],input[type=search],select,textarea{width:100%;border:1px solid #cdd5e1;border-radius:6px;padding:7px 9px;background:#fff;min-height:34px}
+textarea{resize:vertical;min-height:70px}
+input:disabled,select:disabled,textarea:disabled{background:#f4f6f9;color:var(--mute)}
+.chk{display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:13px}
+.chk input{margin-top:3px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hint{font-size:12.5px;color:var(--ink2);background:var(--info-bg);border-radius:6px;padding:8px 10px;margin:4px 0 10px;min-height:20px}
+.hint.warn{background:var(--warn-bg);color:#6a4200}
+.hint.err{background:var(--bad-bg);color:#8a1b20}
+.seg{display:flex;border:1px solid #cdd5e1;border-radius:7px;overflow:hidden;background:#fff}
+.seg label,.seg button{flex:1;text-align:center;padding:7px 10px;font-size:13px;font-weight:600;border:0;background:#fff;cursor:pointer;color:var(--ink2);border-right:1px solid #e1e6ee}
+.seg>*:last-child{border-right:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label.on,.seg button.on{background:var(--brand);color:#fff}
+
+/* ---------- cabecera ---------- */
+.top{background:var(--brand);color:var(--brand-ink);display:flex;align-items:center;gap:14px;padding:10px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand svg{width:34px;height:34px;flex:none}
+.brand b{font-size:19px;letter-spacing:.3px;display:block;line-height:1.1}
+.brand span{font-size:12px;opacity:.78;display:block}
+.top select{width:auto;min-width:220px;max-width:320px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.28);font-weight:600}
+.top select option{color:#111}
+.pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff}
+.pill i{width:8px;height:8px;border-radius:50%;background:#aab4c6;display:inline-block}
+.pill.ok i{background:#4ade80}.pill.pend i{background:#facc15}.pill.err i{background:#f87171}.pill.loc i{background:#fb923c}
+.top .btn{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.28)}
+.top .btn:hover{background:rgba(255,255,255,.22)}
+.who{font-size:13px;opacity:.92;display:flex;align-items:center;gap:6px}
+.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:2px;padding:0 14px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:12px 14px;font-weight:600;font-size:13.5px;color:var(--ink2);border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--brand);border-bottom-color:var(--brand)}
+.banner{display:flex;align-items:center;gap:12px;padding:9px 20px;font-size:13px;background:var(--warn-bg);color:#5d3a00;border-bottom:1px solid #f0d9a8;flex-wrap:wrap}
+.banner.info{background:var(--info-bg);color:#17356b;border-color:#c9d9f6}
+.banner.err{background:var(--bad-bg);color:#7e1a1f;border-color:#f0c2c4}
+.banner b{font-weight:700}
+.banner .btn{margin-left:auto}
+
+.procbar{background:#fff;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.procbar h1{font-size:18px}
+.procbar .kv{display:flex;flex-direction:column;font-size:12px;color:var(--mute)}
+.procbar .kv b{font-size:14px;color:var(--ink);font-weight:700}
+.procbar .prog{margin-left:auto;min-width:200px}
+.meter{height:8px;background:#e7ebf2;border-radius:99px;overflow:hidden}
+.meter>i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+.procbar .prog small{display:block;margin-bottom:4px}
+
+main{padding:16px 20px 60px;max-width:1500px;margin:0 auto}
+.tools{padding:12px 20px 0;max-width:1500px;margin:0 auto}
+.tools .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tools input[type=search]{width:260px;border:1px solid #cdd5e1;border-radius:6px;padding:7px 10px;min-height:34px}
+.tools select{width:auto}
+.tools .chk{margin:0;font-size:13px;align-items:center}
+.tools .chk input{margin:0}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.lg{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px 2px 4px;font-size:12px;display:inline-flex;align-items:center;gap:6px;color:var(--ink2);font-weight:600}
+.lg i{width:14px;height:14px;border-radius:50%;background:var(--c);display:inline-block}
+.lg.on{border-color:var(--brand);background:var(--info-bg);color:var(--brand)}
+.lg:hover{border-color:#b8c3d4}
+.count{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+.chip{display:inline-block;background:var(--c);color:var(--t);padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.6}
+
+/* ---------- tarjetas / resumen ---------- */
+.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:16px}
+.card h3{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h3 .n{background:var(--line2);color:var(--ink2);border-radius:99px;padding:0 8px;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.kpi b{display:block;font-size:26px;line-height:1.1;letter-spacing:-.5px}
+.kpi span{font-size:12px;color:var(--mute)}
+.kpi.bad b{color:var(--bad)}.kpi.ok b{color:var(--ok)}
+.hitos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.hito{border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#fbfcfe}
+.hito b{display:block;font-size:12.5px}
+.hito span{display:block;font-size:12.5px;color:var(--ink2)}
+.hito small{font-size:11.5px}
+.hito.past{opacity:.55}.hito.now{border-color:var(--brand);background:var(--info-bg)}
+button.hito{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
+button.hito:hover{border-color:var(--brand);box-shadow:0 1px 6px rgba(20,48,95,.15)}
+.hito.own{border-left:5px solid #F2C200;background:#fff8d6}.hito.own.now{background:#fff1b0;border-color:#d9ab00}
+.hito .hix{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.ix{display:inline-block;font-size:11px;font-weight:600;color:var(--ink2);background:#eef2f8;border-radius:10px;padding:0 6px;margin-left:5px;white-space:nowrap;vertical-align:middle;line-height:1.6}
+.ix.resp{background:#f3f0fa;color:#4b3a78;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.hit .ix,.hix .ix{margin-left:0}
+.hmk{color:#b38600;font-weight:700;margin-right:5px}
+.mtabs{display:flex;flex-wrap:wrap;max-width:none}.mtabs button small{opacity:.7;font-weight:400}
+.pchips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.gtbl{border-collapse:separate;border-spacing:0}
+.gtbl th{font-size:11px;white-space:nowrap;padding:4px 6px;text-align:center}
+.gtbl .gsticky{position:sticky;left:0;z-index:2;background:#f6f8fb;text-align:left;min-width:190px;max-width:240px;white-space:normal}
+.gtbl td.gc{padding:2px;min-width:86px}
+.gtbl td.gc input{min-height:28px;padding:3px 5px;font-size:12px;border-color:#dde3ec}
+.g-as,.gtbl td.g-as input{background:#e3edfb!important}.g-nd,.gtbl td.g-nd input{background:#e6e7ea!important;color:#555}.g-rs,.gtbl td.g-rs input{background:#fff1cc!important}
+.resf{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+.seg.segsm button{font-size:12px;padding:5px 10px}
+.reslist{max-height:560px}
+.resrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line2)}
+.resrow .mini{border-bottom:0;flex:1;min-width:0}
+.resrow .resst{flex:none}
+.resrow.closed .mini{opacity:.55}
+.btn.hbtn{background:#F2C200;border-color:#d9ab00;color:#3b2f00;font-weight:700}.btn.hbtn:hover{background:#ffd633}
+.ag-e.hb{border-left:5px solid #F2C200;background:#fff8d6}
+.sc.hb{border-left:5px solid #F2C200!important;background:#fff8d6}.sc.hb .sc-h{background:#fff8d6}
+.bar.hb{--c:#F2C200!important;--t:#3b2f00!important;background:#F2C200;color:#3b2f00;box-shadow:inset 0 0 0 2px #b38600;font-weight:700}
+.g-bar.hb{--c:#F2C200!important;background:#F2C200;box-shadow:0 0 0 2px #b38600}
+.g-l .g-tt{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.g-l .ix{margin-left:2px;font-size:10px}
+.hlist{max-height:240px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;margin-top:6px}
+.hlist .chk{margin:3px 0;align-items:flex-start}
+.hlist .chk[hidden]{display:none}
+.mini{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;background:none;padding:7px 4px;border-bottom:1px solid var(--line2);border-radius:0}
+.mini:hover{background:#f5f8fd}
+.mini:last-child{border-bottom:0}
+.mini .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--c)}
+.mini .mt{flex:1;min-width:0;font-size:13px}
+.mini .md{font-size:12px;color:var(--mute);white-space:nowrap;text-align:right}
+.mini.bad .md{color:var(--bad);font-weight:700}
+.scrolly{max-height:420px;overflow:auto}
+.empty{padding:40px 16px;text-align:center;color:var(--mute)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+.pad{padding:18px}
+
+/* ---------- tabla de plazos ---------- */
+.tblwrap{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:auto}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.tbl th{position:sticky;top:0;background:#f6f8fc;text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mute);padding:8px 10px;border-bottom:1px solid var(--line);z-index:2;white-space:nowrap}
+.tbl td{padding:7px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
+.tbl tr.sec td{background:#eef2f8;font-weight:700;font-size:12.5px;color:var(--brand);cursor:pointer;position:sticky;top:33px;z-index:1;border-bottom:1px solid var(--line)}
+.tbl tr.sec .cnt{font-weight:600;color:var(--mute);margin-left:8px}
+.tbl tr.row{cursor:pointer}
+.tbl tr.row:hover td{background:#f7faff}
+.tbl tr.row.open td:first-child{box-shadow:inset 3px 0 0 var(--brand2)}
+.tbl tr.row.overdue td{background:var(--bad-bg)}
+.tbl tr.row.overdue td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.tbl tr.row.closed .tt{text-decoration:line-through;color:var(--mute)}
+.tbl tr.row.closed td{opacity:.72}
+.tbl tr.row.past:not(.closed):not(.overdue) .c-d b{color:var(--mute);font-weight:600}
+.tt{font-weight:600;line-height:1.35}
+.sub{font-size:12px;color:var(--mute);margin-top:1px}
+.star{color:#d89a00;margin-right:4px}
+.c-chk{width:34px;text-align:center}
+.c-chk input{width:16px;height:16px;cursor:pointer}
+.c-d{white-space:nowrap}
+.c-d b{font-weight:700}
+.c-d small{display:block;font-size:11.5px}
+.c-plazo{max-width:230px;font-size:12px;color:var(--ink2)}
+.c-resp{font-size:12.5px;max-width:130px}
+.c-n{white-space:nowrap;font-size:12.5px;color:var(--mute)}
+.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.st-p{background:#eceff5;color:#46536a}.st-c{background:#dfeafd;color:#1b4fb0}.st-h{background:var(--ok-bg);color:var(--ok)}.st-n{background:#f1ecf8;color:#6b4a9b}
+.badge.late{background:var(--bad);color:#fff}
+
+/* ---------- agenda ---------- */
+.ag-day{margin-bottom:14px}
+.ag-h{display:flex;align-items:baseline;gap:10px;padding:6px 2px;border-bottom:2px solid var(--line);margin-bottom:4px}
+.ag-h b{font-size:15px}
+.ag-h.today b{color:var(--today)}
+.ag-h small{font-size:12.5px}
+.ag-e{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;background:#fff;border:1px solid var(--line2);margin:4px 0;cursor:pointer}
+.ag-e:hover{background:#f6f9ff}
+.ag-e .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;min-width:84px;color:var(--ink2)}
+.ag-e .k.end{color:var(--bad)}.ag-e .k.start{color:var(--ok)}
+.ag-e .t{flex:1;min-width:0}
+.ag-e.closed .t{text-decoration:line-through;color:var(--mute)}
+
+/* ---------- calendario ---------- */
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.cal-head h2{font-size:18px;min-width:170px}
+.cal{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:#f6f8fc;border-bottom:1px solid var(--line);font-size:11.5px;font-weight:700;text-transform:uppercase;color:var(--mute);letter-spacing:.4px}
+.cal-dow div{padding:6px 8px;border-right:1px solid var(--line2)}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--line);position:relative;min-height:92px;grid-auto-rows:min-content}
+.wk:last-child{border-bottom:0}
+.dbg{border-right:1px solid var(--line2);z-index:0}
+.dbg.we{background:var(--wknd)}
+.dbg.out{background:repeating-linear-gradient(135deg,#f4f6fa 0 6px,#eef1f6 6px 12px)}
+.dbg.vote{background:#e8eefb;box-shadow:inset 0 0 0 2px #1a2a55}
+.dnum{z-index:1;padding:3px 6px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;display:flex;gap:6px;align-items:center;justify-self:stretch}
+.dnum:hover{background:rgba(20,48,95,.06)}
+.dnum em{font-style:normal;font-weight:600;font-size:10.5px;color:var(--mute)}
+.dnum.out{color:#98a3b6}
+.dnum.today span{background:var(--today);color:#fff;border-radius:99px;padding:0 6px}
+.dnum.vote strong{font-size:10.5px;background:#1a2a55;color:#fff;border-radius:4px;padding:0 5px}
+.bar{z-index:1;margin:1px 2px;padding:1px 6px;border:0;border-radius:4px;background:var(--c);color:var(--t);font-size:11.5px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;min-width:0}
+.bar:hover{filter:brightness(.93);box-shadow:0 0 0 2px rgba(20,48,95,.35)}
+.bar.cutL{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:0}
+.bar.cutR{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:0}
+.bar.closed{opacity:.45;text-decoration:line-through}
+.bar.late{outline:2px solid var(--bad);outline-offset:-2px}
+.more{z-index:1;border:0;background:none;font-size:11px;color:var(--brand2);font-weight:700;text-align:left;padding:0 8px}
+.more:hover{text-decoration:underline}
+
+/* ---------- cronograma ---------- */
+.gscroll{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:auto;max-height:calc(100vh - 260px);min-height:300px}
+.gin{position:relative;width:max-content;min-width:100%;--lw:310px}
+.g-hd{position:sticky;top:0;z-index:4;background:#f6f8fc;border-bottom:1px solid var(--line);display:flex}
+.g-hl{position:sticky;left:0;z-index:5;width:var(--lw);flex:none;background:#f6f8fc;border-right:1px solid var(--line);padding:6px 10px;font-size:11.5px;font-weight:700;text-transform:uppercase;color:var(--mute)}
+.g-hr{position:relative;flex:none}
+.g-mo{display:flex;height:20px;border-bottom:1px solid var(--line2)}
+.g-mo div{font-size:11px;font-weight:700;color:var(--ink2);padding:2px 6px;border-right:1px solid var(--line);overflow:hidden;white-space:nowrap}
+.g-dy{display:flex;height:22px}
+.g-dy div{font-size:10px;text-align:center;color:var(--mute);line-height:22px;flex:none;border-right:1px solid var(--line2)}
+.g-dy div.we{background:var(--wknd)}
+.g-dy div.d0{background:#dfe8fa;color:var(--brand);font-weight:700}
+.g-dy div.dv{background:#1a2a55;color:#fff;font-weight:700}
+.g-row{display:flex;border-bottom:1px solid var(--line2);height:27px}
+.g-sec{display:flex;border-bottom:1px solid var(--line);background:#eef2f8;height:26px}
+.g-l{position:sticky;left:0;z-index:3;width:var(--lw);flex:none;background:#fff;border-right:1px solid var(--line);padding:3px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;cursor:pointer}
+.g-l:hover{background:#f3f7ff}
+.g-sec .g-l{background:#eef2f8;font-weight:700;color:var(--brand);cursor:default}
+.g-l i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.g-t{position:relative;flex:none;background-repeat:repeat-x}
+.g-bar{position:absolute;top:5px;height:17px;border-radius:4px;background:var(--c);min-width:6px;cursor:pointer;border:0;padding:0}
+.g-bar.closed{opacity:.4}
+.g-bar.late{outline:2px solid var(--bad)}
+.g-guide{position:absolute;top:0;bottom:0;width:2px;z-index:2;pointer-events:none}
+.g-guide.today{background:var(--today)}
+.g-guide.vote{background:#1a2a55}
+
+/* ---------- actividad / ajustes ---------- */
+.act{display:flex;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line2);font-size:13px}
+.act:last-child{border-bottom:0}
+.act .av{width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:none}
+.act .when{font-size:11.5px;color:var(--mute)}
+.set h3{font-size:15px}
+.set p{margin:4px 0 10px;color:var(--ink2)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.plist{width:100%;border-collapse:collapse;font-size:13px}
+.plist td,.plist th{padding:7px 8px;border-bottom:1px solid var(--line2);text-align:left;vertical-align:middle}
+.plist th{font-size:11.5px;text-transform:uppercase;color:var(--mute);letter-spacing:.4px}
+.tag{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--line2);color:var(--ink2)}
+.tag.arch{background:#efe9f9;color:#5b3d92}
+
+/* ---------- cajón lateral ---------- */
+.scrim{position:fixed;inset:0;background:rgba(15,24,42,.35);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100vw);background:#fff;z-index:50;box-shadow:-8px 0 30px rgba(15,24,42,.2);transform:translateX(104%);transition:transform .22s;display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.dr-h{display:flex;gap:10px;padding:16px 18px 12px;border-bottom:1px solid var(--line);align-items:flex-start}
+.dr-h h2{font-size:17px;line-height:1.3}
+.dr-sec{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--mute);font-weight:700;margin-bottom:3px}
+.dr-meta{margin-top:7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--ink2)}
+.x{margin-left:auto;border:0;background:none;font-size:20px;line-height:1;color:var(--mute);padding:2px 8px;border-radius:6px}
+.x:hover{background:var(--line2);color:var(--ink)}
+.dr-b{flex:1;overflow:auto;padding:14px 18px 20px}
+.dr-b section{margin-bottom:18px}
+.dr-b h4{margin:0 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--mute)}
+.legal{background:#f6f8fc;border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:13px}
+.legal div+div{margin-top:4px}
+.infonota{background:var(--warn-bg);border-radius:7px;padding:8px 11px;font-size:12.5px;color:#5d3a00}
+.note{border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-bottom:8px;background:#fdfdfe}
+.note .nh{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute);margin-bottom:3px}
+.note .nh b{color:var(--ink)}
+.note .nh button{margin-left:auto;border:0;background:none;color:var(--mute);font-size:12px;padding:0 4px}
+.note .nh button:hover{color:var(--bad);text-decoration:underline}
+.note .nt{white-space:pre-wrap;word-break:break-word}
+.starbtn{display:inline-flex;gap:7px;align-items:center;font-size:13px;cursor:pointer}
+
+/* ---------- modales, aviso, bloqueo ---------- */
+.modal{position:fixed;inset:0;background:rgba(15,24,42,.5);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:6vh 14px;overflow:auto}
+.mc{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(560px,100%);padding:20px 22px}
+.mc.wide{width:min(720px,100%)}
+.mc h2{font-size:18px;margin-bottom:12px}
+.mc p{margin:0 0 10px;color:var(--ink2)}
+.mc .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.daylist .mini{padding:8px 4px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1a2333;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:99;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.toast.err{background:var(--bad)}
+.lock{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#10254a 0%,#1c3d78 60%,#2a5aa8 100%);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.lock .box{background:#fff;border-radius:14px;width:min(430px,100%);padding:28px 28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.4)}
+.lock .logo{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.lock .logo svg{width:44px;height:44px}
+.lock .logo b{font-size:24px;letter-spacing:.4px;color:var(--brand);display:block;line-height:1}
+.lock .logo span{font-size:12.5px;color:var(--mute)}
+.lock .lead{color:var(--ink2);margin:10px 0 16px;font-size:13.5px}
+.lock .err{background:var(--bad-bg);color:#8a1b20;padding:8px 10px;border-radius:6px;font-size:13px;margin-bottom:12px}
+.lock .links{display:flex;flex-direction:column;gap:4px;margin-top:14px;font-size:13px}
+.lock .links button{border:0;background:none;color:var(--brand2);text-align:left;padding:3px 0;font-weight:600}
+.lock .links button:hover{text-decoration:underline}
+.lock .btn.primary{width:100%;justify-content:center;padding:10px}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .grid2{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .c-plazo,.c-resp,.th-plazo,.th-resp{display:none}
+}
+@media (max-width:640px){
+  .top{padding:10px 12px}main{padding:12px}.tools{padding:10px 12px 0}.procbar{padding:10px 12px}
+  .two{grid-template-columns:1fr}
+  .tools input[type=search]{width:100%}
+  .gin{--lw:190px}
+}
+
+/* ---------- mesas, jornada y contactos ---------- */
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.kpis>div{flex:1;min-width:130px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fbfcfe}
+.kpis b{display:block;font-size:19px;color:var(--ink)}
+.kpis span{font-size:12px;color:var(--mute)}
+.kpis .warn{background:#fff6e0;border-color:#f0d58c}.kpis .ok{background:#e6f5ec;border-color:#a9dcbc}
+.tag.okt{background:#e2f3e8;color:#1d6b3c}.tag.warnt{background:#fff1cc;color:#7a5600}
+.mtbl tr.mrow.open td{background:#f4f7fc}
+.mtbl tr.mmem td{background:#f4f7fc;padding:4px 10px 12px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.mcell{border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:#fff;display:flex;flex-direction:column;gap:4px}
+.mcell .mrl{font-size:11.5px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.3px}
+.mcell.m-ok{border-color:#a9dcbc;background:#f2fbf5}.mcell.m-av{border-color:#f0d58c;background:#fffaeb}.mcell.m-inc{border-color:#efc4c6;background:#fdf1f1}.mcell.m-gr{opacity:.7}
+.jtbl tr.j-ok td{background:#f0faf3}.jtbl tr.j-inc td{background:#fdf1f1}
+.jtbl tfoot td{border-top:2px solid var(--line);padding:8px 6px}
+.segchips .lg.yo{--c:#14305f}
+
+/* ---------- documentos de impresión A4 ---------- */
+#printdoc{display:none}
+@media print{
+  body.printdoc>*:not(#printdoc){display:none!important}
+  body.printdoc #printdoc{display:block;font:9.5pt/1.35 Arial,Helvetica,sans-serif;color:#000;background:#fff}
+  body.printdoc{background:#fff!important;font-size:9.5pt}
+}
+#printdoc .pr-head{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #14305f;padding-bottom:4px;margin-bottom:8px}
+#printdoc .pr-org{font-weight:700;color:#14305f;font-size:10pt}
+#printdoc .pr-proc{font-size:8pt;color:#333;text-align:right}
+#printdoc .pr-h1{font-size:15pt;margin:4px 0 2px;color:#14305f}
+#printdoc .pr-sub{font-size:8.5pt;color:#444;margin-bottom:8px}
+#printdoc .pr-h2{font-size:11pt;margin:12px 0 4px;color:#14305f;border-bottom:1px solid #b9c4d6;padding-bottom:2px;break-after:avoid;page-break-after:avoid}
+#printdoc .pr-h2 small{font-weight:400;color:#444}
+#printdoc .pr-h3{font-size:9.5pt;margin:8px 0 3px;break-after:avoid;page-break-after:avoid}
+#printdoc .pr-break{break-before:page;page-break-before:always}
+#printdoc .pr-p{margin:3px 0 6px}
+#printdoc .pr-empty{color:#555;font-style:italic;margin:3px 0 6px}
+#printdoc .pr-ul{margin:3px 0 6px;padding-left:18px}
+#printdoc table.pr-t{width:100%;border-collapse:collapse;margin:2px 0 8px;font-size:8.5pt}
+#printdoc table.pr-t th{background:#e9eef6;border:1px solid #9aa7bb;padding:3px 4px;text-align:left;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-t td{border:1px solid #b9c4d6;padding:3px 4px;vertical-align:top}
+#printdoc table.pr-t thead{display:table-header-group}
+#printdoc table.pr-t tr{break-inside:avoid;page-break-inside:avoid}
+#printdoc table.pr-t td small{color:#444}
+#printdoc table.pr-t tr.late td{background:#fde2e3;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-t tr.hito td{background:#fff3c4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-t tr.closed td{color:#555}
+#printdoc table.pr-t.compact td{padding:2px 4px}
+#printdoc table.pr-t.tall td{height:9mm}
+#printdoc .pr-blank{display:inline-block;width:100%;border-bottom:1px dotted #888;height:10px}
+#printdoc table.pr-kv{border-collapse:collapse;width:100%;margin:4px 0 8px;font-size:9pt}
+#printdoc table.pr-kv th{width:26%;text-align:left;background:#f1f4f9;border:1px solid #b9c4d6;padding:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-kv td{border:1px solid #b9c4d6;padding:4px}
+#printdoc .pr-note{border:1px solid #c9d3e3;border-radius:4px;padding:4px 6px;margin:4px 0;break-inside:avoid;page-break-inside:avoid}
+#printdoc .pr-nh{font-size:8pt;color:#333;margin-bottom:2px}
+#printdoc .pr-lines{height:40mm;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 7.6mm,#999 7.6mm,#999 8mm);background-size:100% 8mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #b9c4d6}
+#printdoc .pr-lines.tall{height:70mm}
+#printdoc .pr-kpis{display:flex;gap:6px;margin:6px 0 8px}
+#printdoc .pr-kpis div{flex:1;border:1px solid #b9c4d6;border-radius:4px;padding:4px 6px}
+#printdoc .pr-kpis b{display:block;font-size:12pt}
+#printdoc .pr-kpis span{font-size:8pt;color:#333}
+#printdoc .pr-block{break-inside:avoid-page}
+#printdoc table.pr-cal{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7pt}
+#printdoc table.pr-cal th{background:#e9eef6;border:1px solid #9aa7bb;padding:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-cal td{border:1px solid #9aa7bb;vertical-align:top;height:23mm;padding:2px 3px;overflow:hidden}
+#printdoc.land .pr-foot{margin-top:4px}
+#printdoc table.pr-cal td.out{background:#f3f3f3;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-cal td.vote{background:#e3edfb;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc .pr-dn{font-size:8pt;margin-bottom:1px}
+#printdoc .pr-ce{line-height:1.2;margin:1px 0;overflow:hidden;max-height:2.5em}
+#printdoc .pr-ce.hito{background:#fff3c4;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc .pr-ce.more{color:#444;font-style:italic}
+#printdoc .pr-legend{font-size:7.5pt;color:#333;margin-top:4px}
+#printdoc table.pr-grid{font-size:7pt;table-layout:fixed}
+#printdoc table.pr-grid th:first-child,#printdoc table.pr-grid td:first-child{width:24%}
+#printdoc table.pr-grid td.nd{background:#e1e1e1;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc table.pr-grid td.rs{background:#ffe8a8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printdoc .pr-foot{margin-top:10px;border-top:1px solid #b9c4d6;padding-top:3px;font-size:7.5pt;color:#444}
+/* menú de impresión */
+.dr-act{display:flex;gap:6px;align-items:flex-start}
+.prbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px}
+.prlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin:10px 0}
+.prop{text-align:left;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fbfcfe;cursor:pointer;font:inherit;display:flex;flex-direction:column;gap:3px}
+.prop:hover{border-color:var(--brand);background:#eef4fb}
+.prop span{font-size:12px;color:var(--mute)}
+.btn.prt{white-space:nowrap}
+
+/* ---------- documentos adjuntos ---------- */
+.att{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin-bottom:6px;background:#fdfdfe}
+.ati{flex:none;font-size:10px;font-weight:700;border-radius:4px;padding:3px 5px;color:#fff;background:#6b7280}
+.ati.pdf{background:#c0392b}.ati.xls{background:#1d6f42}.ati.img{background:#2e7d5b}
+.atm{flex:1;min-width:0;display:flex;flex-direction:column}
+.atn{border:0;background:none;padding:0;text-align:left;color:var(--brand);font-weight:600;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.atn:hover{text-decoration:underline}
+.atm small{color:var(--mute)}
+.atb{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.atl{margin:6px 0}
+.drop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px dashed var(--line);border-radius:8px;padding:10px}
+.drop.on{border-color:var(--brand);background:#eef4fb}
+.viewer{position:fixed;inset:0;z-index:90;background:#2b3038;display:flex;flex-direction:column}
+.vw-h{display:flex;gap:8px;align-items:center;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.vw-t{flex:1;min-width:180px;display:flex;flex-direction:column;overflow:hidden}
+.vw-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-t small{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-n{font-size:12px;color:var(--mute);white-space:nowrap}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.vw-b{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;min-height:0}
+.vw-b img{max-width:100%;height:auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.vw-b .vw-pdf{width:100%;height:100%;border:0;background:#fff;min-height:70vh}
+.vw-b:has(.vw-pdf){padding:0}
+/* visor de hojas de cálculo */
+.xlwrap{width:100%;display:flex;flex-direction:column;gap:8px;align-self:stretch}
+.xltabs{display:flex;gap:4px;flex-wrap:wrap}
+.xltabs button{border:1px solid #c9d3e3;background:#e9eef6;border-radius:6px 6px 0 0;padding:5px 12px;font-size:12.5px;cursor:pointer}
+.xltabs button.on{background:#fff;font-weight:700;border-bottom-color:#fff}
+.xlsheet{background:#fff;overflow:auto;border-radius:4px;max-height:calc(100vh - 150px)}
+.xlname{display:none;font-weight:700;padding:6px 0}
+table.xls{border-collapse:collapse;font-size:12px;font-family:Calibri,Arial,sans-serif}
+table.xls th{background:#f0f2f5;color:#666;font-weight:400;border:1px solid #d5d9e0;padding:2px 6px;position:sticky;top:0;z-index:1}
+table.xls tbody th{position:sticky;left:0;top:auto;text-align:right;z-index:0}
+table.xls td{border:1px solid #e1e4e9;padding:2px 6px;white-space:pre-wrap;vertical-align:top;max-width:420px}
+table.xls td.n{text-align:right}
+.vw-note{color:#e8ebf0;font-size:12.5px}
+@media print{body.printing .xltabs{display:none}body.printing .xlsheet{max-height:none;overflow:visible}body.printing .xlname{display:block}body.printing table.xls{font-size:9px}body.printing .vw-note{color:#555}}
+.vw-msg{color:#e8ebf0;margin-top:18vh;text-align:center;font-size:15px;line-height:1.8}
+.vw-msg.err{color:#ffd2d2}
+body.vw-open{overflow:hidden}
+.lnk{border:0;background:none;padding:0;color:var(--brand);cursor:pointer;text-align:left;font:inherit}
+.lnk:hover{text-decoration:underline}
+@media print{
+  body.printing>*:not(#viewer){display:none!important}
+  body.printing .viewer{position:static;background:#fff;display:block}
+  body.printing .vw-h{display:none}
+  body.printing .vw-b{padding:0;overflow:visible;display:block}
+  body.printing .vw-b img{box-shadow:none;max-width:100%;max-height:100vh}
+}
+
+/* ---------- impresión ---------- */
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:11px}
+  .top,.tabs,.banner,.tools,.drawer,.scrim,.toast,.modal,.lock,.btn,.count{display:none!important}
+  .procbar{border:0;padding:0 0 8px}
+  .procbar .prog{display:none}
+  main{padding:0;max-width:none}
+  .tblwrap,.card,.cal,.gscroll{box-shadow:none;border:1px solid #bbb;overflow:visible;max-height:none}
+  .tbl th,.tbl tr.sec td{position:static}
+  .tbl tr{break-inside:avoid}
+  .c-plazo,.c-resp{display:table-cell!important}
+  .c-chk input{display:none}
+}
+
+/* ---------- manual ---------- */
+.help h3{font-size:15.5px;margin:22px 0 6px;color:var(--brand)}
+.help p,.help li{color:var(--ink2);line-height:1.6}
+.help ol{padding-left:22px;margin:6px 0}
+.help li{margin:5px 0}
+.help .legend .lg{cursor:default}
+@media print{.help{border:0!important}.help h3{break-after:avoid}}
+
+/* ---------- seguimiento ---------- */
+.phase{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px 8px;margin-bottom:14px}
+.ph-t{font-size:14.5px;margin-bottom:10px;color:var(--ink2)}
+.ph-t b{color:var(--brand)}
+.phbar{position:relative;display:flex;height:30px;margin:6px 0 26px;border-radius:6px}
+.phbar>div{min-width:0;background:#e6ebf4;border-right:2px solid #fff;font-size:10.5px;font-weight:700;color:var(--ink2);display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 4px}
+.phbar>div:first-child{border-radius:6px 0 0 6px}.phbar>div:last-child{border-radius:0 6px 6px 0;border-right:0}
+.phbar>div.done{background:#c9d5ea;color:#3f4f6e}
+.phbar>div.cur{background:var(--brand);color:#fff}
+.phbar .mk{position:absolute;top:-7px;bottom:-7px;width:3px;margin-left:-1px;background:var(--today);border-radius:2px;box-shadow:0 0 0 2px #fff}
+.phbar .mk span{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;font-size:11px;font-weight:800;color:var(--today);white-space:nowrap;font-style:normal}
+.segchips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 6px}
+.segchips .lbl{margin-right:2px}
+.segact{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.sg h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);margin:20px 0 8px;display:flex;gap:8px;align-items:center}
+.sg h3 .n{background:var(--line2);color:var(--ink2);border-radius:99px;padding:0 8px;font-size:12px;letter-spacing:0}
+.sg h3.red{color:var(--bad)}.sg h3.red .n{background:var(--bad-bg);color:var(--bad)}
+.sg h3.blue{color:var(--brand2)}.sg h3.blue .n{background:var(--info-bg);color:var(--brand2)}
+.sg h3.muted{color:var(--mute)}
+.sc{background:#fff;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.sc.open{box-shadow:var(--shadow);border-color:#c6d2e6}
+.sc.late{border-color:#efb4b7;background:#fffafa}
+.sc.closed .sc-t{color:var(--mute);text-decoration:line-through}
+.sc-h{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;cursor:pointer;border-radius:9px}
+.sc-h:hover{background:#f7f9fd}
+.abbr{flex:none;width:96px;text-align:center;font-size:10.5px;font-weight:800;letter-spacing:.5px;border-radius:6px;padding:6px 4px;margin-top:1px}
+.ab-p{background:#eceff5;color:#46536a}.ab-c{background:#dbe7fd;color:#174aa8}.ab-h{background:#d8f1e2;color:#0f6b3a}.ab-n{background:#efe8f8;color:#5f4192}.ab-v{background:var(--bad);color:#fff}
+.sc-m{flex:1;min-width:0}
+.sc-d{font-size:12.5px;color:var(--ink2);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sc-d .dd{color:var(--mute);font-weight:600}
+.tm{font-size:11.5px;font-weight:700;border-radius:99px;padding:1px 9px}
+.tm.open{background:#dcf2e5;color:#0f6b3a}.tm.fut{background:#eef2f8;color:#44526a}.tm.past{background:#f0f1f3;color:#6f7782}.tm.late{background:var(--bad-bg);color:var(--bad)}.tm.today{background:#fde6c2;color:#7a4700}
+.sc-t{font-weight:650;font-size:14px;margin:4px 0 3px;line-height:1.35}
+.sc-s{font-size:12px;color:var(--mute);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sc-x{flex:none;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:12px;font-weight:700;color:var(--brand2);padding:5px 10px;white-space:nowrap}
+.sc-x:hover{background:var(--info-bg)}
+.sc-p{border-top:1px dashed var(--line);padding:12px 16px 14px 120px;background:#fbfcfe;border-radius:0 0 9px 9px}
+.sc-p .pl{font-size:12.5px;color:var(--ink2);margin-bottom:8px}
+.sc-p .infonota{margin-bottom:10px}
+.sc-p .rowf{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.sc-p .rowf input{max-width:280px}
+.sc-p .notes{margin-bottom:8px}
+textarea.inote{min-height:64px;overflow:hidden;line-height:1.5}
+.note .nh button+button{margin-left:0}
+@media (max-width:640px){.sc-p{padding-left:14px}.abbr{width:76px;font-size:10px}.sc-h{gap:8px}.phbar>div{font-size:9.5px}}
+
+/* ---------- formaciones ---------- */
+.fhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fhead h3{margin:0}
+.fhead .btnrow{margin:0}
+.ftbl td{padding:4px 5px;vertical-align:middle}
+.ftbl input,.ftbl select{min-height:30px;padding:4px 7px;font-size:12.5px;border-color:#dde3ec;background:transparent}
+.ftbl input:hover{border-color:#b9c4d6;background:#fff}
+.ftbl input:focus,.ftbl select:focus{background:#fff;border-color:var(--focus)}
+.ftbl input[type=number]{width:56px}
+.ftbl tr.q-ok td{background:#e2f3e8}.ftbl tr.q-av td{background:#fff4d4}.ftbl tr.q-inc td{background:#fde2e3}
+.ftbl a.btn{text-decoration:none}
+
+/* ---------- Espais electorals ---------- */
+.brand .tt{display:flex;flex-direction:column}
+#tit{font-size:12px;opacity:.85}
+.pchip{display:inline-block;background:var(--pc,#888);color:#fff;font-weight:700;font-size:12px;border-radius:5px;padding:2px 8px;line-height:1.5;white-space:nowrap;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+.pchip.sm{font-size:11px;padding:1px 6px}.pchip.off{background:#c7cdd8}
+.mode{font-size:11px;font-weight:700;border-radius:10px;padding:2px 9px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.4px}
+.mode.m-cerrado{background:#e6e8ec;color:#555}.mode.m-turnos{background:#e3edfb;color:#14305f}.mode.m-libre{background:#e2f3e8;color:#1d6b3c}
+.turnbox{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;background:#f6f8fb;font-size:14px}
+.turnbox.mine{background:#e2f3e8;border-color:#7cc596;box-shadow:0 0 0 3px #d2efdc}
+.turnbox.done{background:#f0f0f0}.turnbox.closed{background:#f6f6f6;color:#555}
+.turnbox .pchip{font-size:15px;padding:3px 12px}
+.order{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:6px 0}
+.oi{display:inline-flex;gap:4px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:2px 6px;background:#fff}
+.oi small{color:var(--mute);font-size:11px}
+.oi.cur{border-color:var(--brand);box-shadow:0 0 0 2px #c9d8f2;background:#eef4fb}
+.oi.full{opacity:.5}
+.oarr{color:#aab3c2}
+.small{font-size:12.5px}
+.banner.turn{background:#e2f3e8;border-color:#7cc596;color:#1d4d2e}
+.dot-turn{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2E9E4F;box-shadow:0 0 0 3px #c8ecd4;vertical-align:middle;margin-left:4px;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(46,158,79,.15)}}
+.hero{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.hero h2{margin:0 0 4px;font-size:20px;color:var(--brand)}
+.setupc ol{margin:6px 0 0;padding-left:22px}.setupc li{margin:5px 0}.setupc li.ok{color:var(--mute);text-decoration:line-through}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px}
+.filters select{width:auto}
+.ltbl tr.taken td{background:#fafbfc}.ltbl tr.mine td{background:#eef8f1}
+.ltbl td.num{text-align:right}
+.free-l{color:#2E7D32;font-weight:700;font-size:12.5px}
+.two3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.olist{border:1px solid var(--line);border-radius:8px;padding:4px 8px;max-width:620px}
+.orow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line2)}.orow:last-child{border-bottom:0}
+.orow b{width:22px;text-align:right;color:var(--mute)}.orow .sp{flex:1}
+.gscroll{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:8px}
+table.cgrid{border-collapse:separate;border-spacing:0;font-size:12px}
+.cgrid th{position:sticky;top:0;background:#f0f3f8;z-index:2;padding:4px 3px;text-align:center;white-space:nowrap;font-size:11px;border-bottom:1px solid var(--line)}
+.cgrid thead tr:nth-child(2) th{top:24px}
+.cgrid th.we{background:#e6ebf3}
+.cgrid th.gs{position:sticky;left:0;z-index:3;background:#f6f8fb;text-align:left;min-width:210px;max-width:260px;white-space:normal;border-right:1px solid var(--line)}
+.cgrid tbody th.gs{z-index:1;font-weight:400}.cgrid tbody th.gs small{display:block;color:var(--mute)}
+.cgrid td.cc{padding:1px;border-bottom:1px solid var(--line2);border-right:1px solid var(--line2)}
+.cgrid td.cc button{width:62px;height:30px;border:0;border-radius:4px;font:inherit;font-size:11px;font-weight:700;cursor:pointer;background:#fff;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px}
+.cgrid td.cc.free button{background:#f3faf5;color:#2E7D32}.cgrid td.cc.free button:hover{background:#d9f0e0;outline:2px solid #7cc596}
+.cgrid td.cc.rs button{background:#fff4d4;color:#7a5600}
+.cgrid td.cc.nd button{background:#e3e4e8;color:#777;cursor:pointer}
+.cgrid td.cc.taken button,.cgrid td.cc.mine button{background:var(--pc,#888);color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+.cgrid td.cc.mine button{outline:3px solid #1d6b3c;outline-offset:-3px}
+.cgrid td.cc.dim button{opacity:.25}
+.legend .lgc{display:inline-block;min-width:26px;height:16px;border-radius:3px;vertical-align:middle;margin:0 4px 0 12px;text-align:center;font-size:10px;line-height:16px}
+.lgc.free{background:#f3faf5;border:1px solid #b6dfc3}.lgc.rs{background:#fff4d4}.lgc.nd{background:#e3e4e8}.lgc.taken{background:#1E88E5}.lgc.mine{background:#1E88E5;outline:2px solid #1d6b3c}
+body.waiting,body.waiting *{cursor:progress!important}
+.lnk{border:0;background:none;padding:0;color:var(--brand);cursor:pointer;font:inherit;font-weight:inherit}.lnk:hover{text-decoration:underline}
+.stat h3 .lnk{font-weight:700}
+</style>
+</head>
+<body>
+<div id="lock" class="lock" hidden></div>
+<div id="shell" hidden>
+  <header class="top">
+    <div class="brand"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="18" width="40" height="26" rx="4" fill="#fff"/><path d="M24 6c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z" fill="#F2C200"/><circle cx="24" cy="15" r="3.5" fill="#14305f"/><rect x="10" y="34" width="28" height="3" rx="1.5" fill="#c3d2ee"/></svg><div class="tt"><b>Espais electorals</b><span id="org"></span></div></div>
+    <span id="tit" class="tit"></span>
+    <button id="sync" class="pill" data-a="retry" type="button"></button>
+    <span class="who"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span id="who"></span></span>
+    <button class="btn sm" data-a="logout" type="button">Salir</button>
+  </header>
+  <nav id="tabs" class="tabs" aria-label="Secciones"></nav>
+  <div id="banner"></div>
+  <main id="view"></main>
+</div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:30px;font:16px sans-serif">Espais electorals necesita JavaScript. Ábrelo con Microsoft Edge o Google Chrome.</p></noscript>
+<script>
+(function () {
+'use strict';
+/* ============================================================
+   ESPAIS ELECTORALS · núcleo: utilidades, estado y sincronización con el servidor
+   ============================================================ */
+const DAY = 86400000;
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const p2 = (n) => (n < 10 ? '0' : '') + n;
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const ROLES = { admin: 'Administración (Ayuntamiento)', partido: 'Partido', consulta: 'Consulta' };
+const CATS = ['esp', 'ban', 'pan', 'pri'];
+const CATN = { esp: 'Espacios electorales', ban: 'Banderolas', pan: 'Pancartas', pri: 'Prismas' };
+const CAT1 = { esp: 'espacio', ban: 'tramo de banderolas', pan: 'pancarta', pri: 'prisma' };
+const MODEN = { cerrado: 'Cerrada', turnos: 'Por turnos', libre: 'Libre' };
+const COLS = {
+  esp: [['ord', 'Nº', 'number', 46], ['nom', 'Nombre', 'text', 200], ['ot', 'Abierto / cerrado', 'text', 100], ['dir', 'Dirección', 'text', 200], ['hor', 'Horario de uso', 'text', 240], ['nota', 'Notas', 'text', 150]],
+  ban: [['ord', 'Nº', 'number', 46], ['nom', 'Calle', 'text', 180], ['tram', 'Tramo', 'text', 210], ['bf', 'Banderolas', 'number', 70], ['pf', 'Plafones', 'number', 70], ['nota', 'Notas', 'text', 150]],
+  pan: [['ord', 'Nº', 'number', 46], ['lloc', 'Lugar', 'text', 210], ['lim', 'Límites', 'text', 280], ['nota', 'Notas', 'text', 150]],
+  pri: [['ord', 'Nº', 'number', 46], ['lloc', 'Lugar', 'text', 210], ['num', 'Número / ubicación', 'text', 180], ['nota', 'Notas', 'text', 150]]
+};
+const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
+
+/* ---------- fechas (UTC) ---------- */
+const parseISO = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : null; };
+const toISO = (t) => { const d = new Date(t); return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate()); };
+const fmt = (opts) => { const f = new Intl.DateTimeFormat('es-ES', Object.assign({ timeZone: 'UTC' }, opts)); return (t) => f.format(t).replace(/\./g, ''); };
+const fShort = fmt({ weekday: 'short', day: 'numeric', month: 'short' });
+const fLong = fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+const fDMY = (t) => { const d = new Date(t); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear(); };
+const fStamp = (ms) => { const d = new Date(ms); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+const hhmm = (ms) => { const d = new Date(ms); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); };
+const slotTxt = (s) => (s ? cap(fShort(parseISO(s.slice(0, 10)))) + ' · ' + (s[10] === 'M' ? 'mañana' : 'tarde') : '');
+
+/* ---------- almacenamiento del navegador (solo comodidad y cambios aún no enviados) ---------- */
+const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* nada */ } } };
+const SS = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* nada */ } }, del(k) { try { sessionStorage.removeItem(k); } catch (e) { /* nada */ } } };
+
+/* ---------- estado ---------- */
+const ST = {
+  db: null, seq: 0, urev: 0, users: [], me: null, user: '', tok: null, pend: {},
+  sync: 'idle', lastSaved: 0, saving: false, again: false, online: true, failN: 0, pollN: 0, rev: 0,
+  view: 'panel', ui: { flt: {}, q: {}, edit: {}, lflt: '', lq: '' }, timers: [], modalRes: null, modalLocked: false, hist: null, drafts: {}, busy: false, lastAct: Date.now()
+};
+const myRole = () => (ST.me && ST.me.role) || 'consulta';
+const isAdmin = () => myRole() === 'admin';
+const isParty = () => myRole() === 'partido';
+const myParty = () => (isParty() && ST.me ? ST.me.party : '');
+
+/* ---------- llamadas al servidor ---------- */
+async function api(path, body) {
+  const headers = { 'content-type': 'application/json' };
+  if (ST.tok) headers.authorization = 'Bearer ' + ST.tok;
+  let r;
+  try { r = await fetch('/api/' + path, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'same-origin' }); }
+  catch (e) { const er = new Error('Sin conexión con el servidor.'); er.net = true; throw er; }
+  let data = null; try { data = await r.json(); } catch (e) { /* sin cuerpo */ }
+  if (!r.ok) { const er = new Error((data && data.error) || ('Error ' + r.status + ' del servidor.')); er.status = r.status; throw er; }
+  return data;
+}
+
+/* ---------- cambios del Ayuntamiento: se ven al momento y se envían en segundo plano ---------- */
+const pendKey = () => 'espais.pend.' + (ST.me ? ST.me.id : '');
+function savePend() { const ks = Object.keys(ST.pend); if (ks.length) LS.set(pendKey(), JSON.stringify(ST.pend)); else LS.del(pendKey()); }
+function loadPend() { try { return JSON.parse(LS.get(pendKey())) || {}; } catch (e) { return {}; } }
+const pendCount = () => Object.keys(ST.pend).length;
+function put(key, obj) { obj.u = Date.now(); obj.b = ST.user; ST.db.E[key] = obj; ST.pend[key] = obj; markDirty(); return obj; }
+function putQuiet(key, obj) { obj.u = Date.now(); obj.b = ST.user; ST.db.E[key] = obj; ST.pend[key] = obj; }
+function markDirty() { savePend(); ST.rev++; ST.sync = 'pending'; paintSync(); clearTimeout(ST.saveT); ST.saveT = setTimeout(flush, 350); if (ST.db) renderAll(); }
+function applyServer(r) {
+  let ch = false;
+  if (r.E) for (const k in r.E) { if (ST.pend[k]) continue; ST.db.E[k] = r.E[k]; ch = true; }
+  if (r.rejected) r.rejected.forEach((x) => { if ((!r.E || !r.E[x.key]) && !ST.pend[x.key]) { delete ST.db.E[x.key]; ch = true; } });
+  if (typeof r.seq === 'number' && r.seq > ST.seq) ST.seq = r.seq;
+  if (r.users) { ST.users = r.users; ch = true; }
+  if (r.urev) ST.urev = r.urev;
+  if (r.me && ST.me && (r.me.role !== ST.me.role || r.me.name !== ST.me.name || r.me.party !== ST.me.party)) { ST.me = Object.assign(ST.me, r.me); ST.user = ST.me.name; SS.set('espais.me', JSON.stringify(ST.me)); ch = true; }
+  if (ch) { ST.rev++; renderAll(); }
+}
+async function flush() {
+  clearTimeout(ST.saveT);
+  if (!ST.db || !ST.tok) return;
+  if (ST.saving) { ST.again = true; return; }
+  const keys = Object.keys(ST.pend).slice(0, 400);
+  if (!keys.length) { ST.sync = 'saved'; paintSync(); return; }
+  ST.saving = true; ST.sync = 'saving'; paintSync();
+  try {
+    const batch = {}; keys.forEach((k) => { batch[k] = ST.pend[k]; });
+    const r = await api('sync', { changes: batch, since: ST.seq });
+    keys.forEach((k) => { if (ST.pend[k] === batch[k]) delete ST.pend[k]; });
+    savePend(); applyServer(r);
+    if (r.rejected && r.rejected.length) toast('No se ha guardado: ' + r.rejected[0].reason + (r.rejected.length > 1 ? ' (y ' + (r.rejected.length - 1) + ' cambios más)' : ''), 'err');
+    const wasOff = !ST.online; ST.online = true; ST.failN = 0; ST.lastSaved = Date.now(); if (wasOff) paintBanner();
+  } catch (e) { handleNetErr(e); }
+  finally {
+    ST.saving = false; ST.sync = !ST.online ? 'offline' : (pendCount() ? 'pending' : 'saved'); paintSync();
+    if (ST.online && (ST.again || pendCount())) { ST.again = false; ST.saveT = setTimeout(flush, 250); }
+  }
+}
+function handleNetErr(e) {
+  if (e.status === 401) { sessionExpired(e.message); return; }
+  if (e.status === 403 && /ya no tiene acceso/.test(e.message)) { kickOut(e.message); return; }
+  if (e.net || !e.status || e.status >= 500 || e.status === 429) {
+    const was = ST.online; ST.online = false; ST.failN++; ST.sync = 'offline';
+    clearTimeout(ST.retryT); ST.retryT = setTimeout(() => { if (pendCount()) flush(); else poll(true); }, Math.min(60000, 3000 * Math.pow(2, Math.min(ST.failN, 5) - 1)));
+    if (was) { paintBanner(); paintSync(); }
+    return;
+  }
+  toast(e.message, 'err'); ST.pend = {}; savePend(); loadAll().then(renderAll).catch(() => {});
+}
+async function poll(force) {
+  if (!ST.db || !ST.tok || ST.saving || ST.busy) return;
+  try {
+    ST.pollN++;
+    const r = await api('changes?since=' + ST.seq + '&urev=' + ST.urev + (force || ST.pollN % 10 === 0 ? '&force=1' : ''));
+    applyServer(r);
+    if (!ST.online) { ST.online = true; ST.failN = 0; paintBanner(); if (pendCount()) flush(); }
+    ST.sync = pendCount() ? 'pending' : 'saved'; ST.lastSaved = ST.lastSaved || Date.now(); paintSync();
+  } catch (e) { handleNetErr(e); }
+}
+async function loadAll() {
+  const r = await api('data');
+  ST.db = { E: r.E || {} }; ST.seq = r.seq || 0; ST.urev = r.urev || 0; ST.users = r.users || []; ST.me = r.me; ST.user = r.me.name;
+  SS.set('espais.me', JSON.stringify(ST.me));
+  const pend = loadPend(); for (const k in pend) { ST.db.E[k] = pend[k]; ST.pend[k] = pend[k]; }
+  ST.rev++; ST.cache = null; ST.online = true; ST.failN = 0; ST.sync = pendCount() ? 'pending' : 'saved'; ST.lastSaved = Date.now();
+  if (pendCount()) flush();
+}
+/* reservas, liberaciones y turnos: van directas al servidor, que decide (exclusividad y turnos) */
+async function act(path, body, okMsg) {
+  if (ST.busy) return false;
+  ST.busy = true; document.body.classList.add('waiting');
+  try { const r = await api(path, Object.assign({ since: ST.seq }, body)); applyServer(r); ST.online = true; if (okMsg) toast(okMsg); return true; }
+  catch (e) {
+    if (e.status === 401) { sessionExpired(e.message); return false; }
+    if (e.net || e.status >= 500) toast('No se ha podido completar: sin conexión con el servidor. Vuelve a intentarlo.', 'err');
+    else toast(e.message, 'err');
+    poll(true); return false;
+  } finally { ST.busy = false; document.body.classList.remove('waiting'); }
+}
+
+/* ---------- lector de Excel propio (xlsx/xlsm y csv), sin librerías externas ----------
+   Un .xlsx es un ZIP con XML dentro: se descomprime con el propio navegador (DecompressionStream)
+   y se leen las hojas, los textos compartidos, las celdas combinadas y las fechas. */
+const xlsxOK = () => typeof DecompressionStream === 'function' && typeof DOMParser === 'function';
+async function unzip(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf), out = {};
+  let eocd = -1; for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65600); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('El archivo no es un Excel válido (.xlsx).');
+  const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+  const dec = new TextDecoder();
+  for (let k = 0; k < n; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const meth = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
+    const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), raw = u8.subarray(ds, ds + csz);
+    out[name] = { meth, raw };
+  }
+  return out;
+}
+async function zipText(z, name) {
+  const f = z[name] || z[Object.keys(z).find((k) => k.toLowerCase() === name.toLowerCase())];
+  if (!f) return null;
+  if (f.meth === 0) return new TextDecoder().decode(f.raw);
+  if (f.meth !== 8) throw new Error('Compresión no admitida en el Excel.');
+  const s = new Blob([f.raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new TextDecoder().decode(await new Response(s).arrayBuffer());
+}
+const xmlDoc = (t) => new DOMParser().parseFromString(t, 'application/xml');
+const byTag = (el, tag) => Array.prototype.slice.call(el.getElementsByTagNameNS('*', tag));
+function colIdx(ref) { const m = /^([A-Z]+)(\d+)$/.exec(ref || ''); if (!m) return null; let c = 0; for (const ch of m[1]) c = c * 26 + ch.charCodeAt(0) - 64; return { c: c - 1, r: +m[2] - 1 }; }
+const colName = (i) => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+function serialDate(v) { const t = Math.round((v - 25569) * 86400000); const d = new Date(t); return isNaN(t) ? String(v) : p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + (v % 1 ? ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) : ''); }
+async function readXlsx(buf) {
+  if (!xlsxOK()) throw new Error('Este navegador no permite leer Excel. Actualiza Edge o Chrome.');
+  const z = await unzip(buf);
+  const wb = await zipText(z, 'xl/workbook.xml'); if (!wb) throw new Error('El archivo no es un Excel válido (.xlsx).');
+  const rels = xmlDoc(await zipText(z, 'xl/_rels/workbook.xml.rels') || '<r/>'), rmap = {};
+  byTag(rels, 'Relationship').forEach((r) => { rmap[r.getAttribute('Id')] = r.getAttribute('Target'); });
+  const ss = []; const sst = await zipText(z, 'xl/sharedStrings.xml');
+  if (sst) byTag(xmlDoc(sst), 'si').forEach((si) => { ss.push(byTag(si, 't').map((t) => t.textContent).join('')); });
+  /* estilos: qué celdas son fechas */
+  const dateXf = []; const sty = await zipText(z, 'xl/styles.xml');
+  if (sty) {
+    const sd = xmlDoc(sty), custom = {};
+    byTag(sd, 'numFmt').forEach((f) => { custom[f.getAttribute('numFmtId')] = f.getAttribute('formatCode') || ''; });
+    const xfs = byTag(sd, 'cellXfs')[0];
+    if (xfs) byTag(xfs, 'xf').filter((x) => x.parentNode === xfs).forEach((x, i) => { const id = +x.getAttribute('numFmtId'); const fc = custom[id] || ''; dateXf[i] = (id >= 14 && id <= 22) || (id >= 45 && id <= 47) || (/[dmy]/i.test(fc.replace(/\[[^\]]*\]|"[^"]*"/g, '')) && !/^[#0.,%\s]*$/.test(fc)); });
+  }
+  const sheets = [];
+  for (const sh of byTag(xmlDoc(wb), 'sheet')) {
+    const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    let tg = rmap[rid] || ''; tg = tg.replace(/^\//, ''); if (tg.indexOf('xl/') !== 0) tg = 'xl/' + tg;
+    const txt = await zipText(z, tg); if (!txt) continue;
+    const d = xmlDoc(txt), rows = [], merges = []; let nc = 0;
+    byTag(d, 'c').forEach((c) => {
+      const pos = colIdx(c.getAttribute('r')); if (!pos) return;
+      const t = c.getAttribute('t'), vEl = byTag(c, 'v')[0]; let v = vEl ? vEl.textContent : null;
+      if (t === 's') v = ss[+v] != null ? ss[+v] : '';
+      else if (t === 'inlineStr') v = byTag(c, 't').map((x) => x.textContent).join('');
+      else if (t === 'b') v = v === '1' ? 'VERDADERO' : 'FALSO';
+      else if (t === 'str' || t === 'e') v = v == null ? '' : v;
+      else if (v != null && v !== '') { const num = +v; v = dateXf[+c.getAttribute('s') || 0] && num > 0 && num < 2958466 ? serialDate(num) : (Number.isFinite(num) ? num : v); }
+      if (v == null || v === '') return;
+      (rows[pos.r] = rows[pos.r] || [])[pos.c] = v; if (pos.c + 1 > nc) nc = pos.c + 1;
+    });
+    byTag(d, 'mergeCell').forEach((m) => { const [a, b] = (m.getAttribute('ref') || '').split(':'); const A = colIdx(a), Bc = colIdx(b); if (A && Bc) merges.push({ r0: A.r, c0: A.c, r1: Bc.r, c1: Bc.c }); });
+    for (let i = 0; i < rows.length; i++) rows[i] = rows[i] || [];
+    sheets.push({ name: sh.getAttribute('name') || 'Hoja', rows, merges, nc });
+  }
+  return sheets;
+}
+function readCsv(text) {
+  text = text.replace(/^﻿/, ''); const first = text.split(/\r?\n/)[0] || '', sep = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true; else if (ch === sep) { row.push(cur); cur = ''; } else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; } else cur += ch;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return [{ name: 'CSV', rows, merges: [], nc: rows.reduce((m, r) => Math.max(m, r.length), 0) }];
+}
+async function readSheets(blob, name) { return /\.csv$/i.test(name || '') ? readCsv(await blob.text()) : readXlsx(await blob.arrayBuffer()); }
+const cellTxt = (v) => (v == null ? '' : typeof v === 'number' ? String(+v.toPrecision(15)) : String(v));
+
+/* ============================================================
+   MODELO
+   ============================================================ */
+function idx() {
+  if (ST.cache && ST.cache.rev === ST.rev) return ST.cache;
+  const E = ST.db.E, parties = [], pmap = {}, items = { esp: [], ban: [], pan: [], pri: [] }, imap = {}, res = {}, logs = [], cfg = {};
+  for (const k in E) {
+    const e = E[k];
+    if (e.k === 'h') { logs.push(Object.assign({ id: k.slice(2) }, e)); continue; }
+    if (e.x) continue;
+    if (e.k === 'g') { const p = Object.assign({ id: k.slice(2) }, e); parties.push(p); pmap[p.id] = p; }
+    else if (e.k === 'i' && items[e.t]) { const it = Object.assign({ id: k.slice(2) }, e); items[e.t].push(it); imap[it.id] = it; }
+    else if (e.k === 'r') res[k.slice(2)] = e;
+    else if (e.k === 'c') cfg[k.slice(2)] = e;
+  }
+  const ncmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'es', { numeric: true, sensitivity: 'base' });
+  parties.sort((a, b) => ((a.ord == null ? 999 : a.ord) - (b.ord == null ? 999 : b.ord)) || ncmp(a.sig || a.nom, b.sig || b.nom));
+  parties.forEach((p, i) => { if (!p.col) p.col = PALETTE[i % PALETTE.length]; });
+  CATS.forEach((t) => items[t].sort((a, b) => ((a.ord == null ? 9999 : a.ord) - (b.ord == null ? 9999 : b.ord)) || ncmp(a.nom || a.lloc, b.nom || b.lloc)));
+  logs.sort((a, b) => b.ts - a.ts);
+  ST.cache = { rev: ST.rev, parties, pmap, items, imap, res, logs, cfg };
+  return ST.cache;
+}
+const conf = () => { const e = ST.db && ST.db.E['s:conf']; return e && !e.x ? e : {}; };
+const orgName = () => conf().org || 'Ajuntament de Santa Coloma de Gramenet';
+function campDays() { const c = conf(), a = parseISO(c.d0), b = parseISO(c.d1), o = []; if (a == null || b == null || b < a) return o; for (let t = a; t <= b && o.length < 61; t += DAY) o.push(t); return o; }
+const cfgOf = (t) => idx().cfg[t] || { t, mode: 'cerrado', order: [], quota: 1, max: 0, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false };
+function effOrder(c) { const o = (c.order || []).slice(); return c.snake && (c.round || 1) % 2 === 0 ? o.reverse() : o; }
+const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.turn || 0] || null : null);
+const resKey = (i, slot) => i + (slot ? ':' + slot : '');
+const resOf = (i, slot) => idx().res[resKey(i, slot)];
+const activeRes = (i, slot) => { const r = resOf(i, slot); return r && !r.x ? r : null; };
+function myCount(t, g) { const R = idx().res; let n = 0; for (const k in R) { const r = R[k]; if (!r.x && r.t === t && r.g === g) n++; } return n; }
+function slotsOf(t) { /* número total de huecos reservables */ if (t !== 'esp') return idx().items[t].length; const d = campDays().length * 2; return idx().items.esp.reduce((s, it) => s + d - Object.keys(it.blk || {}).filter((k) => it.blk[k] === 'nd' && campDays().some((x) => toISO(x) === k.slice(0, 10))).length, 0); }
+function takenOf(t) { const R = idx().res; let n = 0; for (const k in R) if (!R[k].x && R[k].t === t && idx().imap[R[k].i]) n++; return n; }
+const pName = (g) => { const p = idx().pmap[g]; return p ? p.sig || p.nom : '—'; };
+const pChip = (g, small) => { const p = idx().pmap[g]; if (!p) return '<span class="pchip off">—</span>'; return '<span class="pchip' + (small ? ' sm' : '') + '" style="--pc:' + p.col + '" title="' + esc(p.nom || p.sig) + '">' + esc(p.sig || p.nom) + '</span>'; };
+const iName = (it) => (it.nom || it.lloc || '(sin nombre)') + (it.tram ? ' · ' + it.tram : it.lim ? ' · ' + it.lim : it.num ? ' · ' + it.num : '');
+/* ¿puede este usuario reservar ahora en esta categoría? (el servidor lo vuelve a comprobar) */
+function canPick(t) {
+  if (isAdmin()) return { ok: true };
+  if (!isParty()) return { ok: false, why: 'Usuario de consulta: solo lectura.' };
+  const c = cfgOf(t), g = myParty();
+  if (!g || !idx().pmap[g]) return { ok: false, why: 'Tu usuario no está vinculado a ningún partido.' };
+  if (c.mode === 'cerrado') return { ok: false, why: 'La selección de ' + CATN[t].toLowerCase() + ' no está abierta.' };
+  if (c.mode === 'turnos') {
+    if (c.done) return { ok: false, why: 'La selección por turnos ha terminado.' };
+    if (curParty(c) !== g) return { ok: false, why: 'No es vuestro turno: ahora elige ' + pName(curParty(c)) + '.' };
+    if ((c.used || 0) >= c.quota) return { ok: false, why: 'Ya habéis hecho las elecciones de este turno.' };
+  }
+  if (c.max > 0 && myCount(t, g) >= c.max) return { ok: false, why: 'Habéis llegado al máximo de ' + c.max + '.' };
+  return { ok: true };
+}
+const canRelease = (r) => r && (isAdmin() || (isParty() && r.g === myParty() && cfgOf(r.t).mode !== 'cerrado'));
+/* ============================================================
+   VISTAS
+   ============================================================ */
+const LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="18" width="40" height="26" rx="4" fill="#fff"/><path d="M24 6c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z" fill="#F2C200"/><circle cx="24" cy="15" r="3.5" fill="#14305f"/><rect x="10" y="34" width="28" height="3" rx="1.5" fill="#c3d2ee"/></svg>';
+const empty = (t, s) => '<div class="empty"><b>' + esc(t) + '</b>' + (s || '') + '</div>';
+function toast(msg, kind) { const t = $('#toast'); if (!t) return; t.textContent = msg; t.className = 'toast on' + (kind === 'err' ? ' err' : ''); clearTimeout(ST.toastT); ST.toastT = setTimeout(() => { t.className = 'toast'; }, 4200); }
+function TABS() {
+  const t = [['panel', 'Panel'], ['esp', 'Espacios'], ['ban', 'Banderolas'], ['pan', 'Pancartas'], ['pri', 'Prismas'], ['partidos', 'Partidos']];
+  if (isAdmin()) t.push(['turnos', 'Turnos y reglas']);
+  return t.concat([['registro', 'Registro'], ['ajustes', 'Ajustes'], ['ayuda', 'Ayuda']]);
+}
+function paintSync() {
+  const el = $('#sync'); if (!el) return; const n = pendCount();
+  let cls = 'ok', txt = 'Al día' + (ST.lastSaved ? ' · ' + hhmm(Date.now()).slice(0, 5) : ''), tip = 'Datos al día con el servidor (se actualizan solos cada pocos segundos).';
+  if (!ST.online) { cls = 'err'; txt = 'Sin conexión' + (n ? ' · ' + n + ' pendientes' : ''); tip = 'Se reintentará automáticamente.'; }
+  else if (ST.sync === 'saving') { cls = 'pend'; txt = 'Guardando…'; }
+  else if (n) { cls = 'pend'; txt = n + (n === 1 ? ' cambio pendiente' : ' cambios pendientes'); }
+  el.className = 'pill ' + cls; el.innerHTML = '<i></i>' + esc(txt); el.title = tip;
+}
+function paintTop() {
+  $('#org').textContent = orgName(); $('#tit').textContent = conf().tit || 'Selección de espacios electorales';
+  $('#who').innerHTML = esc(ST.user) + ' · ' + esc(ROLES[myRole()]) + (isParty() && idx().pmap[myParty()] ? ' ' + pChip(myParty(), true) : '');
+  document.title = 'Espais electorals' + (conf().tit ? ' · ' + conf().tit : '');
+}
+function paintTabs() { $('#tabs').innerHTML = TABS().map((t) => '<button data-a="tab" data-v="' + t[0] + '" class="' + (ST.view === t[0] ? 'on' : '') + '">' + t[1] + (isParty() && CATS.includes(t[0]) && cfgOf(t[0]).mode === 'turnos' && curParty(cfgOf(t[0])) === myParty() ? ' <span class="dot-turn" title="Es vuestro turno"></span>' : '') + '</button>').join(''); }
+function paintBanner() {
+  const b = [];
+  if (!ST.online) b.push('<div class="banner err"><span><b>Sin conexión con el servidor.</b> Se reintentará automáticamente; no se puede reservar hasta que vuelva la conexión.</span><button class="btn sm" data-a="retry">Reintentar ahora</button></div>');
+  if (myRole() === 'consulta') b.push('<div class="banner info"><span><b>Usuario de consulta:</b> puedes ver y exportar todo, pero no reservar ni modificar.</span></div>');
+  if (isParty()) {
+    const mine = CATS.filter((t) => { const c = cfgOf(t); return c.mode === 'turnos' && curParty(c) === myParty(); });
+    mine.forEach((t) => { const c = cfgOf(t), left = c.quota - (c.used || 0); b.push('<div class="banner turn"><span><b>Es vuestro turno en ' + CATN[t] + '.</b> Podéis hacer ' + left + (left === 1 ? ' elección' : ' elecciones') + ' en este turno (ronda ' + (c.round || 1) + ').</span><span class="btnrow" style="margin:0">' + (ST.view !== t ? '<button class="btn sm primary" data-a="tab" data-v="' + t + '">Ir a elegir</button>' : '') + '<button class="btn sm" data-a="pass" data-t="' + t + '">Terminar mi turno</button></span></div>'); });
+    if (!idx().pmap[myParty()]) b.push('<div class="banner err"><span><b>Tu usuario no está vinculado a ningún partido.</b> Avisa al Ayuntamiento.</span></div>');
+  }
+  $('#banner').innerHTML = b.join('');
+}
+function renderAll() { if (!ST.db) return; ST.cache = null; paintTop(); paintTabs(); paintBanner(); paintSync(); renderView(); }
+function renderView() {
+  const el = $('#view'); if (!el) return;
+  const v = ST.view, sy = window.scrollY, ae = document.activeElement, fid = ae && ae.id && el.contains(ae) ? ae.id : null;
+  const gs = $('.gscroll'), gl = gs ? gs.scrollLeft : 0;
+  let s0 = null, s1 = null; try { if (fid) { s0 = ae.selectionStart; s1 = ae.selectionEnd; } } catch (e) { /* nada */ }
+  let h = '';
+  if (v === 'panel') h = viewPanel(); else if (CATS.includes(v)) h = viewCat(v); else if (v === 'partidos') h = viewPartidos(); else if (v === 'turnos' && isAdmin()) h = viewTurnos();
+  else if (v === 'registro') h = viewRegistro(); else if (v === 'ajustes') h = viewAjustes(); else if (v === 'ayuda') h = viewAyuda(); else { ST.view = 'panel'; h = viewPanel(); }
+  el.innerHTML = h;
+  if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { if (s0 != null) n.setSelectionRange(s0, s1); } catch (e) { /* nada */ } } }
+  window.scrollTo(0, sy); const g2 = $('.gscroll'); if (g2) g2.scrollLeft = gl;
+}
+function gotoView(v) { ST.view = v; LS.set('espais.view', v); renderAll(); window.scrollTo(0, 0); }
+
+/* ---------- estado de una categoría (turno, cupos, recuento) ---------- */
+function statusHTML(t, full) {
+  const c = cfgOf(t), I = idx(), tot = slotsOf(t), taken = takenOf(t), cp = curParty(c), g = myParty();
+  let h = '<div class="card stat"><div class="fhead"><h3>' + (full ? '' : '<button class="lnk" data-a="tab" data-v="' + t + '">') + CATN[t] + (full ? '' : '</button>') + ' <span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></h3>' +
+    (isAdmin() ? '<button class="btn sm" data-a="tab" data-v="turnos">Reglas y turnos</button>' : '') + '</div>' +
+    '<div class="kpis"><div><b>' + taken + ' / ' + tot + '</b><span>' + (t === 'esp' ? 'franjas reservadas' : 'reservados') + '</span></div><div><b>' + Math.max(tot - taken, 0) + '</b><span>libres</span></div>' +
+    (isParty() ? '<div><b>' + myCount(t, g) + (c.max > 0 ? ' / ' + c.max : '') + '</b><span>vuestras reservas</span></div>' : '<div><b>' + (c.max > 0 ? c.max : 'Sin límite') + '</b><span>máximo por partido</span></div>') + '</div>';
+  if (c.mode === 'turnos') {
+    const ord = effOrder(c), tots = {}; ord.forEach((x) => { tots[x] = myCount(t, x); });
+    h += c.done ? '<div class="turnbox done"><b>Selección por turnos terminada.</b></div>'
+      : '<div class="turnbox' + (cp && cp === g ? ' mine' : '') + '"><span>Ronda ' + (c.round || 1) + ' · Turno de</span> ' + pChip(cp) + '<span>' + (c.used || 0) + ' de ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' hechas en este turno</span>' +
+        (cp && (isAdmin() || cp === g) ? '<button class="btn sm" data-a="pass" data-t="' + t + '">' + (isAdmin() ? 'Pasar al siguiente' : 'Terminar mi turno') + '</button>' : '') + '</div>';
+    h += '<div class="order">' + ord.map((x, i) => '<span class="oi' + (i === (c.turn || 0) && !c.done ? ' cur' : '') + (c.max > 0 && tots[x] >= c.max ? ' full' : '') + '"><small>' + (i + 1) + '</small>' + pChip(x, true) + '<small>' + tots[x] + '</small></span>').join('<span class="oarr">›</span>') + '</div>' +
+      '<p class="muted small">Orden de elección' + (c.snake ? ' (se invierte en cada ronda)' : '') + ' · ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' por turno' + (c.max > 0 ? ' · máximo ' + c.max + ' por partido' : '') + '. El número de la derecha es lo que lleva cada partido.</p>';
+  } else if (c.mode === 'libre') h += '<div class="turnbox"><b>Selección libre:</b>&nbsp;cada partido elige cuando quiere' + (c.max > 0 ? ', hasta ' + c.max : '') + '.</div>';
+  else h += '<div class="turnbox closed"><b>Selección cerrada.</b>&nbsp;' + (isAdmin() ? 'Solo el Ayuntamiento puede asignar. Ábrela en «Turnos y reglas».' : 'El Ayuntamiento la abrirá cuando corresponda.') + '</div>';
+  if (c.msg) h += '<div class="hint"><b>Aviso del Ayuntamiento:</b> ' + esc(c.msg).replace(/\n/g, '<br>') + '</div>';
+  if (isAdmin() && c.mode === 'turnos') h += '<div class="btnrow"><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="prev">◀ Retroceder turno</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="next">Avanzar turno ▶</button></div>';
+  return h + '</div>';
+}
+
+/* ---------- panel ---------- */
+function viewPanel() {
+  const I = idx(), c = conf(), days = campDays();
+  let h = '<div class="hero card"><div><h2>' + esc(c.tit || 'Selección de espacios electorales') + '</h2><p class="muted">' + esc(orgName()) + (days.length ? ' · Campaña: ' + esc(fLong(days[0])) + ' → ' + esc(fLong(days[days.length - 1])) : '') + '</p>' +
+    (c.nota ? '<div class="hint">' + esc(c.nota).replace(/\n/g, '<br>') + '</div>' : '') + '</div><button class="btn prt" data-a="pr-menu">🖨 Imprimir resultados</button></div>';
+  if (isAdmin() && (!I.parties.length || !CATS.some((t) => I.items[t].length) || !days.length)) {
+    h += '<div class="card setupc"><h3>Puesta en marcha</h3><ol>' +
+      '<li class="' + (days.length ? 'ok' : '') + '">Indica el título y las <b>fechas de la campaña</b> en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
+      '<li class="' + (CATS.some((t) => I.items[t].length) ? 'ok' : '') + '"><b>Importa el Excel</b> de espacios, banderolas, pancartas y prismas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
+      '<li class="' + (I.parties.length ? 'ok' : '') + '">Da de alta los <b>partidos</b> y su orden de preferencia en <button class="lnk" data-a="tab" data-v="partidos">Partidos</button>, y crea un usuario para cada uno.</li>' +
+      '<li>Abre cada categoría <b>por turnos</b> o <b>libre</b> en <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button>.</li></ol></div>';
+  }
+  h += '<div class="grid2">' + CATS.map((t) => statusHTML(t)).join('') + '</div>';
+  if (isParty()) {
+    const R = I.res, mine = Object.keys(R).filter((k) => !R[k].x && R[k].g === myParty() && I.imap[R[k].i]).map((k) => R[k]);
+    h += '<div class="card"><h3>Vuestras reservas <span class="n">' + mine.length + '</span></h3>' + (mine.length ? myResTable(mine) : '<p class="muted">Todavía no habéis reservado nada.</p>') + '</div>';
+  }
+  h += '<div class="card"><h3>Resumen por partido</h3>' + (I.parties.length ? '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Partido</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '</tr></thead><tbody>' +
+    I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + ' ' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : '<p class="muted">Todavía no hay partidos.</p>') + '</div>';
+  h += '<div class="card"><h3>Últimos movimientos</h3>' + logRows(I.logs.slice(0, 10)) + '<div class="btnrow"><button class="btn sm" data-a="tab" data-v="registro">Ver todo el registro</button></div></div>';
+  return h;
+}
+function myResTable(list) {
+  const I = idx();
+  list = list.slice().sort((a, b) => CATS.indexOf(a.t) - CATS.indexOf(b.t) || String(a.slot).localeCompare(String(b.slot)) || ((I.imap[a.i].ord || 0) - (I.imap[b.i].ord || 0)));
+  return '<div class="tblwrap"><table class="tbl"><thead><tr><th>Categoría</th><th>Elemento</th><th>Día y franja</th><th>Reservado</th><th></th></tr></thead><tbody>' +
+    list.map((r) => '<tr><td>' + CATN[r.t] + '</td><td><b>' + esc(iName(I.imap[r.i])) + '</b></td><td>' + esc(slotTxt(r.slot)) + '</td><td class="muted">' + fStamp(r.ts) + ' · ' + esc(r.by) + '</td><td>' + (canRelease(r) ? '<button class="btn sm danger" data-a="rel" data-i="' + r.i + '" data-s="' + (r.slot || '') + '">Liberar</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+}
+function logRows(L) {
+  if (!L.length) return '<p class="muted">Todavía no hay movimientos.</p>';
+  return '<div class="tblwrap"><table class="tbl"><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Movimiento</th><th>Categoría</th></tr></thead><tbody>' +
+    L.map((l) => '<tr><td class="nowrap">' + fStamp(l.ts) + '</td><td>' + esc(l.by) + (l.g && idx().pmap[l.g] ? ' ' + pChip(l.g, true) : '') + '</td><td>' + esc(l.a) + '</td><td>' + (CATN[l.t] || '') + '</td></tr>').join('') + '</tbody></table></div>';
+}
+
+/* ---------- categoría: lista o cuadrante ---------- */
+function rin(kind, r, f, type, w, label, ro, extra) {
+  const id = 'r' + kind + '-' + r.id + '-' + f, v = ST.drafts[id] != null ? ST.drafts[id] : (r[f] == null ? '' : r[f]);
+  return '<input type="' + (type || 'text') + '" id="' + id + '" data-r="' + kind + '" data-f="' + f + '" data-id="' + r.id + '" data-draft value="' + esc(v) + '"' + (ro ? ' disabled' : '') + ' style="min-width:' + w + 'px;width:100%" aria-label="' + esc(label) + '"' + (type === 'number' ? ' min="0" max="9999"' : '') + (extra || '') + '>';
+}
+function partyOpts(sel, withEmpty) { return (withEmpty ? '<option value="">' + esc(withEmpty) + '</option>' : '') + idx().parties.map((p) => '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc((p.sig || p.nom) + (p.sig && p.nom ? ' · ' + p.nom : '')) + '</option>').join(''); }
+function viewCat(t) {
+  const I = idx(), edit = isAdmin() && !!ST.ui.edit[t], f = ST.ui.flt[t] || 'all', q = ST.ui.q[t] || '';
+  let h = statusHTML(t, true);
+  const pick = canPick(t);
+  h += '<div class="card"><div class="fhead"><h3>' + CATN[t] + ' <span class="n">' + I.items[t].length + '</span></h3><div class="btnrow" style="margin:0">' +
+    (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button>' : '') + '<button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
+    '<button class="btn sm" data-a="csv" data-t="' + t + '">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-cat" data-t="' + t + '">🖨 Imprimir</button></div></div>';
+  if (isParty() && !pick.ok) h += '<p class="hint">' + esc(pick.why) + '</p>';
+  if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), isAdmin() ? 'Impórtalos desde el Excel o añádelos con «Editar lista».' : 'El Ayuntamiento los cargará en breve.') + '</div>';
+  h += '<div class="filters"><select id="flt-' + t + '" data-flt="' + t + '" aria-label="Mostrar"><option value="all">Todos</option><option value="free"' + (f === 'free' ? ' selected' : '') + '>Solo libres</option><option value="taken"' + (f === 'taken' ? ' selected' : '') + '>Solo reservados</option>' + (isParty() ? '<option value="mine"' + (f === 'mine' ? ' selected' : '') + '>Solo los nuestros</option>' : '') + '<optgroup label="Por partido">' + I.parties.map((p) => '<option value="p:' + p.id + '"' + (f === 'p:' + p.id ? ' selected' : '') + '>' + esc(p.sig || p.nom) + '</option>').join('') + '</optgroup></select>' +
+    '<input type="search" id="q-' + t + '" data-q="' + t + '" value="' + esc(q) + '" placeholder="Buscar…" style="max-width:300px"></div>';
+  return h + (t === 'esp' ? gridHTML(edit) : listHTML(t, edit)) + '</div>';
+}
+function passFilter(t, it, r) {
+  const f = ST.ui.flt[t] || 'all', q = norm(ST.ui.q[t] || '');
+  if (q && norm(COLS[t].map((c) => it[c[0]]).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
+  if (t === 'esp') return true;
+  if (f === 'free') return !r; if (f === 'taken') return !!r; if (f === 'mine') return !!r && r.g === myParty();
+  if (f.indexOf('p:') === 0) return !!r && r.g === f.slice(2);
+  return true;
+}
+function listHTML(t, edit) {
+  const I = idx(), pick = canPick(t), rows = I.items[t].map((it) => ({ it, r: activeRes(it.id) })).filter((x) => passFilter(t, x.it, x.r));
+  if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
+  return '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + COLS[t].map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th><th></th></tr></thead><tbody>' +
+    rows.map(({ it, r }) => '<tr class="' + (r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + '">' + COLS[t].map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(it[c[0]] == null ? '' : it[c[0]])) + '</td>').join('') +
+      '<td class="nowrap">' + (r ? pChip(r.g) : '<span class="free-l">Libre</span>') + '</td><td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td></tr>').join('') + '</tbody></table></div>';
+}
+function rowAction(t, it, r, pick, edit) {
+  if (edit) return '<button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Eliminar">✕</button>';
+  if (r) return canRelease(r) ? '<button class="btn sm danger" data-a="rel" data-i="' + it.id + '" data-s="">Liberar</button>' : '';
+  if (isAdmin()) return '<select class="asg" data-i="' + it.id + '" aria-label="Asignar a un partido"><option value="">Asignar a…</option>' + partyOpts('') + '</select>';
+  if (isParty() && pick.ok) return '<button class="btn sm primary" data-a="res" data-i="' + it.id + '" data-s="">Reservar</button>';
+  return '';
+}
+function gridHTML(edit) {
+  const I = idx(), days = campDays(), E = I.items.esp.filter((it) => passFilter('esp', it, null)), f = ST.ui.flt.esp || 'all';
+  let h = '';
+  if (edit) h += '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + COLS.esp.map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr>' + COLS.esp.map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
+  if (!days.length) return h + '<p class="hint warn">Para ver el cuadrante hay que indicar las fechas de la campaña en Ajustes.</p>';
+  h += '<p class="muted small">Pulsa una casilla para ' + (isAdmin() ? 'asignarla, liberarla o marcar su disponibilidad; pulsa el nombre de un espacio para marcar su disponibilidad en bloque (varios días o franjas a la vez)' : isParty() ? 'reservarla o liberarla' : 'ver su detalle') + '. Mañana (M) y tarde (T) de cada día de campaña.</p>' +
+    '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>';
+  E.forEach((it) => {
+    const nm = esc((it.ord != null ? it.ord + '. ' : '') + (it.nom || ''));
+    h += '<tr><th class="gs" title="' + esc((it.dir || '') + (it.hor ? ' · ' + it.hor : '')) + '">' + (isAdmin() ? '<button class="lnk" data-a="blk-row" data-i="' + it.id + '" title="Disponibilidad de este espacio en bloque"><b>' + nm + '</b></button>' : '<b>' + nm + '</b>') + (it.ot ? '<small>' + esc(it.ot) + '</small>' : '') + '</th>';
+    days.forEach((d) => ['M', 'T'].forEach((m) => {
+      const s = toISO(d) + m, r = activeRes(it.id, s), b = (it.blk || {})[s];
+      let cls = 'cc', txt = '';
+      if (r) { cls += r.g === myParty() ? ' mine' : ' taken'; txt = pName(r.g); }
+      else if (b === 'nd') { cls += ' nd'; txt = 'N/D'; }
+      else { cls += ' free' + (b === 'rs' ? ' rs' : ''); txt = b === 'rs' ? '⚠' : ''; }
+      if (f.indexOf('p:') === 0 && (!r || r.g !== f.slice(2))) cls += ' dim';
+      if (f === 'mine' && (!r || r.g !== myParty())) cls += ' dim';
+      if (f === 'free' && (r || b === 'nd')) cls += ' dim';
+      if (f === 'taken' && !r) cls += ' dim';
+      h += '<td class="' + cls + '"' + (r ? ' style="--pc:' + (idx().pmap[r.g] || {}).col + '"' : '') + '><button data-a="cell" data-i="' + it.id + '" data-s="' + s + '" title="' + esc(it.nom + ' · ' + slotTxt(s) + (r ? ' · ' + pName(r.g) : b === 'nd' ? ' · No disponible' : b === 'rs' ? ' · Con restricciones' : ' · Libre')) + '">' + esc(txt) + '</button></td>';
+    }));
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div><p class="legend small"><span class="lgc free"></span> Libre <span class="lgc rs">⚠</span> Con restricciones <span class="lgc nd">N/D</span> No disponible <span class="lgc taken"></span> Reservado' + (isParty() ? ' <span class="lgc mine"></span> Vuestro' : '') + '</p>';
+}
+function modalCell(i, s) {
+  const it = idx().imap[i]; if (!it) return;
+  const r = activeRes(i, s), b = (it.blk || {})[s], pick = canPick('esp');
+  let h = '<h2>' + esc(it.nom) + '</h2><p><b>' + esc(slotTxt(s)) + '</b>' + (it.dir ? ' · ' + esc(it.dir) : '') + (it.hor ? '<br><span class="muted">Horario: ' + esc(it.hor) + '</span>' : '') + '</p>';
+  if (r) h += '<p>Reservado por ' + pChip(r.g) + ' <span class="muted">(' + fStamp(r.ts) + ' · ' + esc(r.by) + ')</span></p>';
+  else if (b === 'nd') h += '<p class="hint warn">No disponible en esta franja.</p>';
+  else h += '<p>' + (b === 'rs' ? '<span class="hint warn">⚠ Con restricciones: consulta las condiciones de uso antes de reservar.</span>' : '<span class="free-l">Libre</span>') + '</p>';
+  let acts = '';
+  if (r && canRelease(r)) acts += '<button class="btn danger" data-a="rel" data-i="' + i + '" data-s="' + s + '">Liberar esta franja</button>';
+  if (!r && b !== 'nd') {
+    if (isAdmin()) acts += '<select id="cellParty">' + partyOpts('', 'Elige el partido…') + '</select><button class="btn primary" data-a="cell-asg" data-i="' + i + '" data-s="' + s + '">Asignar</button>';
+    else if (isParty()) acts += pick.ok ? '<button class="btn primary" data-a="res" data-i="' + i + '" data-s="' + s + '">Reservar para ' + esc(pName(myParty())) + '</button>' : '<p class="hint">' + esc(pick.why) + '</p>';
+  }
+  if (isAdmin() && !r) h += '<div class="field"><span>Disponibilidad de esta franja</span><div class="seg">' + [['', 'Disponible'], ['rs', 'Con restricciones'], ['nd', 'No disponible']].map(([k, l]) => '<button data-a="blk" data-i="' + i + '" data-s="' + s + '" data-v="' + k + '" class="' + ((b || '') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
+  openModal(h + '<div class="acts">' + acts + '<button class="btn" data-a="m-no">Cerrar</button></div>');
+}
+
+/* disponibilidad de un espacio en bloque (Ayuntamiento): varios días y franjas de una vez */
+const WD = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+function modalBlkRow(i) {
+  const it = idx().imap[i], days = campDays(); if (!it || !days.length) return;
+  const dopt = (sel) => days.map((d) => '<option value="' + toISO(d) + '"' + (toISO(d) === sel ? ' selected' : '') + '>' + esc(cap(fShort(d))) + '</option>').join('');
+  const nd = Object.keys(it.blk || {}).filter((k) => it.blk[k] === 'nd').length, rs = Object.keys(it.blk || {}).filter((k) => it.blk[k] === 'rs').length;
+  openModal('<h2>Disponibilidad · ' + esc(it.nom) + '</h2><p class="muted">Marca de una vez varias franjas de este espacio. Ahora tiene ' + nd + ' franjas no disponibles y ' + rs + ' con restricciones. Las franjas ya reservadas no se tocan.</p>' +
+    '<div class="two"><label class="field"><span>Desde</span><select id="bkD0">' + dopt(toISO(days[0])) + '</select></label><label class="field"><span>Hasta</span><select id="bkD1">' + dopt(toISO(days[days.length - 1])) + '</select></label></div>' +
+    '<div class="field"><span>Franjas</span><label class="chk"><input type="checkbox" id="bkM" checked> Mañanas</label><label class="chk"><input type="checkbox" id="bkT" checked> Tardes</label></div>' +
+    '<div class="field"><span>Días de la semana</span><div class="btnrow" style="margin:0">' + WD.map((w, k) => '<label class="chk" style="margin:0 6px 0 0"><input type="checkbox" class="bkW" value="' + ((k + 1) % 7) + '" checked> ' + w + '</label>').join('') + '</div></div>' +
+    '<div class="field"><span>Marcar como</span><div class="seg" id="bkV">' + [['', 'Disponible'], ['rs', 'Con restricciones'], ['nd', 'No disponible']].map(([k, l], n) => '<button type="button" data-a="bk-v" data-v="' + k + '" class="' + (n === 2 ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>' +
+    '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="blkr-ok" data-i="' + i + '">Aplicar</button></div>', true);
+}
+function applyBlkRow(i) {
+  const k = 'i:' + i, e = ST.db.E[k]; if (!e) return;
+  const d0 = $('#bkD0').value, d1 = $('#bkD1').value, fr = [$('#bkM').checked ? 'M' : '', $('#bkT').checked ? 'T' : ''].filter(Boolean), wd = $$('.bkW').filter((c) => c.checked).map((c) => +c.value), on = $('#bkV .on'), v = on ? on.dataset.v : 'nd';
+  if (d1 < d0) return toast('La fecha final es anterior a la inicial.', 'err');
+  if (!fr.length || !wd.length) return toast('Elige al menos una franja y un día de la semana.', 'err');
+  const blk = Object.assign({}, e.blk || {}); let n = 0, skipped = 0;
+  campDays().forEach((d) => { const iso = toISO(d); if (iso < d0 || iso > d1 || wd.indexOf(new Date(d).getUTCDay()) < 0) return; fr.forEach((m) => { const s = iso + m; if (activeRes(i, s)) { skipped++; return; } if ((blk[s] || '') === v) return; if (v) blk[s] = v; else delete blk[s]; n++; }); });
+  closeModal(true);
+  if (!n) return toast(skipped ? 'No se ha cambiado nada: esas franjas ya estaban así o están reservadas.' : 'No se ha cambiado nada: esas franjas ya estaban así.');
+  put(k, Object.assign({}, e, { blk }));
+  toast(n + (n === 1 ? ' franja actualizada' : ' franjas actualizadas') + (skipped ? ' · ' + skipped + ' reservadas no se han tocado' : '') + '.');
+}
+
+/* ---------- partidos ---------- */
+function viewPartidos() {
+  const I = idx(), adm = isAdmin();
+  const users = (g) => ST.users.filter((u) => u.role === 'partido' && u.party === g).map((u) => u.name);
+  let h = '<div class="card"><div class="fhead"><h3>Partidos y formaciones <span class="n">' + I.parties.length + '</span></h3>' + (adm ? '<div class="btnrow" style="margin:0"><button class="btn primary sm" data-a="g-add">+ Añadir partido</button><button class="btn sm" data-a="g-paste">Pegar desde Excel…</button><button class="btn sm" data-a="imp-xls">Importar Excel…</button></div>' : '') + '</div>' +
+    '<p class="muted">El <b>orden</b> es la preferencia para elegir: el 1 elige primero. ' + (adm ? 'Cada partido necesita un usuario para entrar (botón «+ Usuario»). Los datos de contacto solo los ve el Ayuntamiento.' : '') + '</p>';
+  if (!I.parties.length) return h + empty('Todavía no hay partidos', adm ? 'Añádelos, pégalos desde Excel o impórtalos.' : '') + '</div>';
+  if (!adm) return h + '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Siglas</th><th>Nombre</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '</tr></thead><tbody>' + I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + '</td><td>' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div></div>';
+  return h + '<div class="tblwrap"><table class="tbl ftbl"><thead><tr><th>Orden</th><th>Color</th><th>Siglas</th><th>Nombre</th><th>Representante</th><th>Teléfono</th><th>Correo</th><th>Notas</th><th>Usuarios</th><th></th></tr></thead><tbody>' +
+    I.parties.map((p) => '<tr><td style="width:70px">' + rin('g', p, 'ord', 'number', 46, 'Orden') + '</td><td><input type="color" data-r="g" data-f="col" data-id="' + p.id + '" value="' + esc(p.col) + '" aria-label="Color"></td><td>' + rin('g', p, 'sig', 'text', 90, 'Siglas') + '</td><td>' + rin('g', p, 'nom', 'text', 200, 'Nombre') + '</td><td>' + rin('g', p, 'rep', 'text', 140, 'Representante') + '</td><td>' + rin('g', p, 'tel', 'tel', 100, 'Teléfono') + '</td><td>' + rin('g', p, 'mail', 'email', 150, 'Correo') + '</td><td>' + rin('g', p, 'nota', 'text', 140, 'Notas') + '</td>' +
+      '<td class="nowrap">' + (users(p.id).map(esc).join(', ') || '<span class="muted">—</span>') + ' <button class="btn sm" data-a="u-add" data-g="' + p.id + '">+ Usuario</button></td><td><button class="btn sm ghost" data-a="g-del" data-id="' + p.id + '" title="Eliminar">✕</button></td></tr>').join('') + '</tbody></table></div></div>';
+}
+
+/* ---------- turnos y reglas (Ayuntamiento) ---------- */
+function viewTurnos() {
+  const I = idx();
+  return '<div class="card"><h3>Cómo funciona</h3><p class="muted">Cada categoría puede estar <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> (los partidos eligen en el orden indicado, con un número de elecciones por turno) o <b>libre</b> (cada partido elige cuando quiere, hasta el máximo). En modo por turnos, el turno pasa solo al siguiente cuando el partido completa sus elecciones (o pulsa «Terminar mi turno»), y se saltan los que ya han llegado al máximo. Todo queda en el Registro.</p></div>' +
+    CATS.map((t) => {
+      const c = cfgOf(t), inOrd = new Set(c.order || []), rest = I.parties.filter((p) => !inOrd.has(p.id));
+      return '<div class="card"><div class="fhead"><h3>' + CATN[t] + '</h3><span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></div>' +
+        '<div class="field"><span>Modo de selección</span><div class="seg">' + ['cerrado', 'turnos', 'libre'].map((m) => '<button data-a="cfg-mode" data-t="' + t + '" data-v="' + m + '" class="' + (c.mode === m ? 'on' : '') + '">' + MODEN[m] + '</button>').join('') + '</div></div>' +
+        '<div class="two3"><label class="field"><span>Elecciones por turno</span><input type="number" min="1" max="99" data-cfg="' + t + '" data-f="quota" value="' + c.quota + '"></label><label class="field"><span>Máximo por partido (0 = sin límite)</span><input type="number" min="0" max="9999" data-cfg="' + t + '" data-f="max" value="' + c.max + '"></label></div>' +
+        '<label class="chk"><input type="checkbox" data-cfg="' + t + '" data-f="auto"' + (c.auto !== false ? ' checked' : '') + '> Pasar el turno automáticamente al completar las elecciones del turno</label>' +
+        '<label class="chk"><input type="checkbox" data-cfg="' + t + '" data-f="snake"' + (c.snake ? ' checked' : '') + '> Invertir el orden en cada ronda (1-2-3, 3-2-1, 1-2-3…)</label>' +
+        '<div class="field"><span>Orden de turnos</span><div class="olist">' + ((c.order || []).map((g, i) => '<div class="orow"><b>' + (i + 1) + '</b>' + pChip(g) + '<span class="muted">' + esc((I.pmap[g] || {}).nom || '') + '</span><span class="sp"></span><button class="btn sm ghost" data-a="o-up" data-t="' + t + '" data-i="' + i + '" title="Subir"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm ghost" data-a="o-down" data-t="' + t + '" data-i="' + i + '" title="Bajar"' + (i < c.order.length - 1 ? '' : ' disabled') + '>↓</button><button class="btn sm ghost" data-a="o-del" data-t="' + t + '" data-i="' + i + '" title="Quitar del orden">✕</button></div>').join('') || '<p class="muted">Sin partidos en el orden.</p>') + '</div>' +
+        '<div class="btnrow"><button class="btn sm" data-a="o-def" data-t="' + t + '">Usar el orden de la pestaña Partidos</button>' + (rest.length ? '<select data-oadd="' + t + '"><option value="">Añadir partido…</option>' + rest.map((p) => '<option value="' + p.id + '">' + esc(p.sig || p.nom) + '</option>').join('') + '</select>' : '') + '</div></div>' +
+        '<label class="field"><span>Aviso para los partidos (aparece en el panel y en la pestaña)</span><textarea data-cfg="' + t + '" data-f="msg" style="min-height:56px">' + esc(c.msg || '') + '</textarea></label>' +
+        (c.mode === 'turnos' ? '<div class="turnbox">' + (c.done ? '<b>Selección terminada.</b>' : 'Ronda ' + (c.round || 1) + ' · Turno de ' + pChip(curParty(c)) + ' · ' + (c.used || 0) + '/' + c.quota) + '</div><div class="btnrow"><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="reset">⟲ Reiniciar turnos (ronda 1)</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="prev">◀ Retroceder</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="next">Avanzar ▶</button><select data-goto="' + t + '"><option value="">Dar el turno a…</option>' + effOrder(c).map((g) => '<option value="' + g + '">' + esc(pName(g)) + '</option>').join('') + '</select></div>' : '') +
+        '</div>';
+    }).join('');
+}
+function cfgPut(t, patch) { const c = Object.assign({}, cfgOf(t), patch); delete c.id; put('c:' + t, Object.assign({ k: 'c', t }, c)); }
+
+/* ---------- registro ---------- */
+function viewRegistro() {
+  const I = idx(), f = ST.ui.lflt || '', q = norm(ST.ui.lq || '');
+  const L = I.logs.filter((l) => (!f || (f.indexOf('p:') === 0 ? l.g === f.slice(2) : l.t === f)) && (!q || norm(l.a + ' ' + l.by).indexOf(q) >= 0));
+  return '<div class="card"><div class="fhead"><h3>Registro de movimientos <span class="n">' + L.length + '</span></h3><div class="btnrow" style="margin:0"><button class="btn sm" data-a="log-csv">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-log">🖨 Imprimir</button></div></div>' +
+    '<p class="muted">Todas las reservas, liberaciones, asignaciones y cambios de turno, con quién y cuándo. El registro no se puede borrar.</p>' +
+    '<div class="filters"><select id="lflt" aria-label="Filtrar"><option value="">Todo</option>' + CATS.map((t) => '<option value="' + t + '"' + (f === t ? ' selected' : '') + '>' + CATN[t] + '</option>').join('') + '<optgroup label="Por partido">' + I.parties.map((p) => '<option value="p:' + p.id + '"' + (f === 'p:' + p.id ? ' selected' : '') + '>' + esc(p.sig || p.nom) + '</option>').join('') + '</optgroup></select><input type="search" id="lq" value="' + esc(ST.ui.lq || '') + '" placeholder="Buscar…" style="max-width:300px"></div>' + logRows(L.slice(0, 1000)) + (L.length > 1000 ? '<p class="muted">Se muestran los 1000 últimos; exporta el CSV para verlos todos.</p>' : '') + '</div>';
+}
+
+/* ---------- ajustes ---------- */
+function viewAjustes() {
+  const adm = isAdmin(), c = conf();
+  let h = '<div class="set" style="max-width:980px"><div class="card"><h3>Mi cuenta</h3><p>Has entrado como <b>' + esc(ST.user) + '</b> · ' + esc(ROLES[myRole()]) + (isParty() ? ' · ' + pChip(myParty()) : '') + '. <span class="muted">Versión del programa: ' + APP_VERSION + '.</span></p><div class="btnrow"><button class="btn" data-a="mypw">Cambiar mi contraseña</button></div></div>';
+  if (!adm) return h + '</div>';
+  h += '<div class="card"><h3>Datos del proceso</h3><div class="two"><label class="field"><span>Ayuntamiento</span><input type="text" data-conf="org" value="' + esc(c.org || '') + '" placeholder="Ajuntament de Santa Coloma de Gramenet"></label><label class="field"><span>Título</span><input type="text" data-conf="tit" value="' + esc(c.tit || '') + '" placeholder="Elecciones Generales 2027 · Espacios electorales"></label></div>' +
+    '<div class="two"><label class="field"><span>Primer día de campaña</span><input type="date" data-conf="d0" value="' + esc(c.d0 || '') + '"></label><label class="field"><span>Último día de campaña</span><input type="date" data-conf="d1" value="' + esc(c.d1 || '') + '"></label></div>' +
+    '<label class="field"><span>Instrucciones generales para los partidos (aparecen en el panel)</span><textarea data-conf="nota" style="min-height:70px">' + esc(c.nota || '') + '</textarea></label></div>';
+  h += '<div class="card"><h3>Importar desde Excel</h3><p class="muted">Carga los espacios electorales, las banderolas, las pancartas y los prismas desde el Excel del Ayuntamiento (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES) y, si las hay, la lista de partidos. Solo añade lo nuevo y rellena campos vacíos: nunca borra ni cambia lo que ya hay ni toca las reservas.</p><button class="btn primary" data-a="imp-xls">Importar desde Excel…</button></div>';
+  const us = ST.users.slice().sort((a, b) => ({ admin: 0, partido: 1, consulta: 2 }[a.role] - { admin: 0, partido: 1, consulta: 2 }[b.role]) || norm(a.name).localeCompare(norm(b.name)));
+  h += '<div class="card"><div class="fhead"><h3>Usuarios <span class="n">' + us.length + '</span></h3><button class="btn primary sm" data-a="u-add">+ Añadir usuario</button></div><div class="tblwrap"><table class="tbl"><thead><tr><th>Usuario</th><th>Rol</th><th>Partido</th><th></th></tr></thead><tbody>' +
+    us.map((u) => '<tr><td><b>' + esc(u.name) + '</b>' + (ST.me && u.id === ST.me.id ? ' <span class="tag">tú</span>' : '') + (u.mc ? ' <span class="tag">contraseña provisional</span>' : '') + '</td><td>' + (ST.me && u.id === ST.me.id ? esc(ROLES[u.role]) : '<select data-urole="' + u.id + '">' + Object.keys(ROLES).map((r) => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + ROLES[r] + '</option>').join('') + '</select>') + '</td><td>' + (u.role === 'partido' ? '<select data-uparty="' + u.id + '">' + partyOpts(u.party, '— sin partido —') + '</select>' : '<span class="muted">—</span>') + '</td><td class="nowrap" style="text-align:right"><button class="btn sm" data-a="u-reset" data-id="' + u.id + '">Restablecer contraseña</button> ' + (ST.me && u.id === ST.me.id ? '' : '<button class="btn sm danger" data-a="u-del" data-id="' + u.id + '">Dar de baja</button>') + '</td></tr>').join('') + '</tbody></table></div></div>';
+  const hist = ST.hist;
+  h += '<div class="card"><h3>Copias de seguridad</h3><p class="muted">Todo se guarda en el servidor al momento. Además, el servidor guarda una copia automática cada 15 minutos de actividad y siempre antes de eliminar, importar o restaurar. Puedes descargar una copia completa en tu ordenador.</p><div class="btnrow"><button class="btn" data-a="bak-dl">Descargar copia (.json)</button><button class="btn" data-a="bak-imp">Importar copia…</button><button class="btn" data-a="h-load">Ver copias del servidor</button></div>' +
+    (!hist ? '' : hist.length ? '<table class="plist" style="margin-top:8px"><thead><tr><th>Copias guardadas en el servidor</th><th></th></tr></thead><tbody>' + hist.slice(0, 60).map((k) => '<tr><td>' + esc(k.slice(5, 24).replace(/T(\d\d)-(\d\d)-(\d\d)/, ' $1:$2:$3')) + ' <span class="muted">' + esc((k.split('_')[1] || 'automática').replace(/-/g, ' ')) + '</span></td><td style="text-align:right"><button class="btn sm" data-a="h-restore" data-key="' + esc(k) + '">Restaurar</button></td></tr>').join('') + '</tbody></table>' : '<p class="muted">Todavía no hay copias en el servidor.</p>') + '</div>';
+  return h + '</div>';
+}
+/* ---------- ayuda ---------- */
+function viewAyuda() {
+  const sec = (n, t, b) => '<h3>' + n + '. ' + t + '</h3>' + b;
+  return '<div class="card help" style="max-width:900px"><div class="btnrow" style="justify-content:space-between;align-items:center"><h2 style="font-size:20px">Manual de Espais electorals <small class="muted" style="font-size:12px;font-weight:400">versión ' + APP_VERSION + '</small></h2><button class="btn" data-a="pr-help">Imprimir este manual</button></div>' +
+  '<p>Espais electorals sirve para que los partidos elijan, por turnos y según su orden de preferencia, los <b>espacios electorales</b> (por día y franja de mañana o tarde), las <b>banderolas</b>, las <b>pancartas</b> y los <b>prismas</b>, con la supervisión del Ayuntamiento. Lo que elige un partido queda reservado al instante y nadie más puede cogerlo, salvo que ese partido lo libere o lo haga el Ayuntamiento.</p>' +
+  '<div class="hint"><b>Para los partidos, en un minuto:</b> entra con el usuario y la contraseña que os ha dado el Ayuntamiento → en el <b>Panel</b> veréis de quién es el turno → cuando sea el vuestro aparece un aviso verde «Es vuestro turno» → id a la pestaña, pulsad «Reservar» (o una casilla libre del cuadrante) → al completar las elecciones del turno, el turno pasa solo al siguiente.</div>' +
+  sec(1, 'Entrar', '<p>Abre la dirección del programa en Edge o Chrome y entra con tu usuario y tu contraseña. La primera vez el programa te pide que elijas tu propia contraseña. Si la olvidas, el Ayuntamiento te la restablece. Tras 5 intentos fallidos el usuario se bloquea 10 minutos, y la sesión se cierra tras 30 minutos sin actividad.</p><ol><li><b>Administración (Ayuntamiento):</b> carga los datos, da de alta los partidos y sus usuarios, fija las reglas y los turnos, puede asignar o liberar cualquier cosa y gestiona las copias.</li><li><b>Partido:</b> ve todo y reserva o libera solo lo suyo, cuando le toca.</li><li><b>Consulta:</b> solo lectura (por ejemplo, para la Junta Electoral de Zona).</li></ol>') +
+  sec(2, 'Panel', '<p>Muestra, para cada categoría, si la selección está cerrada, por turnos o libre; de quién es el turno, cuántas elecciones lleva en ese turno y el orden de los partidos (con lo que lleva cada uno); cuánto queda libre; vuestras reservas; el resumen por partido y los últimos movimientos. La información se actualiza sola cada pocos segundos.</p>') +
+  sec(3, 'Elegir y liberar', '<p><b>Banderolas, pancartas y prismas:</b> en la lista, el botón «Reservar» de cada fila libre. Con el filtro se ven solo los libres, solo los vuestros o los de un partido, y el buscador encuentra por calle, tramo o lugar. <b>Espacios electorales:</b> el cuadrante tiene una fila por espacio y dos columnas por día de campaña (mañana y tarde); pulsa una casilla libre y confirma. Las casillas marcadas con ⚠ tienen restricciones de uso y las grises (N/D) no están disponibles.</p><p>Si dos partidos pulsan a la vez, el servidor solo acepta al primero y al segundo le avisa de que ya está reservado. Para <b>liberar</b> algo vuestro, botón «Liberar» (en la lista, en la casilla o en el Panel); mientras la selección esté abierta. Si liberáis algo durante vuestro turno, recuperáis esa elección.</p>') +
+  sec(4, 'Turnos y reglas (Ayuntamiento)', '<p>Para cada categoría se elige el modo: <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> o <b>libre</b> (cada partido elige cuando quiere). En modo por turnos se fija el <b>orden</b> (por defecto, el de la pestaña Partidos), las <b>elecciones por turno</b> y el <b>máximo por partido</b>; opcionalmente el orden se invierte en cada ronda. El turno pasa solo al completar las elecciones del turno, o cuando el partido pulsa «Terminar mi turno»; los partidos que ya tienen el máximo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a un partido o reiniciar, y escribir un aviso que verán los partidos.</p>') +
+  sec(5, 'Asignaciones y disponibilidad (Ayuntamiento)', '<p>El Ayuntamiento puede asignar cualquier elemento a un partido (por ejemplo, si lo pide por teléfono) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, y liberar cualquier reserva. En cada casilla del cuadrante se marca si la franja está disponible, con restricciones o no disponible. Con «Editar lista» se añaden, modifican o eliminan elementos (un elemento con reservas no se puede eliminar hasta liberarlas).</p>') +
+  sec(6, 'Partidos y usuarios (Ayuntamiento)', '<p>En <b>Partidos</b> se dan de alta las formaciones con su orden de preferencia, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. El botón «+ Usuario» crea el usuario del partido con una contraseña provisional, que el partido cambia al entrar. En Ajustes se gestionan todos los usuarios.</p>') +
+  sec(7, 'Importar desde Excel (Ayuntamiento)', '<p>«Importar desde Excel…» lee el Excel de espacios electorales (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES y, si existe, la lista de partidos) y muestra antes cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada.</p>') +
+  sec(8, 'Registro', '<p>Cada reserva, liberación, asignación y cambio de turno queda anotado con la fecha, la hora y el usuario. El registro no se puede borrar y se puede filtrar, exportar e imprimir.</p>') +
+  sec(9, 'Imprimir y exportar', '<p>Los botones «🖨 Imprimir» preparan documentos A4 limpios: el resultado de cada categoría, el cuadrante de espacios (A4 horizontal), la hoja de asignaciones de cada partido (una página por partido, para entregar) y el registro. En la ventana de impresión se puede elegir «Guardar como PDF». Cada lista tiene también «Exportar (.csv)» para Excel.</p>') +
+  sec(10, 'Seguridad y copias', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Todas las reglas (turnos, máximos, exclusividad) las comprueba el servidor, no el navegador. Los datos viven en el servidor: cambiar de ordenador no borra nada. Hay copia automática cada 15 minutos de actividad y antes de eliminar, importar o restaurar; el Ayuntamiento puede descargar copias completas y volver a cualquier copia del servidor sin perder el registro.</p>') +
+  '</div>';
+}
+
+/* ---------- ventanas modales ---------- */
+function openModal(html, wide) { const m = $('#modal'); m.innerHTML = '<div class="mc' + (wide ? ' wide' : '') + '" role="dialog" aria-modal="true">' + html + '</div>'; m.hidden = false; const f = m.querySelector('[autofocus]') || m.querySelector('input:not([type=radio]):not([type=checkbox]),select,textarea'); if (f) f.focus(); }
+function closeModal(r) { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; if (ST.modalRes) { const f = ST.modalRes; ST.modalRes = null; f(r === undefined ? false : r); } }
+function confirmBox(o) {
+  return new Promise((res) => {
+    ST.modalRes = res;
+    openModal('<h2>' + esc(o.title) + '</h2><p>' + o.text + '</p>' + (o.word ? '<label class="field"><span>Escribe <b>' + esc(o.word) + '</b> para confirmar</span><input type="text" id="cfWord" autocomplete="off"></label>' : '') + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn ' + (o.danger ? 'danger solid' : 'primary') + '" data-a="m-yes" id="cfYes"' + (o.word ? ' disabled' : '') + '>' + esc(o.ok || 'Confirmar') + '</button></div>');
+    if (o.word) $('#cfWord').addEventListener('input', (e) => { $('#cfYes').disabled = e.target.value.trim().toUpperCase() !== o.word.toUpperCase(); });
+  });
+}
+function download(name, mime, content) { const blob = new Blob([content], { type: mime }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+const csvq = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+const csvOut = (name, rows) => download(name, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(csvq).join(';')).join('\r\n'));
+function exportCat(t) {
+  const I = idx();
+  if (t === 'esp') { const days = campDays(); const rows = [COLS.esp.map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(COLS.esp.map((c) => it[c[0]]).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = (it.blk || {})[s]; return r ? pName(r.g) : b === 'nd' ? 'No disponible' : b === 'rs' ? 'Con restricciones' : ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
+  csvOut(t + '-' + CATN[t].toLowerCase().replace(/\s+/g, '-') + '.csv', [COLS[t].map((c) => c[1]).concat(['Partido', 'Reservado el', 'Por'])].concat(I.items[t].map((it) => { const r = activeRes(it.id); return COLS[t].map((c) => it[c[0]]).concat(r ? [pName(r.g), fStamp(r.ts), r.by] : ['', '', '']); })));
+}
+
+/* ---------- importar el Excel (solo añade y completa; nunca borra ni sobrescribe) ---------- */
+const hnorm = (v) => norm(v == null ? '' : String(v)).replace(/[^a-z0-9]+/g, ' ').trim();
+const sval = (v) => (v == null ? '' : cellTxt(v).replace(/\s+/g, ' ').trim());
+const ival = (v) => { const n = typeof v === 'number' ? v : parseInt(String(v || '').replace(/\./g, ''), 10); return Number.isFinite(n) && n >= 0 ? Math.min(Math.round(n), 9999) : null; };
+function sheetKind(name) { const n = hnorm(name); if (/graella|cuadrante|quadrant/.test(n)) return 'grid'; if (/partit|partido|candidatur|formaci/.test(n)) return 'par'; if (/espais|espacios/.test(n)) return 'esp'; if (/banderol/.test(n)) return 'ban'; if (/pancart/.test(n)) return 'pan'; if (/prism|columnes|columnas/.test(n)) return 'pri'; return null; }
+function headerRow(sh, test, min) { for (let r = 0; r < Math.min(sh.rows.length, 15); r++) { const hs = sh.rows[r].map(hnorm); if (hs.filter((h) => h && test(h)).length >= (min || 2)) return r; } return -1; }
+function colOf(sh, hr, re) { const hs = sh.rows[hr].map(hnorm); for (let c = 0; c < hs.length; c++) if (hs[c] && re.test(hs[c])) return c; return -1; }
+function parseWorkbook(sheets) {
+  const out = { esp: [], ban: [], pan: [], pri: [], par: [], sheets: [] }, g = (row, c) => (c >= 0 ? row[c] : null), grids = [];
+  sheets.forEach((sh) => {
+    const T = sheetKind(sh.name); if (!T) return;
+    if (T === 'grid') { grids.push(sh); return; }
+    out.sheets.push(sh.name);
+    if (T === 'par') { const hr = headerRow(sh, (h) => /sigl|nom|ordre|orden|representa|partit|partido/.test(h)); if (hr < 0) return; const c = { ord: colOf(sh, hr, /ordre|orden|^n$|^no$|numero/), sig: colOf(sh, hr, /sigl/), nom: colOf(sh, hr, /^nom|nombre|partit|partido|formaci|candidatura/), rep: colOf(sh, hr, /representa/), tel: colOf(sh, hr, /telef|^tel/), mail: colOf(sh, hr, /correu|correo|mail/) };
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], sig = sval(g(row, c.sig)), nom = sval(g(row, c.nom)); if (!sig && !nom) continue; out.par.push({ ord: ival(g(row, c.ord)), sig: sig || nom.slice(0, 40), nom, rep: sval(g(row, c.rep)), tel: sval(g(row, c.tel)), mail: sval(g(row, c.mail)) }); } return; }
+    const rx = { esp: /ordre|orden|^nom|horari|horario|adreca/, ban: /tram|banderol|plafon|partit|partido/, pan: /tram|lloc|lugar|limit|partit/, pri: /partit|partido|columnes|columnas/ }[T];
+    const hr = headerRow(sh, (h) => rx.test(h), 2); if (hr < 0) return;
+    if (T === 'esp') { const c = { ord: colOf(sh, hr, /ordre|orden|^n$/), nom: colOf(sh, hr, /^nom|nombre/), ot: colOf(sh, hr, /^o t$|tipus|tipo|obert/), dir: colOf(sh, hr, /adreca|direccion/), hor: colOf(sh, hr, /horari|horario/) };
+      let k = 0; for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], nom = sval(g(row, c.nom)); if (!nom || g(row, c.ord) == null) continue; k++; const o = ival(g(row, c.ord)); out.esp.push({ ord: o != null ? o : 100 + k, nom: (o == null ? sval(g(row, c.ord)) + '. ' : '') + nom, ot: sval(g(row, c.ot)), dir: sval(g(row, c.dir)), hor: sval(g(row, c.hor)) }); } }
+    if (T === 'ban') { const c = { nom: colOf(sh, hr, /^nom|nombre|carrer|calle/), tram: colOf(sh, hr, /tram/), bf: colOf(sh, hr, /banderol/), pf: colOf(sh, hr, /plafon/) };
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof row[0] !== 'number' || !sval(g(row, c.nom))) continue; out.ban.push({ ord: ival(row[0]), nom: sval(g(row, c.nom)), tram: sval(g(row, c.tram)), bf: ival(g(row, c.bf)), pf: ival(g(row, c.pf)) }); } }
+    if (T === 'pan') { const c = { ord: colOf(sh, hr, /tram|^n$|num/), lloc: colOf(sh, hr, /lloc|lugar/), lim: colOf(sh, hr, /limit/) };
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof g(row, c.ord) !== 'number' || !sval(g(row, c.lloc))) continue; out.pan.push({ ord: ival(g(row, c.ord)), lloc: sval(g(row, c.lloc)), lim: sval(g(row, c.lim)) }); } }
+    if (T === 'pri') { const cl = colOf(sh, hr, /columnes|columnas|lloc|lugar|ubicaci/), cp = colOf(sh, hr, /partit|partido/), cn = cl + 1 < cp ? cl + 1 : -1; let k = 0;
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], lloc = sval(g(row, cl)); if (!lloc || lloc.length > 80) continue; out.pri.push({ ord: ++k, lloc, num: sval(g(row, cn)) }); } }
+  });
+  /* lista de partidos al lado del cuadrante (siglas y número de orden). Se descartan las columnas con cabecera «Nom»/«Ordre»
+     y los nombres de espacios, para no confundir la lista de espacios con la de partidos */
+  grids.forEach((sh) => {
+    const skip = new Set(), espN = new Set(out.esp.map((e) => norm(e.nom))), seen = {}, n0 = out.par.length;
+    sh.rows.forEach((row) => { row.forEach((v, c) => { if (typeof v === 'string' && /^(nom|nombre|ordre|orden|n|num)$/.test(hnorm(v))) skip.add(c); }); if (typeof row[1] === 'string') espN.add(norm(row[1])); });
+    sh.rows.forEach((row) => { for (let c = 2; c < row.length - 1; c++) { const a = row[c], b = row[c + 1]; if (skip.has(c) || skip.has(c + 1) || typeof a !== 'string' || typeof b !== 'number') continue; const s = a.trim(), k = norm(s); if (!s || s.length > 40 || !Number.isInteger(b) || b < 1 || b > 99 || espN.has(k) || seen[k] || out.par.some((p) => norm(p.sig) === k)) continue; seen[k] = 1; out.par.push({ sig: s, nom: '', ord: b }); } });
+    if (out.par.length > n0) out.sheets.push(sh.name);
+  });
+  return out;
+}
+const IKEY = { esp: (r) => norm(r.nom), ban: (r) => norm(r.ord + '|' + r.nom + '|' + r.tram), pan: (r) => norm(r.ord + '|' + r.lloc + '|' + r.lim), pri: (r) => norm(r.ord + '|' + r.lloc + '|' + r.num) };
+function planImport(W) {
+  const I = idx(), plan = {};
+  const fill = (cur, o) => { const ch = {}; for (const f in o) { const v = o[f]; if (v == null || v === '') continue; if (cur[f] == null || cur[f] === '') ch[f] = v; } return ch; };
+  CATS.forEach((t) => { const have = {}; I.items[t].forEach((r) => { have[IKEY[t](r)] = r; }); const P = plan[t] = { add: [], fill: [], same: 0 }; W[t].forEach((o) => { const k = IKEY[t](o), cur = have[k]; if (!cur) { P.add.push(o); have[k] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } }); });
+  const byS = {}; I.parties.forEach((p) => { byS[norm(p.sig)] = p; byS[norm(p.nom)] = p; });
+  const P = plan.par = { add: [], fill: [], same: 0 }; W.par.forEach((o) => { const cur = byS[norm(o.sig)] || (o.nom && byS[norm(o.nom)]); if (!cur) { P.add.push(o); byS[norm(o.sig)] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } });
+  return plan;
+}
+function applyImport(plan, sel) {
+  let n = 0; const E = ST.db.E;
+  CATS.forEach((t) => { if (!sel[t]) return; plan[t].add.forEach((o) => { putQuiet('i:' + uid(), Object.assign({ k: 'i', t }, o, t === 'esp' ? { blk: {} } : {})); n++; }); plan[t].fill.forEach((f) => { putQuiet('i:' + f.id, Object.assign({}, E['i:' + f.id], f.ch)); n++; }); });
+  if (sel.par) { const used = idx().parties.length; plan.par.add.forEach((o, i) => { putQuiet('g:' + uid(), Object.assign({ k: 'g', col: PALETTE[(used + i) % PALETTE.length] }, o)); n++; }); plan.par.fill.forEach((f) => { putQuiet('g:' + f.id, Object.assign({}, E['g:' + f.id], f.ch)); n++; }); }
+  if (n) markDirty();
+  return n;
+}
+async function importExcel(file) {
+  if (!isAdmin()) return;
+  let sheets; try { sheets = /\.csv$/i.test(file.name) ? readCsv(await file.text()) : await readXlsx(await file.arrayBuffer()); } catch (e) { return toast('No se ha podido leer el Excel: ' + e.message, 'err'); }
+  const W = parseWorkbook(sheets), plan = planImport(W); ST.imp = plan;
+  const line = (k, lab, P) => { const tot = P.add.length + P.fill.length + P.same; if (!tot) return ''; return '<label class="chk"><input type="checkbox" class="impChk" value="' + k + '" checked> <span><b>' + lab + '</b>: ' + P.add.length + ' nuevos · ' + P.fill.length + ' se completarán · ' + P.same + ' ya estaban</span></label>'; };
+  const lines = CATS.map((t) => line(t, CATN[t], plan[t])).join('') + line('par', 'Partidos', plan.par);
+  if (!lines) return toast('No se ha reconocido ninguna hoja de espacios, banderolas, pancartas, prismas o partidos en ese Excel.', 'err');
+  openModal('<h2>Importar desde Excel</h2><p>Hojas reconocidas en «' + esc(file.name) + '»: ' + esc(W.sheets.join(', ')) + '.</p><div class="hint">No se borra ni se cambia nada de lo que ya hay, ni las reservas: solo se <b>añaden</b> elementos nuevos y se <b>rellenan campos vacíos</b>.</div><div style="margin:12px 0">' + lines + '</div>' +
+    (plan.par.add.length ? '<p class="muted">Los partidos se crean con el número del Excel como orden de preferencia; revísalo en la pestaña Partidos.</p>' : '') + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="imp-ok">Importar</button></div>', true);
+}
+function modalPasteParties() {
+  openModal('<h2>Pegar partidos desde Excel</h2><p>Copia las filas con estas columnas, en este orden: <b>Orden, Siglas, Nombre, Representante, Teléfono, Correo</b> (las últimas son opcionales) y pégalas aquí.</p><textarea id="pasteIn" style="min-height:150px;font-family:Consolas,monospace;font-size:12px" autofocus></textarea><div id="pastePrev" class="hint">Pega aquí las filas.</div><div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="gp-ok">Añadir</button></div>', true);
+  $('#pasteIn').addEventListener('input', () => { const r = parsePaste($('#pasteIn').value); $('#pastePrev').textContent = r.length ? 'Se añadirán ' + r.length + ': ' + r.map((x) => x.sig).join(' · ') : 'No se reconoce ninguna fila todavía.'; });
+}
+function parsePaste(txt) { return txt.split(/\r?\n/).map((l) => l.split('\t').map((x) => x.trim())).filter((c) => c.join('')).map((c) => (/^\d{1,3}$/.test(c[0]) ? { ord: +c[0], sig: c[1] || '', nom: c[2] || '', rep: c[3] || '', tel: c[4] || '', mail: c[5] || '' } : { ord: null, sig: c[0] || '', nom: c[1] || '', rep: c[2] || '', tel: c[3] || '', mail: c[4] || '' })).filter((r) => r.sig && !/^(sigl|siglas|sigles)$/i.test(r.sig)).map((r) => Object.assign(r, { sig: r.sig.slice(0, 40) })); }
+
+/* ---------- impresión A4 ---------- */
+function prDoc(title, body, sub) {
+  return '<div class="pr-head"><div class="pr-org">' + esc(orgName()) + '</div><div class="pr-proc">' + esc(conf().tit || 'Selección de espacios electorales') + (campDays().length ? ' · Campaña: ' + esc(fDMY(campDays()[0])) + ' – ' + esc(fDMY(campDays()[campDays().length - 1])) : '') + '</div></div><h1 class="pr-h1">' + esc(title) + '</h1>' + (sub ? '<div class="pr-sub">' + sub + '</div>' : '') + body + '<div class="pr-foot">Espais electorals · Impreso el ' + esc(fStamp(Date.now())) + ' por ' + esc(ST.user) + '</div>';
+}
+function prTable(head, rows, empty) { if (!rows.length) return '<p class="pr-empty">' + esc(empty || 'Nada que mostrar.') + '</p>'; return '<table class="pr-t"><thead><tr>' + head.map((h) => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map((r) => '<tr>' + r.map((c) => '<td>' + (c == null ? '' : c) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'; }
+function doPrint(html, landscape) {
+  let pd = $('#printdoc'); if (!pd) { pd = document.createElement('div'); pd.id = 'printdoc'; document.body.appendChild(pd); }
+  let ps = $('#pgsize'); if (!ps) { ps = document.createElement('style'); ps.id = 'pgsize'; document.head.appendChild(ps); }
+  ps.textContent = '@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:13mm 12mm 15mm 12mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:8pt Arial,sans-serif;color:#555}}';
+  pd.className = landscape ? 'land' : ''; pd.innerHTML = html; document.body.classList.add('printdoc'); setTimeout(() => window.print(), 80);
+}
+window.addEventListener('afterprint', () => { document.body.classList.remove('printdoc'); });
+function prSummary(t) { const by = {}; idx().items[t].forEach((it) => { if (t === 'esp') return; const r = activeRes(it.id); if (r) by[r.g] = (by[r.g] || 0) + 1; }); if (t === 'esp') { const R = idx().res; for (const k in R) if (!R[k].x && R[k].t === 'esp' && idx().imap[R[k].i]) by[R[k].g] = (by[R[k].g] || 0) + 1; } return Object.keys(by).length ? '<p class="pr-p"><b>Por partido:</b> ' + Object.keys(by).map((g) => esc(pName(g)) + ' (' + by[g] + ')').join(' · ') + '</p>' : ''; }
+function prCat(t) {
+  const I = idx();
+  if (t !== 'esp') return prDoc(CATN[t], prSummary(t) + prTable(COLS[t].map((c) => c[1]).concat(['Partido']), I.items[t].map((it) => { const r = activeRes(it.id); return COLS[t].map((c) => (c[0] === 'nom' || c[0] === 'lloc' ? '<b>' + esc(it[c[0]] || '') + '</b>' : esc(it[c[0]] == null ? '' : it[c[0]]))).concat(r ? '<b>' + esc(pName(r.g)) + '</b>' : ''); })), I.items[t].length + ' elementos · ' + takenOf(t) + ' reservados');
+  const days = campDays(); let h = prSummary('esp') + prTable(['Nº', 'Espacio', 'Abierto / cerrado', 'Dirección', 'Horario'], I.items.esp.map((it) => [esc(it.ord != null ? it.ord : ''), '<b>' + esc(it.nom) + '</b>', esc(it.ot), esc(it.dir), esc(it.hor)]));
+  for (let i = 0; i < days.length; i += 8) {
+    const ch = days.slice(i, i + 8);
+    h += '<h2 class="pr-h2 pr-break">Cuadrante · ' + esc(fShort(ch[0])) + ' – ' + esc(fShort(ch[ch.length - 1])) + '</h2><table class="pr-t pr-grid"><thead><tr><th rowspan="2">Espacio</th>' + ch.map((d) => '<th colspan="2">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + ch.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>' +
+      I.items.esp.map((it) => '<tr><td><b>' + esc((it.ord != null ? it.ord + '. ' : '') + it.nom) + '</b></td>' + ch.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = (it.blk || {})[s]; return '<td class="' + (!r && b === 'nd' ? 'nd' : !r && b === 'rs' ? 'rs' : '') + '">' + (r ? '<b>' + esc(pName(r.g)) + '</b>' : b === 'nd' ? 'N/D' : b === 'rs' ? 'Restr.' : '') + '</td>'; }).join('')).join('') + '</tr>').join('') + '</tbody></table>';
+  }
+  return prDoc('Espacios electorales', h, I.items.esp.length + ' espacios · ' + takenOf('esp') + ' franjas reservadas · N/D: no disponible · Restr.: con restricciones');
+}
+function prParty(g) {
+  const I = idx(), p = I.pmap[g]; if (!p) return '';
+  const R = Object.keys(I.res).map((k) => I.res[k]).filter((r) => !r.x && r.g === g && I.imap[r.i]);
+  const body = CATS.map((t) => { const L = R.filter((r) => r.t === t).sort((a, b) => String(a.slot).localeCompare(String(b.slot)) || ((I.imap[a.i].ord || 0) - (I.imap[b.i].ord || 0))); return '<h2 class="pr-h2">' + CATN[t] + ' (' + L.length + ')</h2>' + prTable(t === 'esp' ? ['Día y franja', 'Espacio', 'Dirección', 'Horario'] : COLS[t].map((c) => c[1]), L.map((r) => { const it = I.imap[r.i]; return t === 'esp' ? ['<b>' + esc(slotTxt(r.slot)) + '</b>', '<b>' + esc(it.nom) + '</b>', esc(it.dir), esc(it.hor)] : COLS[t].map((c) => esc(it[c[0]] == null ? '' : it[c[0]])); }), 'Ninguno.'); }).join('');
+  return prDoc('Asignaciones de ' + (p.sig || p.nom), body + '<h2 class="pr-h2">Conformidad</h2><p class="pr-p">Representante: ______________________________ &nbsp;&nbsp; Firma: ____________________ &nbsp;&nbsp; Fecha: ___________</p>', esc(p.nom || ''));
+}
+function modalPrint() {
+  const I = idx(), opts = CATS.map((t) => ['pr-cat', t, CATN[t], t === 'esp' ? 'Lista y cuadrante por días (A4 horizontal).' : 'Lista completa con el partido asignado.']).concat([['pr-parties', '', 'Hojas por partido', 'Una página por partido con todo lo que tiene asignado y espacio para la firma.'], ['pr-log', '', 'Registro de movimientos', 'Todas las reservas, liberaciones y cambios de turno.']]);
+  openModal('<h2>¿Qué quieres imprimir?</h2><p>Se prepara un documento A4 listo para la impresora o para guardar en PDF.</p><div class="prlist">' + opts.map(([a, t, n, d]) => '<button class="prop" data-a="' + a + '" data-t="' + t + '"><b>🖨 ' + n + '</b><span>' + d + '</span></button>').join('') + (isParty() ? '<button class="prop" data-a="pr-party" data-g="' + myParty() + '"><b>🖨 Nuestras asignaciones</b><span>Hoja con todo lo asignado a ' + esc(pName(myParty())) + '.</span></button>' : '') + '</div><div class="acts"><button class="btn" data-a="m-no">Cerrar</button></div>', true);
+}
+
+/* ---------- acceso ---------- */
+function showLock(mode, msg) {
+  ST.lockMode = mode; $('#shell').hidden = true; const L = $('#lock'); L.hidden = false; let body = '';
+  if (mode === 'login') body = '<p class="lead">Entra con tu usuario y tu contraseña.</p><label class="field"><span>Usuario</span><input type="text" id="lkName" autocomplete="username" value="' + esc(LS.get('espais.lastuser') || '') + '"></label><label class="field"><span>Contraseña</span><input type="password" id="lkPass" autocomplete="current-password"></label><button class="btn primary" data-a="lk-login" id="lkGo">Entrar</button><div class="links"><button data-a="lk-forgot">¿Has olvidado la contraseña?</button></div>';
+  else if (mode === 'setup') body = '<p class="lead"><b>Instalación.</b> Es la primera vez que se abre el programa en este servidor. Escribe la clave de instalación que configuraste en Netlify y crea el primer administrador.</p><label class="field"><span>Clave de instalación</span><input type="password" id="lkCode" autocomplete="off"></label><label class="field"><span>Tu nombre (será tu usuario)</span><input type="text" id="lkName" autocomplete="username"></label><label class="field"><span>Contraseña (mínimo 8 caracteres)</span><input type="password" id="lkPass" autocomplete="new-password"></label><label class="field"><span>Repite la contraseña</span><input type="password" id="lkPass2" autocomplete="new-password"></label><button class="btn primary" data-a="lk-setup" id="lkGo">Instalar y crear administrador</button>';
+  else body = '<p class="lead">No se encuentra el servidor de Espais electorals. Este programa funciona desde su dirección web (https://…netlify.app), no abriendo el archivo directamente.</p><button class="btn primary" data-a="lk-retry" id="lkGo">Reintentar</button>';
+  L.innerHTML = '<div class="box"><div class="logo">' + LOGO.replace('fill="#fff"', 'fill="#14305f"') + '<div><b>Espais electorals</b><span>Selección de espacios electorales por los partidos</span></div></div>' + (msg ? '<div class="err" role="alert">' + esc(msg) + '</div>' : '') + body + '</div>';
+  const f = mode === 'login' ? (LS.get('espais.lastuser') ? $('#lkPass') : $('#lkName')) : (mode === 'setup' ? $('#lkCode') : null); if (f) f.focus();
+}
+function lockErr(msg) { const box = $('#lock .box'); let e = $('#lock .err'); if (!e) { e = document.createElement('div'); e.className = 'err'; e.setAttribute('role', 'alert'); box.insertBefore(e, box.children[1]); } e.textContent = msg; busyLk(false); }
+function busyLk(on, txt) { const b = $('#lkGo'); if (!b) return; b.disabled = on; b.textContent = on ? (txt || 'Comprobando…') : ({ login: 'Entrar', setup: 'Instalar y crear administrador' }[ST.lockMode] || 'Reintentar'); }
+async function doLogin() {
+  const name = ($('#lkName').value || '').trim(), pass = $('#lkPass').value || '';
+  if (!name || !pass) return lockErr('Escribe tu usuario y tu contraseña.');
+  busyLk(true);
+  try { const r = await api('login', { name, password: pass }); ST.tok = r.token; ST.me = r.me; LS.set('espais.lastuser', name); await startSession(); }
+  catch (e) { ST.tok = null; lockErr(e.net ? 'No hay conexión con el servidor. Comprueba la red e inténtalo de nuevo.' : e.message); }
+}
+async function doSetup() {
+  const code = $('#lkCode').value, name = ($('#lkName').value || '').trim(), pass = $('#lkPass').value, pass2 = $('#lkPass2').value;
+  if (!code) return lockErr('Escribe la clave de instalación.'); if (name.length < 2) return lockErr('Escribe tu nombre.'); if (pass.length < 8) return lockErr('La contraseña debe tener al menos 8 caracteres.'); if (pass !== pass2) return lockErr('Las contraseñas no coinciden.');
+  busyLk(true, 'Instalando…');
+  try { const r = await api('setup', { code, name, password: pass }); ST.tok = r.token; ST.me = r.me; LS.set('espais.lastuser', name); await startSession(); }
+  catch (e) { ST.tok = null; lockErr(e.net ? 'No hay conexión con el servidor.' : e.message); }
+}
+async function startSession() {
+  ST.pend = {}; await loadAll(); SS.set('espais.tok', ST.tok);
+  ST.view = LS.get('espais.view') || 'panel'; if (!TABS().some((t) => t[0] === ST.view)) ST.view = 'panel';
+  $('#lock').hidden = true; $('#lock').innerHTML = ''; $('#shell').hidden = false; ST.lastAct = Date.now();
+  renderAll(); startTimers();
+  if (ST.me.mc) modalForcePw();
+}
+function startTimers() {
+  stopTimers();
+  /* actualización frecuente mientras alguna selección está abierta, para ver los turnos casi en directo */
+  ST.timers.push(setInterval(() => { if (!ST.db || document.hidden) return; const live = CATS.some((t) => cfgOf(t).mode !== 'cerrado'); ST.tick = (ST.tick || 0) + 1; if (live || ST.tick % 4 === 0) poll(); }, 4000));
+  ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 30 * 60000) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
+}
+function stopTimers() { ST.timers.forEach(clearInterval); ST.timers = []; clearTimeout(ST.saveT); clearTimeout(ST.retryT); }
+function endSession() { stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
+async function logout() {
+  if (pendCount()) await flush();
+  if (pendCount() && !(await confirmBox({ title: 'Hay cambios sin enviar', text: 'Hay ' + pendCount() + ' cambios que todavía no han llegado al servidor. Se enviarán la próxima vez que entres desde aquí. ¿Salir igualmente?', ok: 'Salir' }))) return;
+  endSession(); showLock('login');
+}
+function sessionExpired(msg) { endSession(); showLock('login', msg || 'La sesión ha caducado.'); }
+function kickOut(msg) { LS.del(pendKey()); endSession(); ST.me = null; showLock('login', msg || 'Tu usuario ya no tiene acceso.'); }
+function pwFields(withCurrent) { return (withCurrent ? '<label class="field"><span>Contraseña actual</span><input type="password" id="pwOld" autocomplete="current-password"></label>' : '') + '<label class="field"><span>Contraseña nueva (mínimo 8 caracteres)</span><input type="password" id="pwNew" autocomplete="new-password"></label><label class="field"><span>Repite la nueva</span><input type="password" id="pwNew2" autocomplete="new-password"></label><div id="pwErr"></div>'; }
+function pwCheck() { const n = $('#pwNew').value, n2 = $('#pwNew2').value, err = (t) => { $('#pwErr').innerHTML = '<p class="hint err">' + esc(t) + '</p>'; return null; }; if (n.length < 8) return err('La contraseña debe tener al menos 8 caracteres.'); if (n !== n2) return err('Las contraseñas no coinciden.'); return n; }
+function modalForcePw() { ST.modalLocked = true; openModal('<h2>Elige tu contraseña</h2><p>Has entrado con una contraseña provisional. Elige ahora la tuya; solo la sabrás tú.</p>' + pwFields(false) + '<div class="acts"><button class="btn" data-a="logout">Salir</button><button class="btn primary" data-a="pw-force">Guardar mi contraseña</button></div>'); }
+async function savePw(force) {
+  const n = pwCheck(); if (!n) return;
+  try { const r = await api('password', force ? { next: n } : { current: $('#pwOld').value, next: n }); ST.tok = r.token; ST.me = r.me; SS.set('espais.tok', ST.tok); SS.set('espais.me', JSON.stringify(ST.me)); ST.modalLocked = false; closeModal(true); toast('Contraseña guardada.'); }
+  catch (e) { $('#pwErr').innerHTML = '<p class="hint err">' + esc(e.message) + '</p>'; }
+}
+async function usersOp(body, okMsg) { try { const r = await api('users', body); ST.users = r.users; ST.urev = r.urev; ST.rev++; renderAll(); if (okMsg) toast(okMsg); return true; } catch (e) { toast(e.message, 'err'); renderAll(); return false; } }
+function modalUserAdd(g) {
+  const p = g ? idx().pmap[g] : null;
+  openModal('<h2>Añadir usuario</h2><p>Dale a la persona su usuario y la contraseña provisional; al entrar por primera vez tendrá que elegir la suya.</p><div class="two"><label class="field"><span>Nombre (será su usuario)</span><input type="text" id="uaName" value="' + esc(p ? p.sig || p.nom : '') + '" autofocus></label><label class="field"><span>Rol</span><select id="uaRole"><option value="partido"' + (g ? ' selected' : '') + '>Partido: elige lo suyo</option><option value="consulta">Consulta: solo lectura</option><option value="admin"' + (g ? '' : '') + '>Administración (Ayuntamiento)</option></select></label></div><label class="field" id="uaPw"><span>Partido</span><select id="uaParty">' + partyOpts(g || '', 'Elige el partido…') + '</select></label>' + pwFields(false).replace('Contraseña nueva', 'Contraseña provisional') + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="ua-save">Crear usuario</button></div>');
+  $('#uaRole').addEventListener('change', () => { $('#uaPw').hidden = $('#uaRole').value !== 'partido'; });
+}
+function pickTextFile() { return new Promise((res) => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json'; i.onchange = () => { const f = i.files[0]; if (!f) return res(null); f.text().then(res, () => res(null)); }; i.click(); }); }
+async function backupDownload() { try { const r = await api('export'), d = new Date(); download('ESPAIS-copia-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json', 'application/json', JSON.stringify(r)); toast('Copia descargada. Guárdala en una carpeta protegida.'); } catch (e) { toast(e.message, 'err'); } }
+async function backupImport() {
+  const txt = await pickTextFile(); if (!txt) return;
+  let o; try { o = JSON.parse(txt); } catch (e) { return toast('Ese archivo no es una copia de Espais electorals.', 'err'); }
+  if (!o || o.app !== 'espais' || !o.E) return toast('Ese archivo no es una copia de Espais electorals.', 'err');
+  if (!(await confirmBox({ title: 'Importar copia', text: 'Se incorporará lo que la copia tenga de nuevo o más reciente. No se borra nada, y antes se guarda una copia en el servidor.', ok: 'Importar' }))) return;
+  try { await flush(); const r = await api('import', { E: o.E }); await poll(true); toast(r.added ? r.added + ' registros incorporados.' : 'La copia no tenía nada más reciente.'); } catch (e) { toast(e.message, 'err'); }
+}
+async function historyLoad() { try { const r = await api('history'); ST.hist = r.items || []; renderView(); } catch (e) { toast(e.message, 'err'); } }
+async function historyRestore(key) {
+  if (!(await confirmBox({ title: 'Restaurar copia del servidor', text: 'Todo volverá a estar como en esa copia, también las reservas, para todos los usuarios. El registro de movimientos se conserva. Antes se guarda una copia del estado actual por si hubiera que deshacerlo.', ok: 'Restaurar', danger: true, word: 'RESTAURAR' }))) return;
+  try { await flush(); await api('restore', { key }); await loadAll(); renderAll(); toast('Copia restaurada.'); historyLoad(); } catch (e) { toast(e.message, 'err'); }
+}
+/* ============================================================
+   ACCIONES
+   ============================================================ */
+const APP_VERSION = '1 · 15/10/2026';
+const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
+async function doReserve(i, slot, g) {
+  const it = idx().imap[i]; if (!it) return;
+  const forParty = g || myParty(), what = '«' + iName(it) + '»' + (slot ? ' · ' + slotTxt(slot) : '');
+  if (!(await confirmBox({ title: isAdmin() ? 'Asignar' : 'Reservar', text: (isAdmin() ? 'Asignar ' : 'Reservar ') + esc(what) + ' para <b>' + esc(pName(forParty)) + '</b>.' + ((it.blk || {})[slot] === 'rs' ? '<br><br>⚠ Esta franja tiene restricciones de uso.' : ''), ok: isAdmin() ? 'Asignar' : 'Reservar' }))) return;
+  closeModal();
+  const ok = await act('reserve', { i, slot: slot || '', g: isAdmin() ? forParty : undefined });
+  if (ok) toast((isAdmin() ? 'Asignado a ' : 'Reservado para ') + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + slotTxt(slot) : '') + '.');
+}
+async function doRelease(i, slot) {
+  const r = activeRes(i, slot), it = idx().imap[i]; if (!r || !it) return;
+  if (!(await confirmBox({ title: 'Liberar', text: 'Se liberará «' + esc(iName(it)) + '»' + (slot ? ' · ' + esc(slotTxt(slot)) : '') + ', ahora de <b>' + esc(pName(r.g)) + '</b>, y quedará libre para cualquier partido.', ok: 'Liberar', danger: true }))) return;
+  closeModal();
+  if (await act('release', { i, slot: slot || '' })) toast('Liberado.');
+}
+const ACT = {
+  tab: (el) => gotoView(el.dataset.v),
+  retry: async () => { ST.failN = 0; if (pendCount()) await flush(); else await poll(true); },
+  logout: () => logout(),
+  'lk-login': () => doLogin(), 'lk-setup': () => doSetup(), 'lk-retry': () => boot(),
+  'lk-forgot': () => openModal('<h2>Contraseña olvidada</h2><p>Pide al Ayuntamiento que te la restablezca. Te dará una contraseña provisional y, al entrar, elegirás una nueva. No se pierde ningún dato.</p><div class="acts"><button class="btn primary" data-a="m-no">Entendido</button></div>'),
+  'm-yes': () => closeModal(true), 'm-no': () => { if (!ST.modalLocked) closeModal(false); },
+  'pw-force': () => savePw(true), 'pw-save': () => savePw(false),
+  mypw: () => openModal('<h2>Cambiar mi contraseña</h2>' + pwFields(true) + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="pw-save">Cambiar</button></div>'),
+  res: (el) => doReserve(el.dataset.i, el.dataset.s || ''),
+  rel: (el) => doRelease(el.dataset.i, el.dataset.s || ''),
+  cell: (el) => modalCell(el.dataset.i, el.dataset.s),
+  'cell-asg': (el) => { const g = $('#cellParty').value; if (!g) return toast('Elige el partido.', 'err'); doReserve(el.dataset.i, el.dataset.s, g); },
+  'blk-row': (el) => { if (adminOnly()) modalBlkRow(el.dataset.i); },
+  'bk-v': (el) => { $$('#bkV button').forEach((b) => b.classList.toggle('on', b === el)); },
+  'blkr-ok': (el) => { if (adminOnly()) applyBlkRow(el.dataset.i); },
+  blk: (el) => { if (!adminOnly()) return; const k = 'i:' + el.dataset.i, e = ST.db.E[k]; if (!e) return; const blk = Object.assign({}, e.blk || {}); if (el.dataset.v) blk[el.dataset.s] = el.dataset.v; else delete blk[el.dataset.s]; put(k, Object.assign({}, e, { blk })); closeModal(); toast('Disponibilidad actualizada.'); },
+  pass: async (el) => { const t = el.dataset.t; if (!(await confirmBox({ title: isAdmin() ? 'Pasar el turno' : 'Terminar vuestro turno', text: isAdmin() ? 'El turno de ' + esc(pName(curParty(cfgOf(t)))) + ' en ' + CATN[t].toLowerCase() + ' pasará al siguiente partido.' : 'Daréis por terminado vuestro turno en ' + CATN[t].toLowerCase() + ' y elegirá el siguiente partido. Las elecciones que no hayáis hecho en este turno se pierden para esta ronda.', ok: isAdmin() ? 'Pasar el turno' : 'Terminar mi turno' }))) return; if (await act('turn', { t, op: 'pass' })) toast('Turno pasado. Ahora elige ' + pName(curParty(cfgOf(t))) + '.'); },
+  turn: async (el) => { if (!adminOnly()) return; const t = el.dataset.t, op = el.dataset.op; if (op === 'reset' && !(await confirmBox({ title: 'Reiniciar turnos', text: 'Los turnos de ' + CATN[t].toLowerCase() + ' volverán a la ronda 1 con el primer partido. Las reservas hechas se mantienen.', ok: 'Reiniciar' }))) return; await flush(); if (await act('turn', { t, op })) toast('Turno: ' + (curParty(cfgOf(t)) ? pName(curParty(cfgOf(t))) : 'selección terminada') + '.'); },
+  edit: (el) => { if (!adminOnly()) return; ST.ui.edit[el.dataset.t] = !ST.ui.edit[el.dataset.t]; renderView(); },
+  'i-add': (el) => { if (!adminOnly()) return; const t = el.dataset.t, ord = idx().items[t].reduce((m, x) => Math.max(m, x.ord || 0), 0) + 1, id = uid(); put('i:' + id, Object.assign({ k: 'i', t, ord }, t === 'esp' ? { blk: {} } : {})); const f = $('#ri-' + id + '-' + COLS[t][1][0]); if (f) { f.focus(); f.scrollIntoView({ block: 'center' }); } },
+  'i-del': async (el) => { if (!adminOnly()) return; const e = ST.db.E['i:' + el.dataset.id]; if (!e) return; if (!(await confirmBox({ title: 'Eliminar', text: 'Se eliminará «' + esc(iName(e)) + '». Si tiene reservas, primero hay que liberarlas.', ok: 'Eliminar', danger: true }))) return; put('i:' + el.dataset.id, Object.assign({}, e, { x: true })); },
+  'g-add': () => { if (!adminOnly()) return; const n = idx().parties.length, id = uid(); put('g:' + id, { k: 'g', sig: '', nom: '', ord: n + 1, col: PALETTE[n % PALETTE.length] }); const f = $('#rg-' + id + '-sig'); if (f) f.focus(); },
+  'g-del': async (el) => { if (!adminOnly()) return; const e = ST.db.E['g:' + el.dataset.id]; if (!e) return; if (!(await confirmBox({ title: 'Eliminar partido', text: 'Se eliminará «' + esc(e.sig || e.nom || 'sin nombre') + '». Si tiene reservas, primero hay que liberarlas; sus usuarios dejarán de poder elegir.', ok: 'Eliminar', danger: true }))) return; put('g:' + el.dataset.id, Object.assign({}, e, { x: true })); },
+  'g-paste': () => { if (adminOnly()) modalPasteParties(); },
+  'gp-ok': () => { const rows = parsePaste($('#pasteIn').value); if (!rows.length) return toast('No se reconoce ninguna fila.', 'err'); const n = idx().parties.length; rows.forEach((r, i) => putQuiet('g:' + uid(), Object.assign({ k: 'g', col: PALETTE[(n + i) % PALETTE.length] }, r, { ord: r.ord != null ? r.ord : n + i + 1 }))); markDirty(); closeModal(true); toast(rows.length + ' partidos añadidos.'); },
+  'u-add': (el) => { if (adminOnly()) modalUserAdd(el.dataset.g || ''); },
+  'ua-save': async () => { const name = $('#uaName').value.trim(), role = $('#uaRole').value, party = role === 'partido' ? $('#uaParty').value : '', pw = pwCheck(); if (!pw) return; if (name.length < 2) return toast('Escribe el nombre del usuario.', 'err'); if (role === 'partido' && !party) return toast('Elige el partido.', 'err'); await flush(); if (await usersOp({ op: 'add', name, role, party, password: pw }, 'Usuario creado. Comunícale su usuario y su contraseña provisional.')) closeModal(true); },
+  'u-reset': (el) => { const u = ST.users.find((x) => x.id === el.dataset.id); if (!u) return; openModal('<h2>Restablecer la contraseña de ' + esc(u.name) + '</h2><p>Escribe una contraseña provisional y comunícasela. Al entrar tendrá que elegir una nueva. Sus sesiones abiertas se cerrarán.</p>' + pwFields(false).replace('Contraseña nueva', 'Contraseña provisional') + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="ur-save" data-id="' + u.id + '">Restablecer</button></div>'); },
+  'ur-save': async (el) => { const pw = pwCheck(); if (!pw) return; if (await usersOp({ op: 'reset', id: el.dataset.id, password: pw }, 'Contraseña restablecida.')) closeModal(true); },
+  'u-del': async (el) => { const u = ST.users.find((x) => x.id === el.dataset.id); if (!u) return; if (await confirmBox({ title: 'Dar de baja a ' + u.name, text: 'Dejará de poder entrar de inmediato. Sus reservas y movimientos se conservan.', ok: 'Dar de baja', danger: true })) usersOp({ op: 'delete', id: u.id }, 'Usuario dado de baja.'); },
+  'cfg-mode': async (el) => { if (!adminOnly()) return; const t = el.dataset.t, v = el.dataset.v, c = cfgOf(t); if (c.mode === v) return; if (v === 'turnos' && !(c.order || []).length) { cfgPut(t, { mode: v, order: idx().parties.map((p) => p.id) }); toast('Modo por turnos con el orden de la pestaña Partidos. Revísalo abajo.'); return; } cfgPut(t, { mode: v }); toast(CATN[t] + ': selección ' + MODEN[v].toLowerCase() + '.'); },
+  'o-up': (el) => { const t = el.dataset.t, i = +el.dataset.i, o = cfgOf(t).order.slice(); if (i < 1) return; [o[i - 1], o[i]] = [o[i], o[i - 1]]; cfgPut(t, { order: o }); },
+  'o-down': (el) => { const t = el.dataset.t, i = +el.dataset.i, o = cfgOf(t).order.slice(); if (i >= o.length - 1) return; [o[i + 1], o[i]] = [o[i], o[i + 1]]; cfgPut(t, { order: o }); },
+  'o-del': (el) => { const t = el.dataset.t, o = cfgOf(t).order.slice(); o.splice(+el.dataset.i, 1); cfgPut(t, { order: o }); },
+  'o-def': (el) => { cfgPut(el.dataset.t, { order: idx().parties.map((p) => p.id) }); toast('Orden copiado de la pestaña Partidos.'); },
+  csv: (el) => exportCat(el.dataset.t),
+  'log-csv': () => csvOut('registro-espais.csv', [['Fecha y hora', 'Usuario', 'Partido', 'Movimiento', 'Categoría']].concat(idx().logs.map((l) => [fStamp(l.ts), l.by, l.g ? pName(l.g) : '', l.a, CATN[l.t] || '']))),
+  'pr-menu': () => modalPrint(),
+  'pr-cat': (el) => { closeModal(); doPrint(prCat(el.dataset.t), el.dataset.t === 'esp'); },
+  'pr-parties': () => { closeModal(); const P = idx().parties; doPrint(P.map((p, i) => '<div class="' + (i ? 'pr-break' : '') + '">' + prParty(p.id) + '</div>').join('') || prDoc('Asignaciones por partido', '<p class="pr-empty">No hay partidos.</p>')); },
+  'pr-party': (el) => { closeModal(); doPrint(prParty(el.dataset.g)); },
+  'pr-log': () => { closeModal(); doPrint(prDoc('Registro de movimientos', prTable(['Fecha y hora', 'Usuario', 'Movimiento', 'Categoría'], idx().logs.map((l) => [fStamp(l.ts), esc(l.by), esc(l.a), CATN[l.t] || '']))), true); },
+  'pr-help': () => doPrint(prDoc('Manual de Espais electorals', $('#view .help').innerHTML.replace(/<button[^>]*>.*?<\/button>/g, ''))),
+  'imp-xls': () => { if (!adminOnly()) return; const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xlsm,.csv'; i.hidden = true; i.addEventListener('change', () => { if (i.files[0]) importExcel(i.files[0]); i.remove(); }); document.body.appendChild(i); i.click(); },
+  'imp-ok': () => { const plan = ST.imp; if (!plan) return; const sel = {}; $$('.impChk').forEach((c) => { sel[c.value] = c.checked; }); const n = applyImport(plan, sel); ST.imp = null; closeModal(true); toast(n ? 'Importados ' + n + ' registros. Se están guardando en el servidor…' : 'No había nada nuevo que importar.'); },
+  'bak-dl': () => backupDownload(), 'bak-imp': () => { if (adminOnly()) backupImport(); }, 'h-load': () => historyLoad(), 'h-restore': (el) => historyRestore(el.dataset.key)
+};
+function recChange(t) {
+  const kind = t.dataset.r, f = t.dataset.f, key = kind + ':' + t.dataset.id, cur = ST.db.E[key];
+  if (!cur || !adminOnly()) { renderView(); return; }
+  delete ST.drafts[t.id];
+  let v = t.value.trim();
+  if (['ord', 'bf', 'pf'].includes(f)) { v = v === '' ? null : parseInt(v, 10); if (v != null && (isNaN(v) || v < 0)) { toast('Escribe un número válido.', 'err'); renderView(); return; } }
+  const n = Object.assign({}, cur); n[f] = v; put(key, n);
+}
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'modal') { if (!ST.modalLocked) closeModal(false); return; }
+  const el = e.target.closest('[data-a]'); if (!el) return;
+  const fn = ACT[el.dataset.a]; if (!fn) return;
+  if (el.tagName !== 'INPUT') e.preventDefault();
+  Promise.resolve(fn(el, e)).catch((err) => { console.error(err); toast('Algo ha fallado: ' + (err && err.message ? err.message : err), 'err'); });
+});
+document.addEventListener('change', async (e) => {
+  const t = e.target, d = t.dataset || {};
+  if (d.r) recChange(t);
+  else if (d.flt) { ST.ui.flt[d.flt] = t.value; renderView(); }
+  else if (t.id === 'lflt') { ST.ui.lflt = t.value; renderView(); }
+  else if (d.conf && adminOnly()) { const c = Object.assign({ k: 's', org: '', tit: '', d0: '', d1: '', nota: '' }, conf()); c[d.conf] = t.value.trim(); if (c.d0 && c.d1 && c.d1 < c.d0) { toast('La fecha final es anterior a la inicial.', 'err'); return; } put('s:conf', c); toast('Guardado.'); }
+  else if (d.cfg && adminOnly()) { const f = d.f; let v = t.type === 'checkbox' ? t.checked : t.value; if (f === 'quota' || f === 'max') { v = parseInt(v, 10); if (isNaN(v) || v < (f === 'quota' ? 1 : 0)) { toast('Escribe un número válido.', 'err'); renderView(); return; } } cfgPut(d.cfg, { [f]: v }); }
+  else if (d.oadd && t.value) { const o = cfgOf(d.oadd).order.slice(); o.push(t.value); cfgPut(d.oadd, { order: o }); }
+  else if (d.goto && t.value) { const g = t.value; t.value = ''; await flush(); if (await act('turn', { t: d.goto, op: 'goto', g })) toast('Turno para ' + pName(g) + '.'); }
+  else if (t.classList.contains('asg') && t.value) { const g = t.value; t.value = ''; doReserve(d.i, '', g); }
+  else if (d.urole) { await flush(); usersOp({ op: 'role', id: d.urole, role: t.value, party: t.value === 'partido' ? (ST.users.find((u) => u.id === d.urole) || {}).party || (idx().parties[0] || {}).id : '' }, 'Rol cambiado.'); }
+  else if (d.uparty && t.value) { usersOp({ op: 'role', id: d.uparty, role: 'partido', party: t.value }, 'Partido del usuario cambiado.'); }
+});
+document.addEventListener('input', (e) => {
+  const t = e.target, d = t.dataset || {};
+  if (d.q) { ST.ui.q[d.q] = t.value; renderView(); return; }
+  if (t.id === 'lq') { ST.ui.lq = t.value; renderView(); return; }
+  if (d.draft !== undefined && t.id) ST.drafts[t.id] = t.value;
+});
+document.addEventListener('keydown', (e) => {
+  const id = e.target.id || '';
+  if (e.key === 'Escape' && !$('#modal').hidden && !ST.modalLocked) closeModal(false);
+  else if (e.key === 'Enter' && !$('#lock').hidden && /^lk(Name|Pass|Pass2|Code)$/.test(id)) { e.preventDefault(); ST.lockMode === 'setup' ? doSetup() : doLogin(); }
+});
+['click', 'keydown', 'pointermove', 'touchstart', 'wheel'].forEach((ev) => document.addEventListener(ev, () => { ST.lastAct = Date.now(); }, { passive: true }));
+document.addEventListener('visibilitychange', () => { if (ST.db && document.visibilityState === 'visible') poll(true); });
+window.addEventListener('online', () => { if (ST.db) { ST.failN = 0; if (pendCount()) flush(); else poll(true); } });
+window.addEventListener('beforeunload', (e) => { if (ST.db && pendCount()) { flush(); e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- arranque ---------- */
+async function boot() {
+  let st; try { st = await api('status'); } catch (e) { showLock('noserver'); return; }
+  if (!st.initialized) { showLock('setup', st.setupEnabled ? null : 'Antes de instalar hay que crear en Netlify la variable ESPAIS_CLAVE_INICIAL (ver el LEEME).'); return; }
+  const tok = SS.get('espais.tok');
+  if (tok) { ST.tok = tok; try { ST.me = JSON.parse(SS.get('espais.me') || 'null'); } catch (e) { ST.me = null; } try { await startSession(); return; } catch (e) { ST.tok = null; SS.del('espais.tok'); } }
+  showLock('login');
+}
+boot();
+})();
+</script>
+</body>
+</html>

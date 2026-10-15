@@ -1,0 +1,16 @@
+{
+  "name": "Espais electorals · Selección de espacios",
+  "short_name": "Espais",
+  "description": "Selección por turnos de espacios electorales, banderolas, pancartas y prismas",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#14305f",
+  "theme_color": "#14305f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
