@@ -468,7 +468,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const hc = await txt(PP, '#view');
   ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
   await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
-  ok('Manual del programa separado (11 apartados): reparto, inhabilitar, Excel, copias', (await PP.locator('#view .help h3').count()) === 11 && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no disponible con un motivo/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
+  ok('Manual del programa separado (12 apartados): reparto, ensayo, inhabilitar, Excel, copias', (await PP.locator('#view .help h3').count()) === 12 && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no disponible con un motivo/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
   await tab(A, 'ayuda'); ok('La administración abre por defecto el manual', /Manual de Espais electorals/.test(await txt(A, '#view h2')));
   await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await A.click('#view [data-a=pr-help]'); await A.waitForTimeout(300);
@@ -487,6 +487,30 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.click('[data-a=imp-ok]'); await settled(A); d = await apiAs(A, 'data');
   const nova = Object.values(d.E).find((e) => e.k === 'g' && e.sig === 'NOVA');
   ok('La hoja PARTITS trae los votos', nova && nova.vot === 150 && nova.rep === 'Anna Prova');
+
+  /* ================= ENSAYO ================= */
+  const realCount = Object.values((await apiAs(A, 'data')).E).filter((e) => e.k === 'r' && !e.x).length;
+  await tab(A, 'panel'); ok('Botón «Empezar un ensayo» en el Panel', (await A.locator('#view [data-a=ens-start]').count()) === 1);
+  await A.click('#view [data-a=ens-start]'); await yes(A); ok('Empezar un ensayo', await toastIs(A, /Ensayo en marcha/));
+  await PP.waitForFunction(() => /MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
+  await PV.waitForFunction(() => /MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('Todas las candidaturas ven el aviso MODO ENSAYO', /MODO ENSAYO/.test(await txt(PP, '#banner')) && /MODO ENSAYO/.test(await txt(PV, '#banner')));
+  await PP.waitForFunction(() => /Es vuestro turno en Banderolas/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('El ensayo empieza por la primera candidatura del orden (PSC-CP)', /Es vuestro turno en Banderolas/.test(await txt(PP, '#banner')));
+  await tab(PP, 'ban'); await PP.waitForSelector('[data-a=res]'); const eb = await PP.locator('[data-a=res]').first().getAttribute('data-i');
+  await PP.click('[data-a=res][data-i="' + eb + '"]'); await yes(PP); ok('Durante el ensayo se elige como el día de verdad', await toastIs(PP, /Reservado para PSC-CP/));
+  await tab(PV, 'asig'); ok('«En directo» indica que es un ensayo', /ENSAYO/.test(await txt(PV, '.livehead')));
+  await tab(A, 'panel'); await A.waitForFunction(() => /1 elección de prueba/.test(document.querySelector('#view').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('El Panel cuenta las elecciones de prueba', /1 elección de prueba/.test(await txt(A, '#view')));
+  await A.click('#view [data-a=ens-end]'); await yes(A); ok('Terminar el ensayo y borrar lo elegido', await toastIs(A, /Ensayo terminado: se han borrado 1/));
+  await settled(A); d = await apiAs(A, 'data');
+  ok('Lo elegido en el ensayo se borra y lo de verdad se queda', d.E['r:' + eb].x === true && d.E['s:ens'].on === false && Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length === realCount, realCount + ' reservas de verdad');
+  await PP.waitForFunction(() => !/MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('El aviso de ensayo desaparece para todos', !/MODO ENSAYO/.test(await txt(PP, '#banner')));
+  await tab(A, 'registro'); const regN = await A.locator('#view tbody tr.ensr').count();
+  ok('Registro: los movimientos del ensayo están ocultos por defecto', regN === 0 && /terminó el ENSAYO/.test(await txt(A, '#view')) && (await A.locator('#lens').count()) === 1);
+  await A.check('#lens'); ok('…y se pueden mostrar, marcados como «ensayo»', (await A.locator('#view tbody tr.ensr').count()) >= 1);
+  await A.uncheck('#lens');
 
   /* ================= CAPTURAS ================= */
   fs.mkdirSync(S + '/shots_esp', { recursive: true });

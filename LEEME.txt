@@ -61,13 +61,16 @@ PRIMEROS PASOS DENTRO DEL PROGRAMA
 El Panel muestra una lista de «Puesta en marcha». En resumen:
   1. Ajustes: tipo de elecciones (por defecto, Generales al Congreso de los Diputados),
      nombre del Ajuntament y día de la votación (la campaña se calcula sola).
-  2. Ajustes → «Importar desde Excel…»: el Excel de espacios (hojas ESPAIS, BANDEROLES,
-     PANCARTES, PRISMES y la lista de partidos junto al cuadrante de GRAELLA).
+  2. Ajustes → «Importar desde Excel…»: un solo Excel con todo (hojas ESPAIS, BANDEROLES,
+     PANCARTES, PRISMES y PARTITS con los votos). En Ajustes se descarga la plantilla.
   3. Partidos: revisa las candidaturas y crea un usuario para cada una («+ Usuario»).
   4. Reparto: votos de las anteriores elecciones equivalentes → «Ordenar por votos»
      → «Calcular y fijar los cupos».
   5. Turnos y reglas: abre cada categoría por turnos (1 elección por turno) o libre.
-  6. Imprime la «Guía para las candidaturas» y el «Reparto» para la reunión.
+  6. Imprime la «Ayuda para las candidaturas» y el «Reparto» para la reunión.
+  7. Ensayo: «Empezar un ensayo» (Panel) para que las candidaturas practiquen; al
+     terminar, «Terminar el ensayo y borrar lo elegido» deja todo listo para la sesión.
+  8. Al acabar la sesión: «Guardar copia permanente…» (Panel) y el «Acta de la selección».
 La pestaña Ayuda lo explica todo con detalle, incluida la base legal (LOREG, arts. 51 y
 55 a 57).
 
@@ -88,6 +91,10 @@ DATOS, COPIAS Y SEGURIDAD
 - Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor.
 - Probado con 20 usuarios conectados a la vez y 13 candidaturas reservando al mismo
   tiempo, sin errores ni casillas con dos dueños.
+- Velocidad: los datos están en Frankfurt (Unión Europea). En los planes Pro de Netlify
+  se puede poner también la región de las funciones en Frankfurt (Cloud compute →
+  Functions → Region) para que vaya aún más rápido; con el plan Personal funciona bien
+  con la región por defecto.
 - Recomendado en GitHub (Settings → General del repositorio):
     · «Default branch» → botón ⇄ → main → «Update», para que la rama principal sea main.
     · «Danger Zone» → «Change visibility» → «Make private». El repositorio no contiene

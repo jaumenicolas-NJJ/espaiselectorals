@@ -98,6 +98,22 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   // copia permanente con nombre
   r = await api('keep', { label: 'Resultado final Generales' }, A); ok('Copia permanente con nombre', r.status === 200 && /^keep\//.test(r.j.key));
   r = await api('keep', { label: 'x' }, T.PSC); ok('Un partido no puede guardar copias', r.status === 403);
+  // modo ensayo
+  r = await api('ensayo', { op: 'start' }, T.PSC); ok('Un partido no puede empezar un ensayo', r.status === 403);
+  const realBefore = Object.values((await api('data', null, A)).j.E).filter((e) => e.k === 'r' && !e.x).length;
+  r = await api('ensayo', { op: 'start' }, A); d = (await api('data', null, A)).j; ok('Empezar el ensayo', r.status === 200 && d.E['s:ens'].on === true);
+  r = await api('ensayo', { op: 'start' }, A); ok('No se puede empezar dos veces', r.status === 409);
+  r = await api('sync', { changes: { 's:ens': { k: 's', on: false } }, since: 0 }, A); ok('El ensayo no se puede apagar por la puerta de atrás', r.j.rejected.length === 1);
+  await api('sync', { changes: { 'c:pan': { k: 'c', mode: 'libre', order: ['p0', 'p1'], quota: 1, max: 0 } }, since: 0 }, A);
+  r = await api('reserve', { i: 'p0' }, T.PSC); ok('Durante el ensayo se elige normalmente', r.status === 200, r.j && r.j.error);
+  d = (await api('data', null, A)).j; ok('Lo elegido queda marcado como de prueba (también en el registro)', d.E['r:p0'].ens === true && Object.values(d.E).some((e) => e.k === 'h' && e.ens && /reservó/.test(e.a)));
+  r = await api('release', { i: 'b0' }, T.PSC); ok('Durante el ensayo un partido no puede liberar lo elegido de verdad', r.status === 403);
+  r = await api('ensayo', { op: 'end' }, A); d = (await api('data', null, A)).j;
+  ok('Terminar el ensayo borra lo elegido en él', r.status === 200 && r.j.n === 1 && d.E['r:p0'].x === true && d.E['s:ens'].on === false, JSON.stringify(r.j && { n: r.j.n }));
+  ok('…deja intacto lo elegido de verdad', Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length === realBefore);
+  ok('…y los turnos vuelven a la ronda 1', ['ban', 'pri'].every((t) => !d.E['c:' + t] || d.E['c:' + t].mode !== 'turnos' || (d.E['c:' + t].round === 1 && !d.E['c:' + t].used)));
+  r = await api('ensayo', { op: 'end' }, A); ok('No se puede terminar un ensayo que no existe', r.status === 409);
+  const hie = (await api('history', null, A)).j; ok('Copias de seguridad antes y después del ensayo', hie.items.some((k) => /antes-del-ensayo/.test(k)) && hie.items.some((k) => /fin-del-ensayo/.test(k)));
   // registro y copias
   d = (await api('data', null, A)).j; const logs = Object.values(d.E).filter((e) => e.k === 'h');
   ok('Todas las anotaciones del registro tienen fecha y hora válidas', logs.every((l) => Number.isFinite(l.ts) && l.ts > 1.6e12), logs.filter((l) => !Number.isFinite(l.ts)).map((l) => l.a).join(' | '));

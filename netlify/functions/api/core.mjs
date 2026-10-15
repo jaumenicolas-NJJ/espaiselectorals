@@ -47,6 +47,9 @@ const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.tur
 /* cuántos elementos puede tener cada partido: su cupo del reparto (si lo hay) o el máximo general (0 = sin límite) */
 const lim = (c, g) => (c && c.cup && c.cup[g] != null ? c.cup[g] : c && c.max > 0 ? c.max : Infinity);
 const METH = ['', 'prop', 'dhondt', 'igual'];
+/* modo ensayo: lo que se elige mientras está activo es de prueba y se borra al terminar */
+const ensOn = (db) => !!(db.E['s:ens'] && db.E['s:ens'].on);
+function resetTurns(db, who, t, stamp) { for (const cat of CATS) { const c = db.E['c:' + cat]; if (!c || c.mode !== 'turnos') continue; const nc = Object.assign({}, c, { turn: 0, round: 1, used: 0, done: !(c.order || []).length }); settle(db, nc); stamp(db, 'c:' + cat, nc, who, t); } }
 const TIPOS = ['generales', 'municipales', 'autonomicas', 'europeas'];
 const XCATS = ['esp', 'ban', 'pan', 'pri', 'par'];
 /* campos propios que añade el Ayuntamiento: definición en la configuración y valores en cada registro (xv) */
@@ -205,7 +208,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
   };
   const since = (db, n) => { const o = {}; for (const k in db.E) if ((db.E[k].s || 0) > n) o[k] = db.E[k]; return o; };
   const stamp = (db, key, e, who, t) => { e.u = Math.max(t, ((db.E[key] && db.E[key].u) || 0) + 1); e.b = who.u.name; e.s = ++db.seq; db.E[key] = e; };
-  const log = (db, who, t, a, cat, g) => stamp(db, 'h:' + newId(), { k: 'h', ts: t, by: who.u.name, a, t: cat || '', g: g || '' }, who, t);
+  const log = (db, who, t, a, cat, g) => stamp(db, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a, t: cat || '', g: g || '' }, ensOn(db) ? { ens: true } : {}), who, t);
   const pname = (db, g) => { const p = db.E['g:' + g]; return p ? p.sig || p.nom : '?'; };
   const iname = (e) => (e.nom || e.lloc || '(sin nombre)') + (e.tram ? ' · ' + e.tram : e.lim ? ' · ' + e.lim : e.num ? ' · ' + e.num : '');
   const slotTxt = (s) => (s ? ' · ' + s.slice(8, 10) + '/' + s.slice(5, 7) + ' ' + (s[10] === 'M' ? 'mañana' : 'tarde') : '');
@@ -317,6 +320,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       if ((tot[g] || 0) >= L) throw new HttpErr(403, L === 0 ? 'No tenéis cupo en ' + CATN[cat].toLowerCase() + '.' : c.cup && c.cup[g] != null ? 'Habéis completado vuestro cupo de ' + L + ' en ' + CATN[cat].toLowerCase() + '.' : 'Habéis llegado al máximo de ' + L + ' en ' + CATN[cat].toLowerCase() + '.');
     }
     const r = { k: 'r', t: cat, i: body.i, slot, g, by: who.u.name, ts: t, rk: inTurn ? (c.round || 1) + '.' + (c.turn || 0) : '' };
+    if (ensOn(db)) r.ens = true;
     stamp(db, key, r, who, t);
     log(db, who, t, (admin && who.u.party !== g ? 'asignó a ' + pname(db, g) + ' ' : 'reservó ') + '«' + iname(it) + slotTxt(slot) + '»', cat, g);
     if (inTurn) {
@@ -333,6 +337,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     if (!r || r.x) throw new HttpErr(404, 'Esa reserva ya no existe.');
     if (!admin) {
       if (r.g !== who.u.party) throw new HttpErr(403, 'Solo podéis liberar vuestras propias reservas.');
+      if (ensOn(db) && !r.ens) throw new HttpErr(403, 'Durante el ensayo solo se puede liberar lo elegido en el ensayo.');
       const c = db.E['c:' + r.t] || { mode: 'cerrado' };
       if (c.mode === 'cerrado') throw new HttpErr(403, 'La selección de ' + CATN[r.t].toLowerCase() + ' está cerrada: pide al Ayuntamiento que la libere.');
     }
@@ -527,6 +532,30 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       });
       await bumpMeta(db.seq, null); if (added) await journal(since(db, s0), who, 'importación');
       return json({ added, seq: db.seq });
+    },
+    'POST ensayo': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      const op = body.op; if (op !== 'start' && op !== 'end') throw new HttpErr(400, 'Operación desconocida.');
+      await maybeSnap(op === 'start' ? 'antes-del-ensayo' : 'fin-del-ensayo');
+      let s0 = 0, n = 0;
+      const { cur: db } = await update('db', initDB, (d) => {
+        s0 = d.seq; n = 0; const t = now(), on = ensOn(d);
+        if (op === 'start') {
+          if (on) throw new HttpErr(409, 'Ya hay un ensayo en marcha.');
+          log(d, who, t, 'empezó un ENSAYO: lo que se elija a partir de ahora es de prueba y se borrará al terminar');
+          stamp(d, 's:ens', { k: 's', on: true, since: t, by: who.u.name }, who, t);
+          resetTurns(d, who, t, stamp);
+        } else {
+          if (!on) throw new HttpErr(409, 'No hay ningún ensayo en marcha.');
+          for (const k in d.E) { const r = d.E[k]; if (r.k === 'r' && !r.x && r.ens) { stamp(d, k, Object.assign({}, r, { x: true }), who, t); n++; } }
+          stamp(d, 's:ens', { k: 's', on: false, last: t, by: who.u.name }, who, t);
+          resetTurns(d, who, t, stamp);
+          log(d, who, t, 'terminó el ENSAYO: se han borrado ' + n + (n === 1 ? ' elección' : ' elecciones') + ' de prueba y los turnos vuelven a empezar');
+        }
+        return null;
+      });
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'ensayo')]);
+      return json({ ok: true, n, seq: db.seq, E: since(db, +body.since || 0) });
     },
     'POST keep': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
