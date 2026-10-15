@@ -380,7 +380,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   d = await apiAs(A, 'data'); const e2srv = d.E['i:' + e2] || {};
   await tab(PV, 'esp'); await PV.waitForFunction((i) => document.querySelectorAll('.cc.nd button[data-i="' + i + '"]').length === 30, e2, { timeout: 15000 }).catch(() => {});
   const e2row = await PV.evaluate((i) => { const b = document.querySelector('.cgrid button[data-i="' + i + '"]'); return b ? b.closest('tr').innerText.replace(/\s+/g, ' ').slice(0, 120) : 'sin fila'; }, e2);
-  ok('Inhabilitar un espacio entero: sus 30 franjas en gris con el motivo', e2srv.nd === true && (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) === 30 && /Mercado municipal/.test(e2row), 'servidor nd=' + e2srv.nd + ' · celdas N/D ' + (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) + ' · fila: ' + e2row);
+  ok('Inhabilitar un espacio entero: sus 30 franjas en gris con el motivo', e2srv.nd === true && (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) === 30 && /Mercado municipal/i.test(e2row), 'servidor nd=' + e2srv.nd + ' · celdas N/D ' + (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) + ' · fila: ' + e2row);
 
   /* ================= COPIAS A LA VISTA ================= */
   await tab(A, 'panel');

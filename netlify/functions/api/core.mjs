@@ -172,6 +172,12 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     if (pre && Object.keys(pre.E).length && (why || now() - (pre.lastSnap || 0) > SNAP_EVERY)) { await snapshot(pre, why || ''); await update('db', initDB, (d) => { d.lastSnap = now(); return null; }); snapSeen = now(); }
   }
 
+  /* copia automática cada 10 minutos de actividad, con la base ya en memoria (sin volver a leerla) */
+  async function autoSnap(db) {
+    if (!db || !Object.keys(db.E).length || now() - (db.lastSnap || 0) <= SNAP_EVERY) return;
+    try { await snapshot(db, ''); await update('db', initDB, (d) => { d.lastSnap = now(); return null; }); } catch (e) { console.error('copia automática', e); }
+  }
+
   /* ---------- sesiones firmadas ---------- */
   async function makeToken(id, u) {
     const p = b64u(JSON.stringify({ id, tv: u.tv || 1, exp: now() + TOKEN_HOURS * 3600000 }));
@@ -399,11 +405,12 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     },
 
     'GET changes': async (req, body, url) => {
-      const who = await authed(req);
       const s = +url.searchParams.get('since') || 0, ur = +url.searchParams.get('urev') || 0, force = url.searchParams.get('force') === '1';
+      const mP = force ? null : getJ('meta').catch(() => null);
+      const who = await authed(req);
       const out = { me: userOut(who.id, who.u), urev: who.auth.urev };
       if (ur !== who.auth.urev) out.users = publicUsers(who.auth, who);
-      if (!force) { const m = await getJ('meta'); if (m && m.seq <= s) return json(Object.assign(out, { seq: Math.max(m.seq, s), E: {} })); }
+      if (!force) { const m = await mP; if (m && m.seq <= s) return json(Object.assign(out, { seq: Math.max(m.seq, s), E: {} })); }
       const { data: db } = await read('db'); const d = db || initDB();
       return json(Object.assign(out, { seq: d.seq, E: redact(since(d, s), who) }));
     },
@@ -412,15 +419,14 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       const who = await authed(req); need(who, ['admin']);
       const changes = body.changes || {}, keys = Object.keys(changes);
       if (keys.length > 800) throw new HttpErr(413, 'Demasiados cambios a la vez.');
-      await maybeSnap(keys.some((k) => changes[k] && changes[k].x) ? 'antes-de-eliminar' : '');
+      if (keys.some((k) => changes[k] && changes[k].x)) await maybeSnap('antes-de-eliminar');
       let s0 = 0;
       const { cur: db, out } = await update('db', initDB, (d) => {
         s0 = d.seq; const rejected = [], t = now();
         keys.forEach((k) => { const r = applyChange(d, k, changes[k], who, t); if (r) rejected.push({ key: k, reason: r }); });
         return rejected.length === keys.length ? { noWrite: true, rejected } : { rejected };
       });
-      await bumpMeta(db.seq, null);
-      if (out.rejected.length < keys.length) await journal(since(db, s0), who, 'cambios');
+      await Promise.all([bumpMeta(db.seq, null), out.rejected.length < keys.length ? journal(since(db, s0), who, 'cambios') : null, autoSnap(db)]);
       const E = since(db, +body.since || 0); out.rejected.forEach((r) => { if (db.E[r.key]) E[r.key] = db.E[r.key]; });
       return json({ seq: db.seq, E, rejected: out.rejected });
     },
@@ -428,10 +434,9 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     'POST reserve': async (req, body) => {
       const who = await authed(req); need(who, ['admin', 'partido']);
       if (!/^[\w-]{1,60}$/.test(String(body.i || ''))) throw new HttpErr(400, 'Reserva no válida.');
-      await maybeSnap('');
       let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; reserve(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'reserva');
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'reserva'), autoSnap(db)]);
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST release': async (req, body) => {
@@ -439,14 +444,14 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       if (!/^[\w-]{1,60}$/.test(String(body.i || '')) || !(body.slot == null || body.slot === '' || slotOK(body.slot))) throw new HttpErr(400, 'Reserva no válida.');
       let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; release(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'liberación');
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'liberación'), autoSnap(db)]);
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST turn': async (req, body) => {
       const who = await authed(req); need(who, ['admin', 'partido']);
       let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; turnOp(d, body, who, now()); return null; });
-      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'turno');
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'turno'), autoSnap(db)]);
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
 
