@@ -75,7 +75,7 @@ function freeLeft(db, t) {
   const conf = db.E['s:conf'] || {}, days = [];
   if (t === 'esp' && isISO(conf.d0) && isISO(conf.d1)) for (let d = Date.parse(conf.d0 + 'T00:00:00Z'); d <= Date.parse(conf.d1 + 'T00:00:00Z') && days.length < 120; d += 86400000) days.push(new Date(d).toISOString().slice(0, 10));
   for (const k in db.E) {
-    const e = db.E[k]; if (e.k !== 'i' || e.x || e.t !== t) continue;
+    const e = db.E[k]; if (e.k !== 'i' || e.x || e.t !== t || e.nd) continue;
     if (t !== 'esp') { const r = db.E['r:' + k.slice(2)]; if (!r || r.x) return true; continue; }
     for (const d of days) for (const f of ['M', 'T']) { const s = d + f; if ((e.blk || {})[s] === 'nd') continue; const r = db.E['r:' + k.slice(2) + ':' + s]; if (!r || r.x) return true; }
   }
@@ -250,6 +250,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
         o.ord = intOr(ch.ord, 0, 9999); if (Number.isNaN(o.ord)) return 'Número de orden no válido.';
         for (const f of D.n) { o[f] = intOr(ch[f], 0, 9999); if (Number.isNaN(o[f])) return 'Número no válido: ' + f + '.'; }
         o.xv = xvOK(ch.xv); if (!o.xv) return 'Campos propios no válidos.';
+        if (!(ch.ndm == null || (typeof ch.ndm === 'string' && ch.ndm.length <= 200))) return 'Motivo no válido.';
+        o.nd = !!ch.nd; o.ndm = o.nd ? (ch.ndm || '').trim() : '';
+        if (o.nd && cur && !cur.nd) { const id = key.slice(2); for (const k in db.E) { const r = db.E[k]; if (r.k === 'r' && !r.x && r.i === id) return 'Tiene reservas: libéralas antes de marcarlo como no disponible.'; } }
+        if (cur && !!cur.nd !== o.nd) log(db, who, t, (o.nd ? 'marcó como no disponible «' + iname(cur) + '»' + (o.ndm ? ': ' + o.ndm : '') : 'volvió a dejar disponible «' + iname(cur) + '»'), tt);
         if (tt === 'esp') {
           const b = ch.blk == null ? {} : ch.blk;
           if (typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length > 200) return 'Disponibilidad no válida.';
@@ -284,6 +288,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     const g = admin ? body.g : who.u.party;
     if (!g || !db.E['g:' + g] || db.E['g:' + g].x) throw new HttpErr(400, admin ? 'Elige el partido.' : 'Tu usuario no está vinculado a ningún partido. Avisa al Ayuntamiento.');
     const it = db.E['i:' + body.i]; if (!it || it.x) throw new HttpErr(404, 'Ese elemento ya no existe.');
+    if (it.nd) throw new HttpErr(409, 'No está disponible' + (it.ndm ? ': ' + it.ndm : '') + '.');
     const cat = it.t, slot = body.slot || '';
     if (cat === 'esp') {
       if (!slotOK(slot)) throw new HttpErr(400, 'Elige día y franja.');
@@ -518,14 +523,26 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       await bumpMeta(db.seq, null); if (added) await journal(since(db, s0), who, 'importación');
       return json({ added, seq: db.seq });
     },
+    'POST keep': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      const label = (typeof body.label === 'string' ? body.label : '').trim().slice(0, 100) || 'Copia guardada';
+      const { data: db } = await read('db'); if (!db || !Object.keys(db.E).length) throw new HttpErr(400, 'Todavía no hay datos que guardar.');
+      let auth = null; try { auth = (await read('auth')).data; } catch (e) { /* la copia de datos va igualmente */ }
+      const iso = new Date(now()).toISOString(), key = 'keep/' + iso.replace(/[:.]/g, '-') + '_' + (norm(label).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'copia');
+      await bk.setJSON(key, { at: now(), why: 'permanente', label, by: who.u.name, db, auth });
+      for (let i = 0; i < 5; i++) { const idx = (await bk.get('keep-index', { type: 'json' })) || { items: [] }; idx.items.push({ key, label, at: now(), by: who.u.name }); await bk.setJSON('keep-index', idx); const chk = await bk.get('keep-index', { type: 'json' }); if (chk && chk.items.some((x) => x.key === key)) break; }
+      const { cur: d2 } = await update('db', initDB, (d) => { log(d, who, now(), 'guardó una copia permanente: «' + label + '»'); return null; });
+      await bumpMeta(d2.seq, null);
+      return json({ ok: true, key, label });
+    },
     'GET history': async (req) => {
       const who = await authed(req); need(who, ['admin']);
-      const [h, dd, jr] = await Promise.all([bk.list({ prefix: 'hist/' }), bk.list({ prefix: 'day/' }), bk.list({ prefix: 'jr/' })]);
-      return json({ items: h.blobs.map((b) => b.key).sort().reverse().slice(0, 150), days: dd.blobs.map((b) => b.key).sort().reverse(), changes: jr.blobs.length });
+      const [h, dd, jr, ki] = await Promise.all([bk.list({ prefix: 'hist/' }), bk.list({ prefix: 'day/' }), bk.list({ prefix: 'jr/' }), bk.get('keep-index', { type: 'json' })]);
+      return json({ items: h.blobs.map((b) => b.key).sort().reverse().slice(0, 150), days: dd.blobs.map((b) => b.key).sort().reverse(), keep: ((ki && ki.items) || []).slice().reverse(), changes: jr.blobs.length });
     },
     'POST restore': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
-      if (!str(body.key, 6, 200) || !/^(hist|day)\//.test(body.key)) throw new HttpErr(400, 'Copia no válida.');
+      if (!str(body.key, 6, 200) || !/^(hist|day|keep)\//.test(body.key)) throw new HttpErr(400, 'Copia no válida.');
       const h = await bk.get(body.key, { type: 'json' }); if (!h || !h.db) throw new HttpErr(404, 'Esa copia ya no existe.');
       const { data: pre } = await read('db'); if (pre) await snapshot(pre, 'antes-de-restaurar');
       let s0 = 0;

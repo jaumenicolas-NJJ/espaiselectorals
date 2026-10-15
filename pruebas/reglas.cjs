@@ -86,6 +86,18 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   r = await api('reserve', { i: 'r3', g: 'p2' }, A); ok('La administradora asigna aunque no haya cupo', r.status === 200);
   await api('sync', { changes: { 'c:pri': { k: 'c', mode: 'turnos', order: ['p2', 'p0', 'p1'], quota: 1, max: 0, cup: { p0: 3, p1: 1, p2: 0 } } }, since: 0 }, A); await api('turn', { t: 'pri', op: 'reset' }, A); d = (await api('data', null, A)).j;
   ok('Si el turno cae en quien no tiene cupo, pasa solo al siguiente', d.E['c:pri'].turn === 1 && !d.E['c:pri'].done, JSON.stringify({ t: d.E['c:pri'].turn, done: d.E['c:pri'].done }));
+  // no disponible con motivo
+  r = await api('sync', { changes: { 'i:b0': { k: 'i', t: 'ban', ord: 1, nom: 'Calle 0', tram: 'A/B', bf: 3, pf: 2, nd: true, ndm: 'Obras' } }, since: 0 }, A);
+  ok('No se puede inhabilitar algo reservado', r.j.rejected.length === 1 && /reservas/.test(r.j.rejected[0].reason), JSON.stringify(r.j.rejected));
+  r = await api('sync', { changes: { 'i:b3': { k: 'i', t: 'ban', ord: 4, nom: 'Calle 3', tram: 'A/B', bf: 3, pf: 2, nd: true, ndm: 'Obras en la calle' } }, since: 0 }, A); d = (await api('data', null, A)).j;
+  ok('Inhabilitar un elemento libre con su motivo', r.j.rejected.length === 0 && d.E['i:b3'].nd === true && d.E['i:b3'].ndm === 'Obras en la calle');
+  r = await api('reserve', { i: 'b3', g: 'p1' }, A); ok('Lo inhabilitado no se puede elegir (ni asignar)', r.status === 409 && /Obras en la calle/.test(r.j.error), r.j.error);
+  ok('Queda en el registro con el motivo', Object.values(d.E).some((e) => e.k === 'h' && /no disponible «Calle 3 · A\/B»: Obras en la calle/.test(e.a)));
+  r = await api('sync', { changes: { 'i:b3': { k: 'i', t: 'ban', ord: 4, nom: 'Calle 3', tram: 'A/B', bf: 3, pf: 2, nd: false } }, since: 0 }, A); d = (await api('data', null, A)).j;
+  ok('Volver a habilitarlo', d.E['i:b3'].nd === false && d.E['i:b3'].ndm === '');
+  // copia permanente con nombre
+  r = await api('keep', { label: 'Resultado final Generales' }, A); ok('Copia permanente con nombre', r.status === 200 && /^keep\//.test(r.j.key));
+  r = await api('keep', { label: 'x' }, T.PSC); ok('Un partido no puede guardar copias', r.status === 403);
   // registro y copias
   d = (await api('data', null, A)).j; const logs = Object.values(d.E).filter((e) => e.k === 'h');
   ok('Todas las anotaciones del registro tienen fecha y hora válidas', logs.every((l) => Number.isFinite(l.ts) && l.ts > 1.6e12), logs.filter((l) => !Number.isFinite(l.ts)).map((l) => l.a).join(' | '));
@@ -97,8 +109,22 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   ok('Copia de cada modificación en el almacén de copias', hi.changes >= 30, hi.changes + ' modificaciones copiadas');
   ok('Copia diaria permanente', hi.days.length === 1 && /^day\/\d{4}-\d{2}-\d{2}$/.test(hi.days[0]), hi.days.join());
   r = await api('restore', { key: hi.days[0] }, A); ok('Se puede restaurar desde la copia diaria', r.status === 200);
+  ok('La copia permanente aparece con su nombre', hi.keep.length === 1 && hi.keep[0].label === 'Resultado final Generales' && hi.keep[0].by === 'Rosana');
+  r = await api('restore', { key: hi.keep[0].key }, A); ok('Se puede restaurar desde la copia permanente', r.status === 200);
   r = await api('restore', { key: 'db' }, A); ok('Restaurar solo acepta copias (no otras claves)', r.status === 400);
   const exp = (await api('export', null, A)).j; ok('Copia descargable completa', exp.app === 'espais' && Object.keys(exp.E).length > 20);
   r = await api('export', null, T.PSC); ok('Partido no descarga copias', r.status === 403);
+  // seguridad
+  const [p64, sig] = T.PSC.split('.'), pay = JSON.parse(Buffer.from(p64, 'base64url').toString()); pay.id = Object.keys((await api('data', null, A)).j.users.reduce((o, u) => (u.role === 'admin' ? Object.assign(o, { [u.id]: 1 }) : o), {}))[0];
+  r = await api('data', null, Buffer.from(JSON.stringify(pay)).toString('base64url') + '.' + sig); ok('Sesión manipulada (hacerse pasar por la administradora): rechazo', r.status === 401);
+  r = await api('data', null, 'abc.def'); ok('Sesión inventada: rechazo', r.status === 401);
+  r = await api('data'); ok('Sin sesión no se ve ningún dato', r.status === 401);
+  for (const [p, b] of [['users', { op: 'add', name: 'Intruso', role: 'admin', password: 'intruso123' }], ['history', null], ['restore', { key: 'hist/x' }], ['import', { E: {} }], ['sync', { changes: {} }]]) { r = await api(p, b, T.PSC); ok('Un partido no puede usar «' + p + '»', r.status === 403, r.status); }
+  r = await fetch(B + '/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + A }, body: '{mal' }); ok('Petición mal formada: rechazo limpio', r.status === 400);
+  r = await fetch(B + '/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + A }, body: JSON.stringify({ x: 'a'.repeat(6 * 1024 * 1024) }) }); ok('Petición gigante: rechazo', r.status === 413);
+  r = await api('sync', { changes: { 'g:p0': { k: 'g', sig: '<b>x</b>'.repeat(10) } }, since: 0 }, A); ok('Textos demasiado largos: rechazo', r.j.rejected.length === 1);
+  let st = []; for (let i = 0; i < 5; i++) st.push((await api('login', { name: 'JEZ', password: 'mala' + i })).status);
+  r = await api('login', { name: 'JEZ', password: 'provis123' }); ok('5 contraseñas fallidas bloquean el usuario aunque luego acierte', st.every((s) => s === 401) && r.status === 429, st.join(',') + ' → ' + r.status);
+  r = await api('login', { name: 'nadie', password: 'x' }); ok('Usuario inexistente: mismo mensaje que contraseña mala', r.status === 401 && /Usuario o contraseña incorrectos/.test(r.j.error));
   console.log(R.join('\n')); console.log(R.filter((x) => x.startsWith('OK')).length + '/' + R.length); process.exitCode = R.some((x) => x.startsWith('FALLO')) ? 1 : 0;
 })().catch((e) => { console.log(R.join('\n')); console.error('ERROR', e); process.exit(1); });

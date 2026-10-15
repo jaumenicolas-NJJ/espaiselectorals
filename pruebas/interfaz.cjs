@@ -33,7 +33,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
   ok('Administradora creada y dentro', /Rosana · Administración/.test(await txt(A, '#who')));
   ok('Panel con la puesta en marcha guiada', /Puesta en marcha/.test(await txt(A, '#view')));
-  ok('Pestañas de administración', (await A.locator('#tabs button').allInnerTexts()).join('|') === 'Panel|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
+  ok('Pestañas de administración', (await A.locator('#tabs button').allInnerTexts()).join('|') === 'Panel|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
 
   /* ================= AJUSTES ================= */
   await tab(A, 'ajustes');
@@ -75,6 +75,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.fill('#rg-' + V + '-nom', 'Valents'); await A.press('#rg-' + V + '-nom', 'Tab');
   await A.fill('#rg-' + V + '-rep', 'Joan Representant'); await A.press('#rg-' + V + '-rep', 'Tab');
   await A.fill('#rg-' + V + '-tel', '600111222'); await A.press('#rg-' + V + '-tel', 'Tab');
+  // texto malicioso a propósito: nunca debe ejecutarse (se comprueba al final en todas las pantallas)
+  await A.fill('#rg-' + P.PACMA + '-nom', 'Pacma <img src=x onerror="window.__xss=1"><script>window.__xss=2</script>'); await A.press('#rg-' + P.PACMA + '-nom', 'Tab');
   await settled(A);
   for (const [g, name] of [[V, 'VALENTS'], [PS, 'PSC-CP'], [CU, 'CUP-GG-AMUNT']]) {
     await A.click('[data-a=u-add][data-g="' + g + '"]'); await A.waitForSelector('#uaName');
@@ -351,6 +353,46 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('Con cupo: puede elegir y ve su cupo', (await PP.locator('[data-a=res]').count()) > 0 && new RegExp('0 / ' + cupS('pan', 'PSC-CP')).test(await txt(PP, '#view .kpis')), await txt(PP, '#view .kpis'));
   await tab(A, 'turnos'); await A.click('[data-a=cfg-mode][data-t=pan][data-v=cerrado]'); await settled(A);
 
+  /* ================= EN DIRECTO ================= */
+  ok('La pestaña «En directo» se distingue: punto rojo que late con la selección abierta', (await PP.locator('#tabs .tlive.onair .ldot').count()) === 1);
+  await tab(PP, 'asig'); let ta = await txt(PP, '#view');
+  ok('En directo: franja propia, turno de cada categoría y lo de cada candidatura en una sola pantalla', /EN DIRECTO/.test(ta) && /Selección abierta/.test(ta) && /Turno en cada categoría/.test(ta) && /Últimas elecciones/.test(ta) && /Lo que tiene cada candidatura/.test(ta) && /VALENTS/.test(ta) && /CUP-GG-AMUNT/.test(ta) && /Banderolas: \d+ \/ \d+/.test(ta));
+  await PP.selectOption('#ap', 'mine'); ok('Filtro «Solo la nuestra»', (await PP.locator('.asg-p').count()) === 1 && /PSC-CP/.test(await txt(PP, '.asg-p')));
+  await PP.selectOption('#ap', ''); await PP.selectOption('#ac', 'esp'); ok('Filtro por categoría', !/Banderolas: /.test(await txt(PP, '.asg-p')) && /Espacios electorales: /.test(await txt(PP, '.asg-p'))); await PP.selectOption('#ac', '');
+  await tab(A, 'pri'); const pfree = await A.locator('select.asg').first().getAttribute('data-i');
+  await A.selectOption('select.asg[data-i="' + pfree + '"]', V); await yes(A); await toastIs(A, /Asignado a VALENTS/);
+  await PP.waitForFunction(() => /VALENTS/.test((document.querySelector('.lastres tr') || {}).innerText || ''), null, { timeout: 12000 }).catch(() => {});
+  ok('Una elección nueva aparece arriba, en directo, para las demás candidaturas', /VALENTS/.test(await txt(PP, '.lastres tr')) && /Prismas/.test(await txt(PP, '.lastres tr')));
+
+  /* ================= INHABILITAR CON MOTIVO ================= */
+  await tab(A, 'ban'); const fb = await A.locator('select.asg').first().getAttribute('data-i'); const totBan = await txt(A, '#view .kpis');
+  await A.click('[data-a=nd-on][data-i="' + fb + '"]'); await A.waitForSelector('#ndMotivo'); await A.fill('#ndMotivo', 'Obras en la calle'); await A.click('[data-a=nd-ok]');
+  ok('Inhabilitar una banderola con su motivo', await toastIs(A, /Marcado como no disponible/)); await settled(A);
+  d = await apiAs(A, 'data'); ok('…guardado en el servidor', d.E['i:' + fb].nd === true && d.E['i:' + fb].ndm === 'Obras en la calle');
+  ok('…y deja de contar como disponible', (await txt(A, '#view .kpis')) !== totBan && new RegExp('/ ' + (items.ban.length - 1)).test(await txt(A, '#view .kpis')), (await txt(A, '#view .kpis')).replace(/\s+/g, ' '));
+  await tab(PP, 'ban'); await PP.selectOption('#flt-ban', 'nd'); await PP.waitForFunction(() => /Obras en la calle/.test(document.querySelector('#view').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('Las candidaturas lo ven en gris con el motivo y sin poder elegirlo', (await PP.locator('tr.ndr').count()) === 1 && /No disponible/.test(await txt(PP, 'tr.ndr')) && /Obras en la calle/.test(await txt(PP, 'tr.ndr')) && !(await PP.locator('tr.ndr [data-a=res]').count()));
+  await PP.selectOption('#flt-ban', 'all');
+  await A.click('[data-a=nd-off][data-i="' + fb + '"]'); await yes(A); await toastIs(A, /Vuelve a estar disponible/); await settled(A);
+  d = await apiAs(A, 'data'); ok('Volver a habilitarla', d.E['i:' + fb].nd === false);
+  const e2 = items.esp[2].id; await tab(A, 'esp'); await A.click('[data-a=blk-row][data-i="' + e2 + '"]'); await A.click('#modal [data-a=nd-on]');
+  await A.waitForSelector('#ndMotivo'); await A.fill('#ndMotivo', 'Mercado municipal'); await A.click('[data-a=nd-ok]'); await settled(A);
+  d = await apiAs(A, 'data'); const e2srv = d.E['i:' + e2] || {};
+  await tab(PV, 'esp'); await PV.waitForFunction((i) => document.querySelectorAll('.cc.nd button[data-i="' + i + '"]').length === 30, e2, { timeout: 15000 }).catch(() => {});
+  const e2row = await PV.evaluate((i) => { const b = document.querySelector('.cgrid button[data-i="' + i + '"]'); return b ? b.closest('tr').innerText.replace(/\s+/g, ' ').slice(0, 120) : 'sin fila'; }, e2);
+  ok('Inhabilitar un espacio entero: sus 30 franjas en gris con el motivo', e2srv.nd === true && (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) === 30 && /Mercado municipal/.test(e2row), 'servidor nd=' + e2srv.nd + ' · celdas N/D ' + (await PV.locator('.cc.nd button[data-i="' + e2 + '"]').count()) + ' · fila: ' + e2row);
+
+  /* ================= COPIAS A LA VISTA ================= */
+  await tab(A, 'panel');
+  ok('Botón «💾 Copia» en la cabecera solo para la administración', (await A.isVisible('#bakTop')) && !(await PP.isVisible('#bakTop')));
+  const [dlTop] = await Promise.all([A.waitForEvent('download'), A.click('#bakTop')]);
+  ok('Descargar la copia desde la cabecera', JSON.parse(fs.readFileSync(await dlTop.path(), 'utf8')).app === 'espais');
+  ok('Recuadro de copias en el Panel', /Copias de seguridad/.test(await txt(A, '#view')) && (await A.locator('#view [data-a=bak-keep]').count()) === 1);
+  await A.click('#view [data-a=bak-keep]'); await A.waitForSelector('#keepName'); await A.fill('#keepName', 'Prueba · resultado final');
+  const [dlKeep] = await Promise.all([A.waitForEvent('download'), A.click('[data-a=keep-ok]')]);
+  const hk = await apiAs(A, 'history');
+  ok('Copia permanente con nombre: en el servidor y descargada', hk.keep.length === 1 && hk.keep[0].label === 'Prueba · resultado final' && JSON.parse(fs.readFileSync(await dlKeep.path(), 'utf8')).app === 'espais');
+
   /* ================= IMPRESIÓN A4 ================= */
   fs.mkdirSync(S + '/pdf_esp', { recursive: true });
   await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
@@ -368,7 +410,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await pg.evaluate(() => { window.__p = 0; document.body.classList.remove('printdoc'); });
   }
   await tab(A, 'panel');
-  await A.click('[data-a=pr-menu]'); ok('Menú de impresión con 10 documentos', (await A.locator('.prlist .prop').count()) === 10, await A.locator('.prlist .prop').count());
+  await A.click('[data-a=pr-menu]'); ok('Menú de impresión con 11 documentos', (await A.locator('.prlist .prop').count()) === 11, await A.locator('.prlist .prop').count());
   await A.click('.prop[data-a=pr-cat][data-t=esp]'); await check(A, 'espacios + cuadrante', 'espacios', ['Espacios electorales', 'Cuadrante', "Jardí de l'Amistat", 'N/D', 'Restr.', 'CUP-GG-AMUNT'], true);
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-cat][data-t=ban]'); await check(A, 'banderolas', 'banderolas', ['Banderolas', 'Por partido:', 'VALENTS'], false);
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-cat][data-t=pri]'); await check(A, 'prismas', 'prismas', ['Prismas'], false);
@@ -378,7 +420,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await tab(A, 'partidos'); await A.click('[data-a=pr-party][data-g="' + V + '"]'); await check(A, 'desde la fila de Partidos (VALENTS)', 'fila-partido', ['Asignaciones de VALENTS', 'Longitud'], false);
   await tab(A, 'panel'); await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-allres]'); await check(A, 'relación completa de asignaciones', 'relacion', ['Relación completa de asignaciones', 'VALENTS', 'PSC-CP', 'CUP-GG-AMUNT', 'Prismas', 'Espacios electorales'], false);
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-reparto]'); await check(A, 'reparto con base legal y conformidad', 'reparto', ['Reparto de emplazamientos y orden de elección', 'Generales 2023', '25.000', '41,25', 'Base legal', 'Conformidad de las candidaturas'], false);
-  await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-guia]'); await check(A, 'guía para las candidaturas', 'guia', ['Guía para las candidaturas', 'Es vuestro turno', 'Terminar mi turno', 'Liberar', 'rondas'], false);
+  await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-guia]'); await check(A, 'ayuda para las candidaturas', 'guia', ['Ayuda para las candidaturas', 'Cómo se reparte según la ley', 'Es vuestro turno', 'Terminar mi turno', '10 a 14', 'Preguntas frecuentes'], false);
+  await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-acta]'); await check(A, 'acta de la selección', 'acta', ['Acta de la selección de espacios electorales', 'Resultado por candidatura', 'Desarrollo de la selección', 'reservó', 'Firmas', 'Ajuntament de Santa Coloma de Gramenet'], true);
   await tab(PP, 'partidos'); ok('Cada partido solo puede imprimir su propia hoja desde Partidos', (await PP.locator('[data-a=pr-party]').count()) === 1);
   await PV.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await tab(PV, 'panel'); await PV.click('[data-a=pr-menu]'); ok('El partido puede imprimir «Nuestras asignaciones»', (await PV.locator('.prop[data-a=pr-party]').count()) === 1);
@@ -420,16 +463,37 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('Usuario dado de baja: sale del programa', /ya no tiene acceso/.test(await txt(JZ, '#lock')));
 
   /* ================= AYUDA ================= */
-  await tab(PP, 'ayuda'); ok('Ayuda: 13 apartados', (await PP.locator('#view .help h3').count()) === 13);
-  ok('Ayuda: turnos, rondas y cupos con el ejemplo ronda a ronda, visible para las candidaturas', /Turnos, rondas y cupos/.test(await txt(PP, '#view')) && /10 a 14/.test(await txt(PP, '#view')) && /deja de tener turno/.test(await txt(PP, '#view')));
-  ok('Ayuda: base legal, cómo se hace el reparto con ejemplo y guía para las candidaturas', /arts\. 55 y 56/.test(await txt(PP, '#view')) && /14, 9, 5 y 2/.test(await txt(PP, '#view')) && /Guía rápida para las candidaturas/.test(await txt(PP, '#view')) && /Campos propios/.test(await txt(PP, '#view')));
-  ok('Ayuda explica turnos, cuadrante y disponibilidad en bloque', /Terminar mi turno/.test(await txt(PP, '#view')) && /en bloque/.test(await txt(PP, '#view')));
+  await tab(PP, 'ayuda');
+  ok('Ayuda de las candidaturas: es la que ven los partidos, con 7 apartados', /Ayuda para las candidaturas/.test(await txt(PP, '#view h2')) && (await PP.locator('#view .help h3').count()) === 7);
+  const hc = await txt(PP, '#view');
+  ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
+  await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
+  ok('Manual del programa separado (11 apartados): reparto, inhabilitar, Excel, copias', (await PP.locator('#view .help h3').count()) === 11 && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no disponible con un motivo/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
+  await tab(A, 'ayuda'); ok('La administración abre por defecto el manual', /Manual de Espais electorals/.test(await txt(A, '#view h2')));
+  await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
+  await A.click('#view [data-a=pr-help]'); await A.waitForTimeout(300);
+  const ptxt = await A.evaluate(() => document.getElementById('printdoc').innerText);
+  ok('Imprimir el manual (solo su parte)', /Manual de Espais electorals/.test(ptxt) && !/Preguntas frecuentes/.test(ptxt));
+  await A.evaluate(() => document.body.classList.remove('printdoc'));
+
+  /* ================= PLANTILLA EXCEL ================= */
+  await tab(A, 'ajustes');
+  [dl] = await Promise.all([A.waitForEvent('download'), A.click('a[href="plantilla-espais.xlsx"]')]);
+  ok('Plantilla Excel descargable desde Ajustes', fs.statSync(await dl.path()).size > 4000);
+  [fc] = await Promise.all([A.waitForEvent('filechooser'), A.click('#view [data-a=imp-xls]')]);
+  await fc.setFiles(path.join(__dirname, 'datos', 'plantilla-rellena.xlsx')); await A.waitForSelector('.impChk');
+  const ti = await txt(A, '#modal');
+  ok('Un Excel con todo a la vez: cada hoja a su sitio, con ejemplos de lo que entra', /PARTITS/.test(ti) && /Espacios electorales: 1 nuevos/.test(ti) && /Banderolas: 1 nuevos/.test(ti) && /Pancartas: 1 nuevos/.test(ti) && /Prismas: 1 nuevos/.test(ti) && /Partidos: 1 nuevos/.test(ti) && /Por ejemplo: NOVA/.test(ti), ti.replace(/\s+/g, ' ').slice(0, 300));
+  await A.click('[data-a=imp-ok]'); await settled(A); d = await apiAs(A, 'data');
+  const nova = Object.values(d.E).find((e) => e.k === 'g' && e.sig === 'NOVA');
+  ok('La hoja PARTITS trae los votos', nova && nova.vot === 150 && nova.rep === 'Anna Prova');
 
   /* ================= CAPTURAS ================= */
   fs.mkdirSync(S + '/shots_esp', { recursive: true });
   await tab(A, 'panel'); await A.screenshot({ path: S + '/shots_esp/admin-panel.png', fullPage: true });
   await tab(A, 'turnos'); await A.screenshot({ path: S + '/shots_esp/admin-turnos.png' });
   await tab(A, 'reparto'); await A.screenshot({ path: S + '/shots_esp/admin-reparto.png', fullPage: true });
+  await tab(PP, 'asig'); await PP.screenshot({ path: S + '/shots_esp/partido-en-directo.png', fullPage: true });
   await tab(PP, 'reparto'); await PP.screenshot({ path: S + '/shots_esp/partido-reparto.png', fullPage: true });
   await tab(A, 'ajustes'); await A.screenshot({ path: S + '/shots_esp/admin-ajustes.png', fullPage: true });
   await tab(PP, 'ban'); await PP.screenshot({ path: S + '/shots_esp/partido-banderolas.png' });
@@ -438,6 +502,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const M = await open('movil'); await M.setViewportSize({ width: 390, height: 800 }); await M.waitForSelector('#lkName'); await M.screenshot({ path: S + '/shots_esp/movil-login.png' });
   await M.fill('#lkName', 'PSC-CP'); await M.fill('#lkPass', 'Partido-123'); await M.click('[data-a=lk-login]'); await M.waitForSelector('#tabs'); await M.screenshot({ path: S + '/shots_esp/movil-panel.png' });
   ok('Móvil: sin desplazamiento horizontal de la página', await M.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), await M.evaluate(() => document.documentElement.scrollWidth));
+  const anchos = []; for (const v of ['asig', 'esp', 'ban', 'pri', 'partidos', 'reparto', 'registro', 'ayuda']) { await M.click('#tabs [data-v=' + v + ']'); await M.waitForTimeout(150); anchos.push(v + ':' + (await M.evaluate(() => document.documentElement.scrollWidth))); if (v === 'asig') await M.screenshot({ path: S + '/shots_esp/movil-en-directo.png', fullPage: true }); }
+  ok('Móvil: ninguna pestaña se sale de la pantalla (las tablas anchas se desplazan dentro de su recuadro)', anchos.every((x) => +x.split(':')[1] <= 391), anchos.join(' '));
+  ok('Ningún texto introducido se ejecuta como código (prueba de seguridad XSS en todas las pantallas e impresos)', !(await A.evaluate(() => window.__xss)) && !(await PP.evaluate(() => window.__xss)) && !(await PV.evaluate(() => window.__xss)) && !(await PC.evaluate(() => window.__xss)) && !(await M.evaluate(() => window.__xss)));
+  ok('…y se muestra como texto normal', /Pacma <img src=x/.test(await (async () => { await A.click('#tabs [data-v=reparto]'); return txt(A, '#view .rp'); })()));
 
   ok('Sin errores de JavaScript en ningún navegador', !errs.length, errs.join(' | '));
   ok('Sin errores en la consola', !cons.length, cons.slice(0, 5).join(' | '));
