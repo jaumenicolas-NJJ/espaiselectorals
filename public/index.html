@@ -1064,6 +1064,7 @@ function viewPanel() {
       '<li class="' + (I.parties.some((p) => p.vot > 0) ? 'ok' : '') + '">Escribe los votos de las anteriores elecciones y calcula el orden y los cupos en <button class="lnk" data-a="tab" data-v="reparto">Reparto</button>.</li>' +
       '<li>Abre cada categoría <b>por turnos</b> o <b>libre</b> en <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button>.</li></ol></div>';
   }
+  if (isAdmin()) h += ensCard();
   h += '<div class="grid2">' + CATS.map((t) => statusHTML(t)).join('') + '</div>';
   if (isParty()) {
     const R = I.res, mine = Object.keys(R).filter((k) => !R[k].x && R[k].g === myParty() && I.imap[R[k].i]).map((k) => R[k]);
@@ -1071,7 +1072,6 @@ function viewPanel() {
   }
   h += '<div class="card"><h3>Resumen por partido</h3>' + (I.parties.length ? '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Partido</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '</tr></thead><tbody>' +
     I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + ' ' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : '<p class="muted">Todavía no hay partidos.</p>') + '</div>';
-  if (isAdmin()) h += ensCard();
   if (isAdmin()) { const loc = localCopy(); h += '<div class="card"><div class="fhead"><h3>Copias de seguridad</h3><div class="btnrow" style="margin:0"><button class="btn sm primary" data-a="bak-dl">💾 Descargar copia ahora</button><button class="btn sm" data-a="bak-keep">Guardar copia permanente…</button><button class="btn sm" data-a="tab" data-v="ajustes">Ver todas las copias</button></div></div><p class="muted small" style="margin:0">Todo se guarda solo: cada cambio al instante, con su copia aparte, una copia completa cada 10 minutos y otra diaria que no se borra nunca.' + (loc ? ' Última copia en este ordenador: ' + esc(fStamp(loc.at)) + '.' : '') + ' Al terminar la selección, guarda una copia permanente con nombre para dejar constancia del resultado.</p></div>'; }
   h += '<div class="card"><h3>Últimos movimientos</h3>' + logRows(I.logs.slice(0, 10)) + '<div class="btnrow"><button class="btn sm" data-a="tab" data-v="registro">Ver todo el registro</button></div></div>';
   return h;
@@ -1708,7 +1708,7 @@ function showLock(mode, msg) {
   if (mode === 'login') body = '<p class="lead">Entra con tu usuario y tu contraseña.</p><label class="field"><span>Usuario</span><input type="text" id="lkName" autocomplete="username" value="' + esc(LS.get('espais.lastuser') || '') + '"></label><label class="field"><span>Contraseña</span><input type="password" id="lkPass" autocomplete="current-password"></label><button class="btn primary" data-a="lk-login" id="lkGo">Entrar</button><div class="links"><button data-a="lk-forgot">¿Has olvidado la contraseña?</button></div>';
   else if (mode === 'setup') body = '<p class="lead"><b>Instalación.</b> Es la primera vez que se abre el programa en este servidor. Escribe la clave de instalación que configuraste en Netlify y crea el primer administrador.</p><label class="field"><span>Clave de instalación</span><input type="password" id="lkCode" autocomplete="off"></label><label class="field"><span>Tu nombre (será tu usuario)</span><input type="text" id="lkName" autocomplete="username"></label><label class="field"><span>Contraseña (mínimo 8 caracteres)</span><input type="password" id="lkPass" autocomplete="new-password"></label><label class="field"><span>Repite la contraseña</span><input type="password" id="lkPass2" autocomplete="new-password"></label><button class="btn primary" data-a="lk-setup" id="lkGo">Instalar y crear administrador</button>';
   else body = '<p class="lead">No se encuentra el servidor de Espais electorals. Este programa funciona desde su dirección web (https://…netlify.app), no abriendo el archivo directamente.</p><button class="btn primary" data-a="lk-retry" id="lkGo">Reintentar</button>';
-  L.innerHTML = '<div class="box"><div class="logo">' + LOGO.replace('fill="#fff"', 'fill="#14305f"') + '<div><b>Espais electorals</b><span>Selección de espacios electorales por los partidos</span></div></div>' + (msg ? '<div class="err" role="alert">' + esc(msg) + '</div>' : '') + body + '</div>';
+  L.innerHTML = '<div class="box"><div class="logo">' + LOGO.replace('fill="#fff"', 'fill="#14305f"') + '<div><b>Espais electorals</b><span>Selección de espacios electorales por los partidos</span></div></div>' + (msg ? '<div class="err" role="alert">' + esc(msg) + '</div>' : '') + body + '<p class="muted small" style="margin:16px 0 0;text-align:center">Versión ' + APP_VERSION + '</p></div>';
   const f = mode === 'login' ? (LS.get('espais.lastuser') ? $('#lkPass') : $('#lkName')) : (mode === 'setup' ? $('#lkCode') : null); if (f) f.focus();
 }
 function lockErr(msg) { const box = $('#lock .box'); let e = $('#lock .err'); if (!e) { e = document.createElement('div'); e.className = 'err'; e.setAttribute('role', 'alert'); box.insertBefore(e, box.children[1]); } e.textContent = msg; busyLk(false); }
@@ -1792,7 +1792,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.0 · 15/10/2026';
+const APP_VERSION = '1.2 · 15/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;

@@ -27,7 +27,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación', /Instalación/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.2/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -490,7 +490,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ================= ENSAYO ================= */
   const realCount = Object.values((await apiAs(A, 'data')).E).filter((e) => e.k === 'r' && !e.x).length;
-  await tab(A, 'panel'); ok('Botón «Empezar un ensayo» en el Panel', (await A.locator('#view [data-a=ens-start]').count()) === 1);
+  await tab(A, 'panel'); ok('Botón «Empezar un ensayo» arriba del Panel, antes de las categorías', (await A.locator('#view [data-a=ens-start]').count()) === 1 && await A.evaluate(() => { const b = document.querySelector('#view [data-a=ens-start]'), g = document.querySelector('#view .grid2'); return !!(b && g && (b.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING)); }));
   await A.click('#view [data-a=ens-start]'); await yes(A); ok('Empezar un ensayo', await toastIs(A, /Ensayo en marcha/));
   await PP.waitForFunction(() => /MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
   await PV.waitForFunction(() => /MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
