@@ -27,13 +27,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.2/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.3/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
   ok('Administradora creada y dentro', /Rosana · Administración/.test(await txt(A, '#who')));
   ok('Panel con la puesta en marcha guiada', /Puesta en marcha/.test(await txt(A, '#view')));
-  ok('Pestañas de administración', (await A.locator('#tabs button').allInnerTexts()).join('|') === 'Panel|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
+  ok('Pestañas de administración', (await A.locator('#tabs button[data-a=tab]').allInnerTexts()).join('|') === 'Panel|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
 
   /* ================= AJUSTES ================= */
   await tab(A, 'ajustes');
@@ -209,6 +209,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await loser.waitForFunction((c) => document.querySelector(c).parentNode.classList.contains('taken'), cell, { timeout: 9000 }).catch(() => {});
   ok('La casilla aparece ocupada para el otro partido', await loser.evaluate((c) => document.querySelector(c).parentNode.classList.contains('taken'), cell));
   const winner = wV ? PV : PP; ok('…y marcada como propia para quien la tiene', await winner.evaluate((c) => document.querySelector(c).parentNode.classList.contains('mine'), cell));
+  await loser.click(cell); await loser.waitForSelector('#modal h2');
+  ok('Exclusividad: al pulsar una casilla de otro partido solo se ve de quién es, sin poder reservarla', /Reservado por/.test(await txt(loser, '#modal')) && !(await loser.locator('#modal [data-a=res]').count()));
+  await loser.click('#modal [data-a=m-no]');
   // franja con restricciones: se puede pero avisa
   await PP.click('.cc button[data-i="' + e0 + '"][data-s="2023-07-08M"]'); await PP.waitForSelector('#modal [data-a=res]'); await PP.click('#modal [data-a=res]');
   ok('Reservar una franja con restricciones avisa antes', /restricciones de uso/.test(await txt(PP, '#modal'))); await yes(PP); await toastIs(PP, /Reservado/);
@@ -422,10 +425,28 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-reparto]'); await check(A, 'reparto con base legal y conformidad', 'reparto', ['Reparto de emplazamientos y orden de elección', 'Generales 2023', '25.000', '41,25', 'Base legal', 'Conformidad de las candidaturas'], false);
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-guia]'); await check(A, 'ayuda para las candidaturas', 'guia', ['Ayuda para las candidaturas', 'Cómo se reparte según la ley', 'Es vuestro turno', 'Terminar mi turno', '10 a 14', 'Preguntas frecuentes'], false);
   await A.click('[data-a=pr-menu]'); await A.click('.prop[data-a=pr-acta]'); await check(A, 'acta de la selección', 'acta', ['Acta de la selección de espacios electorales', 'Resultado por candidatura', 'Desarrollo de la selección', 'reservó', 'Firmas', 'Ajuntament de Santa Coloma de Gramenet'], true);
-  await tab(PP, 'partidos'); ok('Cada partido solo puede imprimir su propia hoja desde Partidos', (await PP.locator('[data-a=pr-party]').count()) === 1);
+  await tab(PP, 'partidos'); ok('Cada partido puede imprimir desde Partidos la hoja de cualquier candidatura', (await PP.locator('[data-a=pr-party]').count()) === 13);
   await PV.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await tab(PV, 'panel'); await PV.click('[data-a=pr-menu]'); ok('El partido puede imprimir «Nuestras asignaciones»', (await PV.locator('.prop[data-a=pr-party]').count()) === 1);
   await PV.click('.prop[data-a=pr-party]'); await check(PV, 'nuestras asignaciones (partido)', 'valents', ['Asignaciones de VALENTS', 'Banderolas (2)'], false);
+  await tab(PV, 'panel'); await PV.click('#view [data-a=pr-sel]'); await PV.waitForSelector('#prSelP');
+  ok('«🖨 Imprimir lo elegido por…»: desplegable con todas las candidaturas y la propia ya marcada', (await PV.inputValue('#prSelP')) === V && (await PV.locator('#prSelP option').count()) === 13);
+  await PV.selectOption('#prSelP', CU); await PV.click('[data-a=pr-sel-ok]'); await check(PV, 'lo elegido por otra candidatura, desde un partido', 'sel-cup', ['Asignaciones de CUP-GG-AMUNT', 'Banderolas (2)', 'Firma'], false);
+  await tab(PV, 'asig'); ok('El mismo botón está en «En directo»', (await PV.locator('#view [data-a=pr-sel]').count()) === 1);
+
+  /* ================= BUSCADOR GENERAL ================= */
+  ok('Botón «🔍 Buscar» en la barra de pestañas', (await PP.locator('#tabs [data-a=gs-open]').count()) === 1);
+  await PP.click('#tabs [data-a=gs-open]'); await PP.waitForSelector('#gsq'); await PP.fill('#gsq', 'amistat');
+  await PP.waitForSelector('#gsres .gstbl'); const gres = await txt(PP, '#gsres');
+  ok('Busca en las cuatro categorías a la vez, sin distinguir mayúsculas ni acentos', /Jardí de l'Amistat/.test(gres) && /franjas libres/.test(gres), gres.replace(/\s+/g, ' ').slice(0, 160));
+  await PP.click('#gsres [data-a=gs-go][data-t=esp]'); await PP.waitForSelector('.cgrid');
+  ok('«Ver en el cuadrante» lleva al espacio buscado', (await PP.locator('.cgrid tbody tr').count()) === 1 && /Amistat/i.test(await txt(PP, '.cgrid tbody tr')));
+  await PP.fill('#q-esp', '');
+  const b0it = (await apiAs(PP, 'data')).E['i:' + b0];
+  await PP.click('#tabs [data-a=gs-open]'); await PP.fill('#gsq', b0it.nom + ' ' + b0it.tram); await PP.waitForSelector('#gsres .gstbl');
+  ok('Exclusividad en el buscador: lo elegido por otro sale con su dueño y sin botón de reservar', /VALENTS/.test(await txt(PP, '#gsres')) && !(await PP.locator('#gsres [data-a=res][data-i="' + b0 + '"]').count()));
+  await PP.click('#modal [data-a=m-no]');
+  await PP.click('#tabs [data-a=gs-open]'); await PP.fill('#gsq', 'zzzz-nada'); ok('Sin resultados: lo dice claramente', /No hay nada que coincida/.test(await txt(PP, '#gsres'))); await PP.click('#modal [data-a=m-no]');
 
   /* ================= CSV ================= */
   await tab(A, 'ban'); let [dl] = await Promise.all([A.waitForEvent('download'), A.click('[data-a=csv][data-t=ban]')]);
@@ -450,6 +471,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ================= SESIÓN Y RECARGA ================= */
   await PV.reload(); await PV.waitForSelector('#tabs [data-v=panel]');
+  ok('Recargar la página vuelve a la misma pestaña', await PV.evaluate(() => !!document.querySelector('#tabs [data-v=asig].on')));
+  await tab(PV, 'panel');
   ok('Recargar la página mantiene la sesión y los datos', /VALENTS · Partido/.test(await txt(PV, '#who')) && /Vuestras reservas\s*\d/.test(await txt(PV, '#view')));
   await PV.click('[data-a=logout]'); await PV.waitForSelector('#lkPass');
   ok('Salir vuelve a la pantalla de acceso con el usuario recordado', (await PV.inputValue('#lkName')) === 'valents');
@@ -464,7 +487,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ================= AYUDA ================= */
   await tab(PP, 'ayuda');
-  ok('Ayuda de las candidaturas: es la que ven los partidos, con 7 apartados', /Ayuda para las candidaturas/.test(await txt(PP, '#view h2')) && (await PP.locator('#view .help h3').count()) === 7);
+  ok('Ayuda de las candidaturas: es la que ven los partidos, con 8 apartados', /Ayuda para las candidaturas/.test(await txt(PP, '#view h2')) && (await PP.locator('#view .help h3').count()) === 8);
+  ok('…y empieza por «El día de la sesión, paso a paso»', /1\. El día de la sesión, paso a paso/.test(await txt(PP, '#view .help h3')) && /Ir a elegir/.test(await txt(PP, '#h-dia + div')) && /En directo/.test(await txt(PP, '#h-dia + div')));
   const hc = await txt(PP, '#view');
   ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
   await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
@@ -497,14 +521,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('Todas las candidaturas ven el aviso MODO ENSAYO', /MODO ENSAYO/.test(await txt(PP, '#banner')) && /MODO ENSAYO/.test(await txt(PV, '#banner')));
   await PP.waitForFunction(() => /Es vuestro turno en Banderolas/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
   ok('El ensayo empieza por la primera candidatura del orden (PSC-CP)', /Es vuestro turno en Banderolas/.test(await txt(PP, '#banner')));
-  await tab(PP, 'ban'); await PP.waitForSelector('[data-a=res]'); const eb = await PP.locator('[data-a=res]').first().getAttribute('data-i');
+  await tab(PP, 'ban'); await PP.waitForSelector('[data-a=res]'); const eb = await PP.locator('[data-a=res]').first().getAttribute('data-i'), eb2 = await PP.locator('[data-a=res]').nth(1).getAttribute('data-i');
   await PP.click('[data-a=res][data-i="' + eb + '"]'); await yes(PP); ok('Durante el ensayo se elige como el día de verdad', await toastIs(PP, /Reservado para PSC-CP/));
+  const eb2it = (await apiAs(PP, 'data')).E['i:' + eb2];
+  await PP.click('#tabs [data-a=gs-open]'); await PP.waitForSelector('#gsq'); await PP.fill('#gsq', eb2it.nom + ' ' + eb2it.tram); await PP.waitForSelector('#gsres .gstbl');
+  ok('En su turno, el buscador permite reservar directamente', (await PP.locator('#gsres [data-a=res][data-i="' + eb2 + '"]').count()) === 1);
+  await PP.click('#gsres [data-a=res][data-i="' + eb2 + '"]'); await yes(PP); ok('…y la reserva entra', await toastIs(PP, /Reservado para PSC-CP/));
   await tab(PV, 'asig'); ok('«En directo» indica que es un ensayo', /ENSAYO/.test(await txt(PV, '.livehead')));
-  await tab(A, 'panel'); await A.waitForFunction(() => /1 elección de prueba/.test(document.querySelector('#view').innerText), null, { timeout: 12000 }).catch(() => {});
-  ok('El Panel cuenta las elecciones de prueba', /1 elección de prueba/.test(await txt(A, '#view')));
-  await A.click('#view [data-a=ens-end]'); await yes(A); ok('Terminar el ensayo y borrar lo elegido', await toastIs(A, /Ensayo terminado: se han borrado 1/));
+  await tab(A, 'panel'); await A.waitForFunction(() => /2 elecciones de prueba/.test(document.querySelector('#view').innerText), null, { timeout: 12000 }).catch(() => {});
+  ok('El Panel cuenta las elecciones de prueba', /2 elecciones de prueba/.test(await txt(A, '#view')));
+  await A.click('#view [data-a=ens-end]'); await yes(A); ok('Terminar el ensayo y borrar lo elegido', await toastIs(A, /Ensayo terminado: se han borrado 2/));
   await settled(A); d = await apiAs(A, 'data');
-  ok('Lo elegido en el ensayo se borra y lo de verdad se queda', d.E['r:' + eb].x === true && d.E['s:ens'].on === false && Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length === realCount, realCount + ' reservas de verdad');
+  ok('Lo elegido en el ensayo se borra y lo de verdad se queda', d.E['r:' + eb].x === true && d.E['r:' + eb2].x === true && d.E['s:ens'].on === false && Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length === realCount, realCount + ' reservas de verdad');
   await PP.waitForFunction(() => !/MODO ENSAYO/.test(document.querySelector('#banner').innerText), null, { timeout: 12000 }).catch(() => {});
   ok('El aviso de ensayo desaparece para todos', !/MODO ENSAYO/.test(await txt(PP, '#banner')));
   await tab(A, 'registro'); const regN = await A.locator('#view tbody tr.ensr').count();
