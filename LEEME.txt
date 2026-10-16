@@ -63,7 +63,10 @@ El Panel muestra una lista de «Puesta en marcha». En resumen:
      nombre del Ajuntament y día de la votación (la campaña se calcula sola).
   2. Ajustes → «Importar desde Excel…»: un solo Excel con todo (hojas ESPAIS, BANDEROLES,
      PANCARTES, PRISMES y PARTITS con los votos). En Ajustes se descarga la plantilla.
-  3. Partidos: revisa las candidaturas y crea un usuario para cada una («+ Usuario»).
+  3. Partidos: revisa las candidaturas y crea su usuario con «Crear los usuarios que
+     faltan» (uno por candidatura, ya vinculado a ella; se imprime la hoja de claves para
+     entregarla en mano) o uno a uno con «+ Usuario». Sin usuario vinculado, una
+     candidatura no ve su turno ni puede elegir: el Panel lo avisa en rojo.
   4. Reparto: votos de las anteriores elecciones equivalentes → «Ordenar por votos»
      → «Calcular y fijar los cupos».
   5. Turnos y reglas: abre cada categoría por turnos (1 elección por turno) o libre.
@@ -86,6 +89,14 @@ DATOS, COPIAS Y SEGURIDAD
   Además, el navegador de la administración guarda una copia cada 5 minutos.
 - Desde Ajustes → «Copias de seguridad» se descargan copias completas (.json), se
   importan y se vuelve a cualquier copia del servidor sin perder el registro.
+- El registro de movimientos (cada elección con su candidatura, fecha y hora) no se puede
+  borrar ni modificar: ni desde el programa, ni importando copias, ni restaurando.
+- La administración puede quitar una selección a una candidatura y dársela a otra
+  («Reasignar a…»); queda anotado en el registro junto a la elección original.
+- «Borrar datos…» (Ajustes) borra las selecciones de prueba y, si se marca, las
+  candidaturas con sus usuarios. Nunca borra espacios, banderolas, pancartas, prismas,
+  reglas, administradores ni el registro, y antes guarda una copia: «Restaurar» la
+  devuelve entera, usuarios incluidos.
 - Las contraseñas se guardan como huella irreversible (PBKDF2). 5 intentos fallidos
   bloquean el usuario 10 minutos. La sesión se cierra tras 30 minutos sin actividad.
 - Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor.

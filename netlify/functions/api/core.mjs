@@ -479,6 +479,13 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
         if (!str(body.password, 8, 200)) throw new HttpErr(400, 'La contraseña provisional debe tener al menos 8 caracteres.');
         pre = { salt: randomBytes(16).toString('base64') }; pre.hash = await hashPw(body.password, pre.salt);
       }
+      /* alta de varios usuarios de partido de una vez, cada uno vinculado a su candidatura (todo o nada) */
+      let many = null;
+      if (op === 'bulk') {
+        if (!Array.isArray(body.items) || !body.items.length || body.items.length > 60) throw new HttpErr(400, 'Lista de usuarios no válida.');
+        for (const it of body.items) if (!it || !str(it.name, 2, 60) || !str(it.password, 8, 200) || typeof it.party !== 'string') throw new HttpErr(400, 'Revisa los usuarios: el nombre necesita 2 letras y la contraseña provisional, 8 caracteres.');
+        many = await Promise.all(body.items.map(async (it) => { const salt = randomBytes(16).toString('base64'); return { name: it.name.trim(), party: it.party, salt, hash: await hashPw(it.password, salt) }; }));
+      }
       const { data: db } = await read('db'); const E = (db || initDB()).E;
       const partyOK = (g) => typeof g === 'string' && E['g:' + g] && !E['g:' + g].x;
       const { cur: a } = await update('auth', initAuth, (x) => {
@@ -488,6 +495,14 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
           if (body.role === 'partido' && !partyOK(body.party)) throw new HttpErr(400, 'Elige el partido de este usuario.');
           if (Object.values(U).some((u) => !u.x && norm(u.name) === norm(body.name))) throw new HttpErr(409, 'Ya existe un usuario con ese nombre.');
           U[newId()] = { name: body.name.trim(), role: body.role, party: body.role === 'partido' ? body.party : '', salt: pre.salt, hash: pre.hash, iter: ITER, mc: true, tv: 1, created: now() };
+        } else if (op === 'bulk') {
+          const seen = new Set(Object.values(U).filter((u) => !u.x).map((u) => norm(u.name)));
+          for (const m of many) {
+            if (!partyOK(m.party)) throw new HttpErr(400, 'Una de las candidaturas ya no existe. Cierra la ventana y vuelve a abrirla.');
+            if (seen.has(norm(m.name))) throw new HttpErr(409, 'Ya existe un usuario llamado «' + m.name + '». Cambia el nombre.');
+            seen.add(norm(m.name));
+          }
+          for (const m of many) U[newId()] = { name: m.name, role: 'partido', party: m.party, salt: m.salt, hash: m.hash, iter: ITER, mc: true, tv: 1, created: now() };
         } else {
           const u = U[body.id]; if (!u || u.x) throw new HttpErr(404, 'Ese usuario no existe.');
           if (op === 'role') {
@@ -526,12 +541,57 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
           if (!/^[gicsrh]:[\w:-]{1,160}$/.test(k) || !x || typeof x !== 'object' || x.k !== k[0] || typeof x.u !== 'number') continue;
           if (JSON.stringify(x).length > 12000) continue;
           const c = d.E[k];
-          if (!c || x.u > c.u) { d.E[k] = Object.assign({}, x, { s: ++d.seq }); added++; }
+          if (!c || (k[0] !== 'h' && x.u > c.u)) { d.E[k] = Object.assign({}, x, { s: ++d.seq }); added++; } /* el registro solo crece: nunca se sobrescribe */
         }
         return added ? null : { noWrite: true };
       });
       await bumpMeta(db.seq, null); if (added) await journal(since(db, s0), who, 'importación');
       return json({ added, seq: db.seq });
+    },
+    /* reasignar una reserva a otra candidatura en un solo paso (administración) */
+    'POST reassign': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      if (!/^[\w-]{1,60}$/.test(String(body.i || '')) || !(body.slot == null || body.slot === '' || slotOK(body.slot))) throw new HttpErr(400, 'Reserva no válida.');
+      let s0 = 0;
+      const { cur: db } = await update('db', initDB, (d) => {
+        s0 = d.seq; const t = now(), key = 'r:' + body.i + (body.slot ? ':' + body.slot : ''), r = d.E[key];
+        if (!r || r.x) throw new HttpErr(404, 'Esa reserva ya no existe.');
+        const g = body.g; if (!g || !d.E['g:' + g] || d.E['g:' + g].x) throw new HttpErr(400, 'Elige la candidatura.');
+        if (g === r.g) throw new HttpErr(400, 'Ya es de esa candidatura.');
+        const it = d.E['i:' + r.i] || {}, nr = { k: 'r', t: r.t, i: r.i, slot: r.slot || '', g, by: who.u.name, ts: t, rk: '' };
+        /* conserva su naturaleza: lo elegido de verdad sigue siendo de verdad aunque haya un ensayo en marcha */
+        if (r.ens) nr.ens = true;
+        stamp(d, key, nr, who, t);
+        stamp(d, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a: 'reasignó «' + iname(it) + slotTxt(r.slot) + '» de ' + pname(d, r.g) + ' a ' + pname(d, g), t: r.t, g }, r.ens ? { ens: true } : {}), who, t);
+        return null;
+      });
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'reasignación'), autoSnap(db)]);
+      return json({ seq: db.seq, E: since(db, +body.since || 0) });
+    },
+    /* borrar datos de prueba: selecciones y, si se pide, candidaturas con sus usuarios. Nunca los espacios, las reglas ni el registro */
+    'POST purge': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      const parties = !!body.parties, sel = !!body.sel || parties;
+      if (!sel) throw new HttpErr(400, 'Elige qué quieres borrar.');
+      if (body.confirm !== 'BORRAR') throw new HttpErr(400, 'Escribe BORRAR para confirmar.');
+      await maybeSnap('antes-de-borrar-datos');
+      let s0 = 0, nr = 0, np = 0;
+      const { cur: db } = await update('db', initDB, (d) => {
+        s0 = d.seq; nr = 0; np = 0; const t = now(), gone = new Set();
+        for (const k in d.E) { const r = d.E[k]; if (r.k === 'r' && !r.x) { stamp(d, k, Object.assign({}, r, { x: true }), who, t); nr++; } }
+        if (parties) {
+          for (const k in d.E) { const g = d.E[k]; if (g.k === 'g' && !g.x) { stamp(d, k, Object.assign({}, g, { x: true }), who, t); gone.add(k.slice(2)); np++; } }
+          for (const cat of CATS) { const c = d.E['c:' + cat]; if (!c) continue; const cup = {}; for (const g in (c.cup || {})) if (!gone.has(g)) cup[g] = c.cup[g]; stamp(d, 'c:' + cat, Object.assign({}, c, { order: (c.order || []).filter((g) => !gone.has(g)), cup }), who, t); }
+        }
+        if (ensOn(d)) stamp(d, 's:ens', { k: 's', on: false, last: t, by: who.u.name }, who, t);
+        resetTurns(d, who, t, stamp);
+        log(d, who, t, 'BORRÓ DATOS: ' + nr + (nr === 1 ? ' selección' : ' selecciones') + (parties ? ' y ' + np + (np === 1 ? ' candidatura' : ' candidaturas') + ' con sus usuarios' : '') + '; antes se guardó una copia de seguridad');
+        return null;
+      });
+      let urev = null;
+      if (parties) { const { cur: a } = await update('auth', initAuth, (x) => { for (const id in x.users) { const u = x.users[id]; if (!u.x && u.role === 'partido') Object.assign(u, { x: true, tv: (u.tv || 1) + 1, deleted: now() }); } x.urev++; return null; }); urev = a.urev; }
+      await Promise.all([bumpMeta(db.seq, urev), journal(since(db, s0), who, 'borrado de datos')]);
+      return json({ ok: true, sel: nr, parties: np, seq: db.seq, E: since(db, +body.since || 0) });
     },
     'POST ensayo': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
@@ -579,6 +639,17 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       if (!str(body.key, 6, 200) || !/^(hist|day|keep)\//.test(body.key)) throw new HttpErr(400, 'Copia no válida.');
       const h = await bk.get(body.key, { type: 'json' }); if (!h || !h.db) throw new HttpErr(404, 'Esa copia ya no existe.');
       const { data: pre } = await read('db'); if (pre) await snapshot(pre, 'antes-de-restaurar');
+      /* los usuarios dados de baja después de la copia vuelven con ella (con su contraseña y su candidatura); nunca se toca a los demás */
+      let nu = 0, urev = null;
+      if (h.auth && h.auth.users) {
+        const { cur: a, out } = await update('auth', initAuth, (x) => {
+          nu = 0; const names = new Set(Object.values(x.users).filter((u) => !u.x).map((u) => norm(u.name)));
+          for (const id in h.auth.users) { const o = h.auth.users[id], u = x.users[id]; if (o && !o.x && u && u.x && (u.deleted || 0) >= (h.at || 0) && !names.has(norm(u.name))) { names.add(norm(u.name)); delete u.x; delete u.deleted; u.party = o.party || u.party || ''; u.tv = (u.tv || 1) + 1; nu++; } }
+          if (!nu) return { noWrite: true };
+          x.urev++; return null;
+        });
+        if (!(out && out.noWrite)) urev = a.urev;
+      }
       let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => {
         s0 = d.seq; const t = now(), S = h.db.E, keys = new Set(Object.keys(d.E).concat(Object.keys(S)));
@@ -588,10 +659,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
           if (S[k]) d.E[k] = Object.assign({}, S[k], { u: Math.max(t, ((c && c.u) || 0) + 1), b: who.u.name, s: ++d.seq });
           else if (c && !c.x) d.E[k] = Object.assign({}, c, { x: true, u: Math.max(t, c.u + 1), b: who.u.name, s: ++d.seq });
         });
-        log(d, who, t, 'restauró una copia de seguridad del servidor (' + body.key.slice(5, 21).replace('T', ' ') + ')');
+        log(d, who, t, 'restauró una copia de seguridad del servidor (' + body.key.slice(5, 21).replace('T', ' ') + ')' + (nu ? ' y recuperó ' + nu + (nu === 1 ? ' usuario' : ' usuarios') : ''));
         return null;
       });
-      await bumpMeta(db.seq, null); await journal(since(db, s0), who, 'restauración');
+      await bumpMeta(db.seq, urev); await journal(since(db, s0), who, 'restauración');
       return json({ ok: true, seq: db.seq });
     }
   };

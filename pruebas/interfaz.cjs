@@ -27,7 +27,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.4/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.5/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -90,6 +90,37 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.click('.card [data-a=u-add]'); await A.waitForSelector('#uaName'); await A.fill('#uaName', 'vALENTS'); await A.fill('#pwNew', 'Provisional1'); await A.fill('#pwNew2', 'Provisional1'); await A.selectOption('#uaParty', V); await A.click('[data-a=ua-save]');
   ok('Nombre de usuario repetido: rechazo', await toastIs(A, /Ya existe un usuario/)); await A.click('[data-a=m-no]');
   ok('Ajustes: 5 usuarios con su rol', (await A.locator('#view .tbl tbody tr').count()) === 5);
+  // cada candidatura, su usuario vinculado: avisos y alta de los que faltan
+  ok('Ajustes avisa de las candidaturas sin usuario', /10 candidaturas sin usuario/.test(await txt(A, '#view')));
+  const jzRow = await A.evaluate(() => [...document.querySelectorAll('#view .tbl tbody tr')].find((t) => /JEZ/.test(t.innerText)).querySelector('[data-urole]').dataset.urole);
+  await A.selectOption('[data-urole="' + jzRow + '"]', 'partido'); await A.waitForSelector('#upParty');
+  ok('Pasar un usuario a «Partido» pide primero su candidatura', /¿De qué candidatura es «JEZ»\?/.test(await txt(A, '#modal')));
+  await A.click('#modal [data-a=m-no]'); d = await apiAs(A, 'data');
+  ok('…y si se cancela, no cambia nada', d.users.find((u) => u.name === 'JEZ').role === 'consulta' && (await A.inputValue('[data-urole="' + jzRow + '"]')) === 'consulta');
+  await tab(A, 'panel');
+  ok('El Panel avisa en rojo de las candidaturas sin usuario', /10 candidaturas no tienen usuario/.test(await txt(A, '#view .gaps')));
+  await A.click('#view .gaps [data-a=u-bulk]'); await A.waitForSelector('#modal tr[data-ubg]');
+  ok('«Crear los usuarios que faltan»: una fila por candidatura, con usuario y contraseña propuestos', (await A.locator('#modal tr[data-ubg]').count()) === 10 && (await A.inputValue('#modal tr[data-ubg="' + P.PACMA + '"] .ubName')) === 'PACMA' && /^[a-z2-9]{5}-[a-z2-9]{5}$/.test(await A.inputValue('#modal tr[data-ubg="' + P.PACMA + '"] .ubPw')));
+  await A.evaluate((keep) => document.querySelectorAll('#modal tr[data-ubg]').forEach((r) => { r.querySelector('.ubOn').checked = keep.includes(r.dataset.ubg); }), [P.PACMA, P['ARA PL']]);
+  const pwPacma = await A.inputValue('#modal tr[data-ubg="' + P.PACMA + '"] .ubPw');
+  await A.click('#modal [data-a=ub-save]'); await A.waitForSelector('#modal [data-a=ub-print]');
+  ok('Usuarios creados: se ven una sola vez las contraseñas provisionales', /2 usuarios creados/.test(await txt(A, '#modal')) && (await txt(A, '#modal')).includes(pwPacma));
+  await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
+  await A.click('#modal [data-a=ub-print]'); await A.waitForTimeout(300);
+  const cred = await A.evaluate(() => document.getElementById('printdoc').innerText);
+  ok('Hoja de claves para entregar a cada candidatura', /Acceso de las candidaturas/.test(cred) && cred.includes(pwPacma) && /ARA PL/.test(cred) && /localhost/.test(cred) && (await A.evaluate(() => window.__p)) === 1);
+  await A.evaluate(() => document.body.classList.remove('printdoc'));
+  await A.click('#modal [data-a=ub-close]'); d = await apiAs(A, 'data');
+  ok('Cada usuario nuevo queda vinculado a su candidatura', d.users.find((u) => u.name === 'PACMA').party === P.PACMA && d.users.find((u) => u.name === 'ARA PL').party === P['ARA PL'] && d.users.find((u) => u.name === 'PACMA').role === 'partido');
+  ok('El aviso del Panel se actualiza (quedan 8)', /8 candidaturas no tienen usuario/.test(await txt(A, '#view .gaps')));
+  { const X = await open('PACMA'); await X.waitForSelector('#lkName'); await X.fill('#lkName', 'pacma'); await X.fill('#lkPass', pwPacma); await X.click('[data-a=lk-login]'); await X.waitForSelector('#pwNew');
+    await X.fill('#pwNew', 'Pacma-2027x'); await X.fill('#pwNew2', 'Pacma-2027x'); await X.click('[data-a=pw-force]'); await toastIs(X, /Contraseña guardada/);
+    ok('La candidatura entra con la hoja de claves, ya como su partido', /PACMA · Partido/.test(await txt(X, '#who')) && !/no está vinculado/.test(await txt(X, '#banner')));
+    await X.context().close(); }
+  await tab(A, 'partidos'); ok('En Partidos se ve qué candidatura no tiene usuario', (await A.locator('#view .tag.bad').count()) === 8);
+  await A.click('#view .gaps [data-a=u-bulk]'); await A.waitForSelector('#modal tr[data-ubg]'); await A.click('#modal [data-a=ub-save]'); await A.waitForSelector('#modal [data-a=ub-close]'); await A.click('#modal [data-a=ub-close]');
+  ok('Con todas las candidaturas con usuario, el aviso desaparece', !(await A.locator('#view .gaps').count()) && !(await A.locator('#view .tag.bad').count()));
+  await tab(A, 'ajustes'); ok('Ajustes: «Todas las candidaturas tienen su usuario»', /Todas las candidaturas tienen su usuario/.test(await txt(A, '#view')) && (await A.locator('#view .tbl tbody tr').count()) === 15);
 
   /* ================= TURNOS Y REGLAS ================= */
   await tab(A, 'turnos');
@@ -265,8 +296,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await A.click('[data-a=edit][data-t=ban]');
   await tab(PP, 'ban'); await PP.waitForFunction(() => /Revisar farolas/.test(document.querySelector('#view').innerText), null, { timeout: 9000 }).catch(() => {});
   ok('Los partidos ven el cambio de la administradora', /Revisar farolas/.test(await txt(PP, '#view')));
-  await tab(A, 'partidos'); await A.click('[data-a=g-del][data-id="' + V + '"]'); await yes(A);
-  ok('No se puede eliminar un partido con reservas', await toastIs(A, /tiene reservas/));
+  await tab(A, 'partidos'); await A.click('[data-a=g-del][data-id="' + V + '"]');
+  ok('No se puede eliminar un partido con reservas (avisa antes de pedir confirmación)', await toastIs(A, /tiene \d+ reservas: libéralas o reasígnalas/) && (await A.locator('#cfYes').count()) === 0);
   // liberar como administradora
   await tab(A, 'pan'); await A.click('[data-a=rel][data-i="' + p0 + '"]'); await yes(A); ok('La administradora libera cualquier reserva', await toastIs(A, /Liberado/));
 
@@ -493,6 +524,20 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await JZ.waitForSelector('#lkName', { timeout: 15000 }).catch(() => {});
   ok('Usuario dado de baja: sale del programa', /ya no tiene acceso/.test(await txt(JZ, '#lock')));
 
+  /* ================= REASIGNAR (v1.5) ================= */
+  await tab(A, 'ban'); await A.waitForSelector('select.rsg[data-i="' + b0 + '"]');
+  ok('La administración ve «Reasignar a…» en lo elegido, sin la candidatura que ya lo tiene', (await A.locator('select.rsg[data-i="' + b0 + '"] option[value="' + V + '"]').count()) === 0 && (await A.locator('select.rsg[data-i="' + b0 + '"] option[value="' + CU + '"]').count()) === 1);
+  await A.selectOption('select.rsg[data-i="' + b0 + '"]', CU); await A.waitForSelector('#cfYes');
+  ok('Pide confirmación diciendo de quién a quién', /pasará de\s*VALENTS\s*a\s*CUP-GG-AMUNT/.test(await txt(A, '#modal')));
+  await A.click('#cfYes'); ok('Reasignado', await toastIs(A, /Reasignado a CUP-GG-AMUNT/)); await settled(A); d = await apiAs(A, 'data');
+  ok('La banderola pasa a CUP-GG-AMUNT', d.E['r:' + b0].g === CU && !d.E['r:' + b0].x);
+  await PC.waitForFunction((i) => /CUP-GG-AMUNT/.test(document.querySelector('#view').innerText), b0, { timeout: 12000 }).catch(() => {});
+  await tab(A, 'registro');
+  ok('Registro: columna «Candidatura» y la reasignación con fecha y hora', /Candidatura/i.test(await txt(A, '#view thead')) && /reasignó «.*» de VALENTS a CUP-GG-AMUNT/.test(await txt(A, '#view tbody tr:first-child')) && /\d\d\/\d\d\/\d{4},? \d\d:\d\d/.test(await txt(A, '#view tbody tr:first-child')), await txt(A, '#view tbody tr:first-child'));
+  ok('…y la elección original de VALENTS sigue anotada', (await A.locator('#view tbody tr', { hasText: 'VALENTS' }).filter({ hasText: 'reservó' }).count()) >= 2);
+  await tab(A, 'ban'); await A.selectOption('select.rsg[data-i="' + b0 + '"]', V); await yes(A); await toastIs(A, /Reasignado a VALENTS/); await settled(A); d = await apiAs(A, 'data');
+  ok('Y vuelve a VALENTS', d.E['r:' + b0].g === V);
+
   /* ================= AYUDA ================= */
   await tab(PP, 'ayuda');
   ok('Ayuda de las candidaturas: es la que ven los partidos, con 8 apartados', /Ayuda para las candidaturas/.test(await txt(PP, '#view h2')) && (await PP.locator('#view .help h3').count()) === 8);
@@ -566,6 +611,20 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('Móvil: ninguna pestaña se sale de la pantalla (las tablas anchas se desplazan dentro de su recuadro)', anchos.every((x) => +x.split(':')[1] <= 391), anchos.join(' '));
   ok('Ningún texto introducido se ejecuta como código (prueba de seguridad XSS en todas las pantallas e impresos)', !(await A.evaluate(() => window.__xss)) && !(await PP.evaluate(() => window.__xss)) && !(await PV.evaluate(() => window.__xss)) && !(await PC.evaluate(() => window.__xss)) && !(await M.evaluate(() => window.__xss)));
   ok('…y se muestra como texto normal', /Pacma <img src=x/.test(await (async () => { await A.click('#tabs [data-v=reparto]'); return txt(A, '#view .rp'); })()));
+
+  /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
+  d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;
+  await tab(A, 'ajustes'); await A.click('#view [data-a=purge-open]'); await A.waitForSelector('#pgWord');
+  ok('«Borrar datos…» pregunta qué borrar y avisa de lo que nunca se borra', /Todas las selecciones/.test(await txt(A, '#modal')) && /candidaturas y sus usuarios/.test(await txt(A, '#modal')) && /No se borran nunca: los espacios, las banderolas, las pancartas, los prismas/.test(await txt(A, '#modal')) && await A.isDisabled('#pgGo'));
+  await A.fill('#pgWord', 'borrar'); ok('Solo se activa al escribir BORRAR', !(await A.isDisabled('#pgGo')));
+  await A.click('#pgGo'); ok('Borrar solo las selecciones', await toastIs(A, new RegExp('Borrado: ' + nRes + ' selecciones'))); await settled(A); d = await apiAs(A, 'data');
+  ok('…no queda ninguna selección; elementos, candidaturas, usuarios y registro intactos', nRes > 0 && !Object.values(d.E).some((e) => e.k === 'r' && !e.x) && Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length === nItems && Object.values(d.E).filter((e) => e.k === 'g' && !e.x).length === 14 && Object.values(d.E).filter((e) => e.k === 'h').length > nLog && d.users.some((u) => u.name === 'PSC-CP'));
+  await A.click('#view [data-a=purge-open]'); await A.waitForSelector('#pgWord'); await A.check('#pgPar'); await A.fill('#pgWord', 'BORRAR'); await A.click('#pgGo');
+  ok('Borrar también las candidaturas y sus usuarios', await toastIs(A, /14 candidaturas con sus usuarios/)); await settled(A); d = await apiAs(A, 'data');
+  ok('…los elementos siguen y la administración también', Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length === nItems && !Object.values(d.E).some((e) => e.k === 'g' && !e.x) && !d.users.some((u) => u.role === 'partido') && d.users.some((u) => u.name === 'Rosana'));
+  await PP.waitForSelector('#lkName', { timeout: 15000 }).catch(() => {});
+  ok('Las candidaturas borradas salen del programa', /ya no tiene acceso/.test(await txt(PP, '#lock')));
+  ok('Hay una copia de seguridad de antes del borrado', (await apiAs(A, 'history')).items.some((k) => /antes-de-borrar-datos/.test(k)));
 
   ok('Sin errores de JavaScript en ningún navegador', !errs.length, errs.join(' | '));
   ok('Sin errores en la consola', !cons.length, cons.slice(0, 5).join(' | '));
