@@ -21,6 +21,11 @@ const ITER = 210000;
 const TOKEN_HOURS = 12;
 const SNAP_EVERY = 10 * 60000;
 const MAX_HIST = 300;
+/* memoria de la función entre peticiones: Netlify reutiliza la misma instancia mientras hay actividad,
+   así que el secreto, los usuarios y la última versión de los datos no se vuelven a pedir al almacén
+   (que está en Frankfurt) si no han cambiado. Solo se usa para leer: las escrituras siempre van al almacén. */
+const MEM = { secret: null, auth: null, authAt: 0, db: null };
+const AUTH_TTL = 60000, DB_TTL = 30000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
@@ -106,8 +111,11 @@ function settle(db, c) {
   return true;
 }
 
-export function makeHandler({ store, backup, env = {}, now = () => Date.now() }) {
+export function makeHandler({ store, backup, env = {}, now = () => Date.now(), mem = MEM }) {
   const bk = backup || store; /* las copias van a un almacén distinto del de los datos */
+  /* escrituras que no hace falta esperar para seguir, pero sí antes de responder */
+  const PEND = new Set();
+  const later = (p) => { const q = Promise.resolve(p).catch((e) => console.error('escritura en segundo plano', e)); PEND.add(q); q.finally(() => PEND.delete(q)); return q; };
   /* ---------- almacén con escritura condicional y reintentos ---------- */
   const pad = (n) => String(n).padStart(9, '0');
   async function getJ(key) { const v = await store.get(key, { type: 'json' }); return v == null ? null : v; }
@@ -117,7 +125,23 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     for (let i = 0; i < 500; i++) { const nx = await getJ(name + '@' + pad(head.v + 1)); if (!nx) break; head = nx; }
     return head;
   }
-  async function read(name) { return { data: (await vread(name)).data }; }
+  /* guarda en memoria lo último leído o escrito (nunca lo que se está modificando y aún no se ha guardado) */
+  function remember(name, v, data) {
+    if (!data) return;
+    if (name === 'auth') { mem.auth = data; mem.authAt = now(); } else if (name === 'db') mem.db = { v, data, at: now() };
+  }
+  async function read(name) { const h = await vread(name); remember(name, h.v, h.data); return { data: h.data }; }
+  /* datos para mostrar: si la versión en memoria sigue siendo la última (existe y no hay otra después), no se descargan */
+  async function readDB() {
+    const C = mem.db;
+    if (C && now() - C.at < DB_TTL) {
+      try {
+        const [cur, nx] = await Promise.all([store.getMetadata('db@' + pad(C.v)), store.getMetadata('db@' + pad(C.v + 1))]);
+        if (cur && !nx) return C.data;
+      } catch (e) { /* se lee entera */ }
+    }
+    return (await read('db')).data;
+  }
   async function update(name, init, fn) {
     for (let i = 0; i < 40; i++) {
       const head = await vread(name);
@@ -127,7 +151,9 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       const rec = { v: head.v + 1, at: now(), data: cur };
       const r = await store.setJSON(name + '@' + pad(rec.v), rec, { onlyIfNew: true });
       if (r && r.modified) {
-        await store.setJSON(name, rec);
+        remember(name, rec.v, cur);
+        /* el puntero a la última versión se actualiza mientras se hace lo demás (las lecturas buscan siempre la siguiente) */
+        later(store.setJSON(name, rec));
         if (rec.v % 50 === 0) prune(name, rec.v);
         return { cur, out };
       }
@@ -140,17 +166,34 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
   }
   const initDB = () => ({ seq: 0, E: {}, lastSnap: 0 });
   const initAuth = () => ({ users: {}, urev: 1 });
+  /* contadores para el sondeo barato: solo crecen. Escritura condicional para que dos guardados a la vez no lo hagan retroceder
+     (si retrocediera, los demás no verían el último cambio hasta la siguiente consulta completa) */
   async function bumpMeta(seq, urev) {
-    const m = (await getJ('meta')) || { seq: 0, urev: 0 };
-    if ((seq != null && seq > m.seq) || (urev != null && urev > m.urev)) await store.setJSON('meta', { seq: Math.max(m.seq, seq || 0), urev: Math.max(m.urev, urev || 0) });
+    for (let i = 0; i < 12; i++) {
+      const got = await store.getWithMetadata('meta', { type: 'json' });
+      const m = (got && got.data) || { seq: 0, urev: 0 };
+      if (!((seq != null && seq > (m.seq || 0)) || (urev != null && urev > (m.urev || 0)))) return;
+      const nx = { seq: Math.max(m.seq || 0, seq || 0), urev: Math.max(m.urev || 0, urev || 0) };
+      const w = got && got.etag ? await store.setJSON('meta', nx, { onlyIfMatch: got.etag }) : await store.setJSON('meta', nx, got ? {} : { onlyIfNew: true });
+      if (w && w.modified) return;
+      await sleep(5 + Math.random() * 40 * (i + 1));
+    }
   }
   async function secret() {
     if (env.ESPAIS_SECRET && env.ESPAIS_SECRET.length >= 16) return env.ESPAIS_SECRET;
-    if (secret.cache) return secret.cache;
+    if (mem.secret) return mem.secret;
     let data = await getJ('cfg');
     if (!data || !data.secret) { await store.setJSON('cfg', { secret: randomBytes(32).toString('base64') }, { onlyIfNew: true }); data = await getJ('cfg'); }
-    secret.cache = data.secret;
+    mem.secret = data.secret;
     return data.secret;
+  }
+  /* usuarios: los de memoria valen si nadie los ha cambiado desde entonces (contador urev) y son recientes */
+  async function authData(metaP) {
+    if (mem.auth && now() - mem.authAt < AUTH_TTL) {
+      const m = await (metaP || getJ('meta')).catch(() => null);
+      if (m && (m.urev || 0) <= (mem.auth.urev || 0)) return mem.auth;
+    }
+    return (await read('auth')).data;
   }
   /* copia completa (datos y usuarios) en el almacén de copias; además, la primera de cada día queda como copia diaria permanente */
   async function snapshot(db, why) {
@@ -186,7 +229,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     const p = b64u(JSON.stringify({ id, tv: u.tv || 1, exp: now() + TOKEN_HOURS * 3600000 }));
     return p + '.' + createHmac('sha256', await secret()).update(p).digest('base64url');
   }
-  async function authed(req) {
+  async function authed(req, metaP) {
     const h = req.headers.get('authorization') || '';
     const m = /^Bearer ([\w-]+)\.([\w-]+)$/.exec(h);
     if (!m) throw new HttpErr(401, 'Sesión no iniciada.');
@@ -194,7 +237,9 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     if (!safeEq(sig, m[2])) throw new HttpErr(401, 'Sesión no válida.');
     let p; try { p = JSON.parse(Buffer.from(m[1], 'base64url').toString()); } catch (e) { throw new HttpErr(401, 'Sesión no válida.'); }
     if (!p.exp || p.exp < now()) throw new HttpErr(401, 'La sesión ha caducado. Vuelve a entrar.');
-    const { data: auth } = await read('auth');
+    let auth = await authData(metaP);
+    const fits = (a) => { const x = a && a.users[p.id]; return !!(x && !x.x && (x.tv || 1) === p.tv); };
+    if (!fits(auth) && auth === mem.auth) auth = (await read('auth')).data; /* antes de rechazar, se comprueba con la versión del almacén */
     const u = auth && auth.users[p.id];
     if (!u || u.x) throw new HttpErr(403, 'Tu usuario ya no tiene acceso.');
     if ((u.tv || 1) !== p.tv) throw new HttpErr(401, 'La sesión ya no es válida. Vuelve a entrar.');
@@ -347,6 +392,30 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     const c = db.E['c:' + r.t];
     if (c && c.mode === 'turnos' && r.rk && r.rk === (c.round || 1) + '.' + (c.turn || 0) && curParty(c) === r.g && (c.used || 0) > 0) stamp(db, 'c:' + r.t, Object.assign({}, c, { used: c.used - 1, done: false }), who, t);
   }
+  /* abre o cierra varias categorías de una vez (sesión en directo y ensayo). modes: { esp: 'turnos' | 'libre' | 'cerrado', … }
+     Sin orden de turnos, se usa el de la pestaña Partidos. reset: los turnos vuelven a la ronda 1. Devuelve las categorías abiertas. */
+  function liveCats(db, modes, who, t, reset) {
+    const E = db.E, alive = (g) => E['g:' + g] && !E['g:' + g].x;
+    /* mismo orden que la pestaña Partidos: número de orden y, si empatan, las siglas */
+    const parties = Object.keys(E).filter((k) => k[0] === 'g' && E[k].k === 'g' && !E[k].x).sort((a, b) => ((E[a].ord == null ? 999 : E[a].ord) - (E[b].ord == null ? 999 : E[b].ord)) || String(E[a].sig || E[a].nom || '').localeCompare(String(E[b].sig || E[b].nom || ''), 'es', { numeric: true, sensitivity: 'base' })).map((k) => k.slice(2));
+    const opened = [];
+    for (const cat of CATS) {
+      const has = Object.keys(E).some((k) => E[k].k === 'i' && !E[k].x && E[k].t === cat);
+      const mode = (modes[cat] === 'turnos' || modes[cat] === 'libre') && has ? modes[cat] : 'cerrado';
+      const c0 = E['c:' + cat];
+      if (!c0 && mode === 'cerrado') continue;
+      const c = Object.assign({ k: 'c', t: cat, order: [], quota: 1, max: 0, cup: {}, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false }, c0 || {}, { mode });
+      c.order = (c.order || []).filter(alive);
+      if (mode === 'turnos' && !c.order.length) c.order = parties;
+      if (reset) Object.assign(c, { turn: 0, round: 1, used: 0, done: !c.order.length });
+      if (mode !== 'cerrado') opened.push(cat);
+      if (c0 && c0.mode === mode && !reset) continue;
+      settle(db, c);
+      stamp(db, 'c:' + cat, c, who, t);
+    }
+    return opened;
+  }
+  const modesTxt = (modes, cats) => cats.map((c) => CATN[c].toLowerCase() + (modes[c] === 'libre' ? ' (libre)' : ' (por turnos)')).join(', ');
   function turnOp(db, body, who, t) {
     const cat = body.t; if (!CATS.includes(cat)) throw new HttpErr(400, 'Categoría no válida.');
     const c0 = db.E['c:' + cat]; if (!c0 || c0.mode !== 'turnos') throw new HttpErr(400, 'Esta categoría no está en modo por turnos.');
@@ -405,18 +474,19 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
 
     'GET data': async (req) => {
       const who = await authed(req);
-      const { data: db } = await read('db'); const d = db || initDB();
+      const d = (await readDB()) || initDB();
       return json({ seq: d.seq, urev: who.auth.urev, E: redact(d.E, who), users: publicUsers(who.auth, who), me: userOut(who.id, who.u) });
     },
 
+    /* sondeo de cada pantalla abierta (cada pocos segundos): lo más barato posible */
     'GET changes': async (req, body, url) => {
       const s = +url.searchParams.get('since') || 0, ur = +url.searchParams.get('urev') || 0, force = url.searchParams.get('force') === '1';
-      const mP = force ? null : getJ('meta').catch(() => null);
-      const who = await authed(req);
+      const mP = getJ('meta').catch(() => null);
+      const who = await authed(req, mP);
       const out = { me: userOut(who.id, who.u), urev: who.auth.urev };
       if (ur !== who.auth.urev) out.users = publicUsers(who.auth, who);
       if (!force) { const m = await mP; if (m && m.seq <= s) return json(Object.assign(out, { seq: Math.max(m.seq, s), E: {} })); }
-      const { data: db } = await read('db'); const d = db || initDB();
+      const d = (await readDB()) || initDB();
       return json(Object.assign(out, { seq: d.seq, E: redact(since(d, s), who) }));
     },
 
@@ -596,26 +666,77 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
     'POST ensayo': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
       const op = body.op; if (op !== 'start' && op !== 'end') throw new HttpErr(400, 'Operación desconocida.');
+      const modes = body.modes && typeof body.modes === 'object' && !Array.isArray(body.modes) ? body.modes : null;
       await maybeSnap(op === 'start' ? 'antes-del-ensayo' : 'fin-del-ensayo');
-      let s0 = 0, n = 0;
+      let s0 = 0, n = 0, opened = [];
       const { cur: db } = await update('db', initDB, (d) => {
-        s0 = d.seq; n = 0; const t = now(), on = ensOn(d);
+        s0 = d.seq; n = 0; opened = []; const t = now(), on = ensOn(d);
         if (op === 'start') {
           if (on) throw new HttpErr(409, 'Ya hay un ensayo en marcha.');
           log(d, who, t, 'empezó un ENSAYO: lo que se elija a partir de ahora es de prueba y se borrará al terminar');
           stamp(d, 's:ens', { k: 's', on: true, since: t, by: who.u.name }, who, t);
-          resetTurns(d, who, t, stamp);
+          if (modes) {
+            /* el ensayo abre las categorías marcadas, igual que la sesión de verdad */
+            opened = liveCats(d, modes, who, t, true);
+            if (opened.length) { stamp(d, 's:live', { k: 's', on: true, ens: true, since: t, by: who.u.name, modes: Object.fromEntries(opened.map((c) => [c, modes[c]])) }, who, t); log(d, who, t, 'abrió para el ensayo: ' + modesTxt(modes, opened)); }
+          } else resetTurns(d, who, t, stamp);
         } else {
           if (!on) throw new HttpErr(409, 'No hay ningún ensayo en marcha.');
           for (const k in d.E) { const r = d.E[k]; if (r.k === 'r' && !r.x && r.ens) { stamp(d, k, Object.assign({}, r, { x: true }), who, t); n++; } }
           stamp(d, 's:ens', { k: 's', on: false, last: t, by: who.u.name }, who, t);
           resetTurns(d, who, t, stamp);
-          log(d, who, t, 'terminó el ENSAYO: se han borrado ' + n + (n === 1 ? ' elección' : ' elecciones') + ' de prueba y los turnos vuelven a empezar');
+          /* al terminar el ensayo todo queda cerrado: nadie puede elegir de verdad hasta que el Ayuntamiento empiece la sesión */
+          const L = d.E['s:live'] || {}, was = {}; for (const c of CATS) { const x = d.E['c:' + c]; if (x && x.mode !== 'cerrado') was[c] = x.mode; }
+          liveCats(d, {}, who, t, false);
+          stamp(d, 's:live', { k: 's', on: false, modes: L.modes || was }, who, t);
+          log(d, who, t, 'terminó el ENSAYO: se han borrado ' + n + (n === 1 ? ' elección' : ' elecciones') + ' de prueba, los turnos vuelven a empezar y la selección queda cerrada hasta que se pulse «Empezar la selección»');
         }
         return null;
       });
       await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'ensayo')]);
-      return json({ ok: true, n, seq: db.seq, E: since(db, +body.since || 0) });
+      return json({ ok: true, n, opened, seq: db.seq, E: since(db, +body.since || 0) });
+    },
+    /* la sesión de verdad: empezar (abre las categorías marcadas desde la ronda 1), pausar, reanudar y terminar */
+    'POST sesion': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      const op = body.op; if (!['start', 'pause', 'resume', 'end'].includes(op)) throw new HttpErr(400, 'Operación desconocida.');
+      const modes = {};
+      if (op === 'start') {
+        if (!body.modes || typeof body.modes !== 'object' || Array.isArray(body.modes)) throw new HttpErr(400, 'Indica qué categorías se abren.');
+        for (const c of CATS) modes[c] = body.modes[c] === 'turnos' || body.modes[c] === 'libre' ? body.modes[c] : 'cerrado';
+        if (!CATS.some((c) => modes[c] !== 'cerrado')) throw new HttpErr(400, 'Marca al menos una categoría para abrir.');
+      }
+      if (op === 'start' || op === 'end') await maybeSnap(op === 'start' ? 'antes-de-empezar' : 'fin-de-la-seleccion');
+      let s0 = 0, opened = [];
+      const { cur: db } = await update('db', initDB, (d) => {
+        s0 = d.seq; opened = []; const t = now(), L = d.E['s:live'] || {};
+        const open = {}; for (const c of CATS) { const x = d.E['c:' + c]; if (x && x.mode !== 'cerrado') open[c] = x.mode; }
+        if (op === 'start') {
+          if (ensOn(d)) throw new HttpErr(409, 'Hay un ensayo en marcha: termínalo antes de empezar la selección.');
+          opened = liveCats(d, modes, who, t, true);
+          if (!opened.length) throw new HttpErr(400, 'Las categorías marcadas todavía no tienen nada cargado.');
+          stamp(d, 's:live', { k: 's', on: true, since: t, by: who.u.name, modes: Object.fromEntries(opened.map((c) => [c, modes[c]])) }, who, t);
+          log(d, who, t, 'EMPEZÓ LA SELECCIÓN: ' + modesTxt(modes, opened) + '; los turnos empiezan en la ronda 1');
+        } else if (op === 'pause') {
+          if (!Object.keys(open).length) throw new HttpErr(409, 'No hay ninguna selección abierta.');
+          liveCats(d, {}, who, t, false);
+          stamp(d, 's:live', Object.assign({}, L, { k: 's', on: false, paused: t, ens: ensOn(d), modes: open }), who, t);
+          log(d, who, t, 'PAUSÓ LA SELECCIÓN: nadie puede elegir hasta que se reanude (los turnos se conservan)');
+        } else if (op === 'resume') {
+          if (!(L.paused || L.ended) || !L.modes) throw new HttpErr(409, 'No hay ninguna selección en pausa.');
+          opened = liveCats(d, L.modes, who, t, false);
+          if (!opened.length) throw new HttpErr(409, 'No queda ninguna categoría que reabrir.');
+          stamp(d, 's:live', { k: 's', on: true, ens: ensOn(d), since: L.since || t, by: L.by || who.u.name, modes: L.modes }, who, t);
+          log(d, who, t, (L.ended ? 'VOLVIÓ A ABRIR LA SELECCIÓN: ' : 'REANUDÓ LA SELECCIÓN: ') + modesTxt(L.modes, opened) + ', donde se había quedado');
+        } else {
+          liveCats(d, {}, who, t, false);
+          stamp(d, 's:live', { k: 's', on: false, ended: t, since: L.since || 0, by: who.u.name, modes: L.modes || open }, who, t);
+          log(d, who, t, 'TERMINÓ LA SELECCIÓN: todas las categorías quedan cerradas');
+        }
+        return null;
+      });
+      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'sesión')]);
+      return json({ ok: true, opened, seq: db.seq, E: since(db, +body.since || 0) });
     },
     'POST keep': async (req, body) => {
       const who = await authed(req); need(who, ['admin']);
@@ -685,6 +806,8 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now() })
       if (e instanceof HttpErr) return fail(e.status, e.message);
       console.error(e);
       return fail(500, 'Error interno del servidor.');
+    } finally {
+      if (PEND.size) await Promise.all([...PEND]);
     }
   };
 }

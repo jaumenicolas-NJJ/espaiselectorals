@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Batería de pruebas de Espais electorals.
 #   bash pruebas/ejecutar.sh           reglas del servidor + interfaz completa en el navegador
-#   bash pruebas/ejecutar.sh --carga   además, prueba de carga con 20 usuarios a la vez (unos 2 minutos)
+#   bash pruebas/ejecutar.sh --carga   además, prueba de carga con 50 usuarios a la vez (unos 4 minutos)
 # Cada batería arranca un servidor de pruebas con el almacén vacío: nunca se tocan los datos reales.
 set -u
 cd "$(dirname "$0")/.."
@@ -17,6 +17,6 @@ arrancar() {
 bateria() { echo; echo "=== $1 ==="; shift; "$@" || fallos=$((fallos + 1)); }
 arrancar 0;  bateria "REGLAS DEL SERVIDOR" node pruebas/reglas.cjs
 arrancar 0;  bateria "INTERFAZ (administración, 3 candidaturas y consulta a la vez)" node pruebas/interfaz.cjs
-if [ "${1:-}" = "--carga" ]; then arrancar 60; bateria "CARGA (20 usuarios a la vez, latencia simulada)" node pruebas/carga.cjs; fi
+if [ "${1:-}" = "--carga" ]; then arrancar 60; bateria "CARGA (50 usuarios a la vez, latencia simulada)" node pruebas/carga.cjs; fi
 parar
 echo; if [ "$fallos" -eq 0 ]; then echo "TODAS LAS PRUEBAS CORRECTAS"; else echo "HAY $fallos BATERÍAS CON FALLOS"; exit 1; fi

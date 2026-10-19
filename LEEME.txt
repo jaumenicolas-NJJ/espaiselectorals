@@ -69,11 +69,22 @@ El Panel muestra una lista de «Puesta en marcha». En resumen:
      candidatura no ve su turno ni puede elegir: el Panel lo avisa en rojo.
   4. Reparto: votos de las anteriores elecciones equivalentes → «Ordenar por votos»
      → «Calcular y fijar los cupos».
-  5. Turnos y reglas: abre cada categoría por turnos (1 elección por turno) o libre.
+  5. Turnos y reglas: revisa las reglas de cada categoría (elecciones por turno, máximo,
+     orden). No hace falta abrirlas aquí: se abren desde la tarjeta «Sesión de selección».
   6. Imprime la «Ayuda para las candidaturas» y el «Reparto» para la reunión.
-  7. Ensayo: «Empezar un ensayo» (Panel) para que las candidaturas practiquen; al
-     terminar, «Terminar el ensayo y borrar lo elegido» deja todo listo para la sesión.
-  8. Al acabar la sesión: «Guardar copia permanente…» (Panel) y el «Acta de la selección».
+  7. Ensayo: en la tarjeta «Sesión de selección» (arriba del Panel) marca qué categorías
+     se abren y pulsa «Empezar un ensayo». Al terminar, «Terminar el ensayo y borrar lo
+     elegido» borra lo de prueba y deja TODO CERRADO hasta el día de verdad.
+  8. El día de la sesión, en la misma tarjeta: revisa «Comprueba que está todo listo»,
+     marca las categorías (por turnos o libre) y pulsa «▶ Empezar la selección».
+     Durante la sesión: «⏸ Pausar» (nadie elige; los turnos se conservan), «▶ Reanudar»
+     y, al acabar, «⏹ Terminar la selección». Proyecta en la sala la pestaña «En directo»:
+     muestra en grande quién elige ahora y quién va después.
+  9. Al acabar la sesión: «Guardar copia permanente…» (Panel) y el «Acta de la selección».
+
+Si te equivocas al importar el Excel: en cada lista (y en Espacios con «✎ Editar lista»)
+marca varias filas en la primera columna, o «Marcar todos», y pulsa «🗑 Borrar las filas
+marcadas». Antes de borrar se guarda una copia de seguridad en el servidor.
 La pestaña Ayuda lo explica todo con detalle, incluida la base legal (LOREG, arts. 51 y
 55 a 57).
 
@@ -98,14 +109,21 @@ DATOS, COPIAS Y SEGURIDAD
   reglas, administradores ni el registro, y antes guarda una copia: «Restaurar» la
   devuelve entera, usuarios incluidos.
 - Las contraseñas se guardan como huella irreversible (PBKDF2). 5 intentos fallidos
-  bloquean el usuario 10 minutos. La sesión se cierra tras 30 minutos sin actividad.
+  bloquean el usuario 10 minutos. La sesión se cierra tras 30 minutos sin actividad,
+  salvo mientras la selección está abierta (así no se cierran las pantallas que solo
+  miran ni la que se proyecta en la sala).
 - Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor.
-- Probado con 20 usuarios conectados a la vez y 13 candidaturas reservando al mismo
-  tiempo, sin errores ni casillas con dos dueños.
-- Velocidad: los datos están en Frankfurt (Unión Europea). En los planes Pro de Netlify
-  se puede poner también la región de las funciones en Frankfurt (Cloud compute →
-  Functions → Region) para que vaya aún más rápido; con el plan Personal funciona bien
-  con la región por defecto.
+- Probado con 50 usuarios conectados a la vez (25 candidaturas eligiendo y 24 de
+  consulta) y con la web real de Netlify (50 usuarios consultando a la vez durante
+  minutos): sin errores ni casillas con dos dueños. Por turnos, cada elección tarda
+  1-2 segundos. Si muchas candidaturas pulsan EXACTAMENTE a la vez en modo libre, se
+  guardan todas igualmente, pero de una en una (la última puede esperar unos segundos).
+  Para probar la web real sin tocar datos:  node pruebas/carga-real.cjs
+- Velocidad: los datos están en Frankfurt (Unión Europea) y las funciones de Netlify, por
+  defecto, en Estados Unidos: cada consulta cruza el Atlántico (unos 0,6 s). El servidor
+  guarda en memoria lo que ya ha leído para pedir lo mínimo. En los planes de pago de
+  Netlify se puede pedir que las funciones vayan también a Frankfurt (región eu-central-1),
+  y entonces todo va varias veces más rápido; funciona bien sin hacerlo.
 - Recomendado en GitHub (Settings → General del repositorio):
     · «Default branch» → botón ⇄ → main → «Update», para que la rama principal sea main.
     · «Danger Zone» → «Change visibility» → «Make private». El repositorio no contiene
@@ -116,7 +134,7 @@ PRUEBAS
 -------
 La carpeta pruebas/ contiene la batería completa: reglas del servidor, interfaz en el
 navegador (administración, tres candidaturas y un usuario de consulta a la vez, con el
-Excel de ejemplo de pruebas/datos) y carga con 20 usuarios simultáneos. GitHub la pasa
+Excel de ejemplo de pruebas/datos) y carga con 50 usuarios simultáneos. GitHub la pasa
 sola en cada cambio (pestaña «Actions» del repositorio: marca verde = todo correcto).
 Para pasarla en un ordenador:  bash pruebas/ejecutar.sh --carga
 Usa un servidor de pruebas con el almacén vacío: nunca toca los datos reales.

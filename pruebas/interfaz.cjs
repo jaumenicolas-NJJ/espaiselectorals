@@ -8,6 +8,13 @@ fs.mkdirSync(S, { recursive: true });
 const R = []; const ok = (n, c, x) => { R.push((c ? 'OK   ' : 'FALLO') + ' ' + n + (x != null && x !== '' ? ' · ' + x : '')); };
 const errs = [], cons = [];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/* páginas y tamaño de un PDF: con pdfinfo (poppler) y, si no está instalado (Windows), leyendo el PDF de Chromium directamente */
+const pdfInfo = (f) => {
+  try { return execFileSync('pdfinfo', [f]).toString(); } catch (e) {
+    const b = fs.readFileSync(f, 'latin1'), mb = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/.exec(b) || [];
+    return 'Pages: ' + (b.match(/\/Type\s*\/Page(?![s\w])/g) || []).length + '\nPage size: ' + mb[1] + ' x ' + mb[2] + ' pts';
+  }
+};
 (async () => {
   const br = await chromium.launch();
   async function open(name) {
@@ -27,7 +34,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.5/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.6/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -444,7 +451,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const miss = must.filter((m) => !(m instanceof RegExp ? m.test(st.txt) : st.txt.includes(m)));
     ok('Imprimir ' + name + ': documento preparado', st.p === 1 && st.cls && !miss.length, miss.length ? 'falta: ' + miss.join(', ') : '');
     await pg.emulateMedia({ media: 'print' }); await pg.pdf({ path: S + '/pdf_esp/' + file + '.pdf', preferCSSPageSize: true, printBackground: true }); await pg.emulateMedia({ media: 'screen' });
-    const info = execFileSync('pdfinfo', [S + '/pdf_esp/' + file + '.pdf']).toString(), pages = +(/Pages:\s+(\d+)/.exec(info) || [])[1], sz = (/Page size:\s+([\d.]+) x ([\d.]+)/.exec(info) || []).slice(1).map(Number);
+    const info = pdfInfo(S + '/pdf_esp/' + file + '.pdf'), pages = +(/Pages:\s+(\d+)/.exec(info) || [])[1], sz = (/Page size:\s+([\d.]+) x ([\d.]+)/.exec(info) || []).slice(1).map(Number);
     const a4 = land ? Math.abs(sz[0] - 841.9) < 2 && Math.abs(sz[1] - 595.3) < 2 : Math.abs(sz[0] - 595.3) < 2 && Math.abs(sz[1] - 841.9) < 2;
     const pt = execFileSync('pdftotext', ['-l', '1', S + '/pdf_esp/' + file + '.pdf', '-']).toString();
     ok('Imprimir ' + name + ': PDF A4 ' + (land ? 'horizontal' : 'vertical') + ' (' + pages + ' pág.) sin menús', a4 && pages >= 1 && /Ajuntament de Santa Coloma/.test(pt) && !/Turnos y reglas|Registro\s+Ajustes/.test(pt), sz.join('x'));
@@ -611,6 +618,38 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('Móvil: ninguna pestaña se sale de la pantalla (las tablas anchas se desplazan dentro de su recuadro)', anchos.every((x) => +x.split(':')[1] <= 391), anchos.join(' '));
   ok('Ningún texto introducido se ejecuta como código (prueba de seguridad XSS en todas las pantallas e impresos)', !(await A.evaluate(() => window.__xss)) && !(await PP.evaluate(() => window.__xss)) && !(await PV.evaluate(() => window.__xss)) && !(await PC.evaluate(() => window.__xss)) && !(await M.evaluate(() => window.__xss)));
   ok('…y se muestra como texto normal', /Pacma <img src=x/.test(await (async () => { await A.click('#tabs [data-v=reparto]'); return txt(A, '#view .rp'); })()));
+
+  /* ================= SESIÓN DE SELECCIÓN: EMPEZAR, PAUSAR, REANUDAR, TERMINAR (v1.6) ================= */
+  await tab(A, 'panel');
+  ok('v1.6 · Tras el ensayo, la tarjeta «Sesión de selección» está en PREPARACIÓN, con la lista de comprobación', /PREPARACIÓN/.test(await txt(A, '#view .livec')) && /Comprueba que está todo listo/.test(await txt(A, '#view .livec')) && (await A.locator('#view [data-a=live-start]').count()) === 1);
+  await PP.waitForFunction(() => /todavía no ha empezado/.test(document.querySelector('#banner').innerText), null, { timeout: 15000 }).catch(() => {});
+  ok('Las candidaturas ven que la selección todavía no ha empezado', /La selección todavía no ha empezado/.test(await txt(PP, '#banner')));
+  await A.click('#view [data-a=live-start]'); await yes(A); ok('«Empezar la selección» con un solo botón', await toastIs(A, /Selección en marcha/));
+  await PP.waitForFunction(() => /Es vuestro turno en Banderolas/.test(document.querySelector('#banner').innerText), null, { timeout: 15000 }).catch(() => {});
+  ok('…la primera candidatura ve en grande «¡OS TOCA ELEGIR!» sin recargar', /OS TOCA ELEGIR/.test(await txt(PP, '#banner')) && /Es vuestro turno en Banderolas/.test(await txt(PP, '#banner')));
+  await PV.waitForFunction(() => /Selección en directo|Preparaos|Es vuestro turno/.test(document.querySelector('#banner').innerText), null, { timeout: 15000 }).catch(() => {});
+  ok('…y las demás ven quién elige ahora', /Selección en directo|Preparaos|Es vuestro turno/.test(await txt(PV, '#banner')));
+  await tab(A, 'asig'); ok('«En directo» muestra en grande quién elige y quién va después', (await A.locator('#view .lvnow .pchip').count()) >= 1 && /Después:/.test(await txt(A, '#view .live')));
+  await tab(A, 'panel'); await A.click('#view [data-a=live-pause]'); await yes(A); ok('Pausar la selección', await toastIs(A, /en pausa/));
+  await PP.waitForFunction(() => /Selección en pausa/.test(document.querySelector('#banner').innerText), null, { timeout: 15000 }).catch(() => {});
+  ok('…las candidaturas ven «Selección en pausa» y nadie tiene turno', /Selección en pausa/.test(await txt(PP, '#banner')) && !/Es vuestro turno/.test(await txt(PP, '#banner')));
+  await A.click('#view [data-a=live-resume]'); ok('Reanudar', await toastIs(A, /reanudada/));
+  await PP.waitForFunction(() => /Es vuestro turno en Banderolas/.test(document.querySelector('#banner').innerText), null, { timeout: 15000 }).catch(() => {});
+  ok('…y el turno vuelve a quien lo tenía', /Es vuestro turno en Banderolas/.test(await txt(PP, '#banner')));
+  await A.click('#view [data-a=live-end]'); await yes(A); ok('Terminar la selección', await toastIs(A, /Selección terminada/));
+  await settled(A); d = await apiAs(A, 'data');
+  ok('…todo queda cerrado y la tarjeta ofrece la copia permanente y el acta', ['esp', 'ban', 'pan', 'pri'].every((t) => !d.E['c:' + t] || d.E['c:' + t].mode === 'cerrado') && /TERMINADA/.test(await txt(A, '#view .livec')) && (await A.locator('#view .livec [data-a=pr-acta]').count()) === 1);
+
+  /* ================= MARCAR VARIAS FILAS Y BORRARLAS A LA VEZ (v1.6) ================= */
+  await tab(A, 'pan'); await A.selectOption('#flt-pan', 'all'); await A.fill('#q-pan', ''); d = await apiAs(A, 'data');
+  const pTaken = new Set(Object.values(d.E).filter((r) => r.k === 'r' && !r.x).map((r) => r.i));
+  const pans = Object.keys(d.E).filter((k) => k.startsWith('i:') && d.E[k].t === 'pan' && !d.E[k].x).map((k) => k.slice(2)), two = pans.filter((id) => !pTaken.has(id)).slice(0, 2);
+  ok('Cada lista tiene una columna para marcar filas', (await A.locator('#view .ltbl td.selc input[data-a=sel]').count()) === pans.length && (await A.locator('#view .selbar').count()) === 1, pans.length + ' pancartas');
+  for (const id of two) await A.click('#view input[data-a=sel][data-id="' + id + '"]');
+  ok('…cuenta las marcadas', /2 pancartas marcadas/.test(await txt(A, '#view .selbar')), await txt(A, '#view .selbar'));
+  await A.click('#view [data-a=sel-del]'); await yes(A); ok('Borrar las marcadas de una vez', await toastIs(A, /Borradas 2 pancartas/));
+  await settled(A); d = await apiAs(A, 'data');
+  ok('…se borran en el servidor, con copia de seguridad antes', two.length === 2 && two.every((id) => d.E['i:' + id].x === true) && Object.values(d.E).filter((e) => e.k === 'i' && e.t === 'pan' && !e.x).length === pans.length - 2 && (await apiAs(A, 'history')).items.some((k) => /antes-de-eliminar/.test(k)));
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;

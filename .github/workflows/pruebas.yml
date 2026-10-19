@@ -22,5 +22,5 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Reglas del servidor, interfaz y carga con 20 usuarios
+      - name: Reglas del servidor, interfaz y carga con 50 usuarios
         run: bash pruebas/ejecutar.sh --carga

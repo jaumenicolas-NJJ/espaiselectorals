@@ -575,7 +575,13 @@ textarea.inote{min-height:64px;overflow:hidden;line-height:1.5}
 .oi.full{opacity:.5}
 .oarr{color:#aab3c2}
 .small{font-size:12.5px}
-.banner.turn{background:#e2f3e8;border-color:#7cc596;color:#1d4d2e}
+.banner.turn{background:#1f8a4c;border-color:#17703d;color:#fff;font-size:15px;padding:14px 20px;animation:turnflash 1.2s ease-in-out 6}
+.banner.turn b{font-weight:700}.banner.turn .tbig{display:inline-block;font-size:19px;font-weight:800;letter-spacing:.5px;margin-right:6px}
+.banner.turn .btn{color:var(--ink)}.banner.turn .btn.tgo{background:#fff;border-color:#fff;color:#17703d;font-size:15px;padding:8px 16px}
+@keyframes turnflash{50%{background:#2fb866}}
+.banner.soon{background:#fff3c4;border-color:#e8c14a;color:#5d4300;font-size:14px}
+.tnext{color:var(--mute);font-size:13px}
+.lv .lvnow .pchip{font-size:20px;padding:4px 14px;margin:3px 0}
 .dot-turn{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2E9E4F;box-shadow:0 0 0 3px #c8ecd4;vertical-align:middle;margin-left:4px;animation:pulse 1.4s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(46,158,79,.15)}}
 .hero{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
@@ -653,6 +659,43 @@ body.waiting,body.waiting *{cursor:progress!important}
 .ensc{border-color:#f0a33a;box-shadow:0 0 0 2px #fde3bd}
 .ensb{background:#f0a33a;color:#fff;font-weight:800;letter-spacing:1px;border-radius:5px;padding:1px 8px;font-size:12px}
 .tbl tr.ensr td{color:#8a6a3a}
+/* sesión de selección: preparación, ensayo, en directo, pausa, terminada */
+.livec{border-left:5px solid var(--brand)}
+.livec.ph-live{border-left-color:#c62828;box-shadow:0 0 0 2px #f6d0cd}
+.livec.ph-ens{border-left-color:#f0a33a}
+.livec.ph-pause{border-left-color:var(--warn)}
+.livec.ph-end{border-left-color:var(--ok)}
+.livec .lead{margin:0 0 10px;font-size:14px}
+.livec h4{margin:12px 0 4px;font-size:13px;color:var(--ink2)}
+.lstate{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;letter-spacing:1px;border-radius:5px;padding:2px 9px;background:#e6e8ec;color:#444}
+.lstate.s-live{background:#c62828;color:#fff}.lstate.s-live .ldot{background:#fff;margin:0;animation:onair 1.3s infinite}
+.lstate.s-ens{background:#f0a33a;color:#fff}.lstate.s-pause{background:#fff1cc;color:#7a5600}.lstate.s-end{background:#e2f3e8;color:#1d6b3c}
+.lcheck{list-style:none;margin:4px 0 8px;padding:0}
+.lcheck li{display:flex;gap:8px;align-items:baseline;margin:4px 0;font-size:13.5px}
+.lcheck .i{flex:none;width:18px;text-align:center;font-weight:800}
+.lcheck .ok .i{color:var(--ok)}.lcheck .no .i{color:var(--bad)}.lcheck .wa .i{color:var(--warn)}
+.lcats{display:grid;gap:6px;margin:4px 0 8px}
+.lcat{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:#f9fafc}
+.lcat.off{opacity:.55}
+.lcat label{display:flex;align-items:center;gap:8px;font-weight:600;flex:1 1 220px}
+.lcat label small{font-weight:400}
+.lcat .seg button{white-space:nowrap}
+.lcat .seg button[disabled]{opacity:.45;cursor:not-allowed}
+.btn.go{background:#17874d;border-color:#17874d;color:#fff;font-size:15px;padding:9px 18px}
+.btn.go:hover{background:#12703f;border-color:#12703f}
+.btn.ensbtn{border-color:#f0a33a;color:#7a4300;background:#fff7ea}
+.lstat{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:6px 0 10px}
+.lstat>div{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#f9fafc;font-size:13px;line-height:1.7}
+.banner.wait{background:#f1f3f7;color:#2b3950;border-color:#dbe1ea}
+.banner.live{background:#fdeceb;color:#6d1a14;border-color:#f3c3bf}
+.banner.live .ldot{background:#e53935;animation:onair 1.3s infinite}
+.banner.live.ensl{background:#fff7ea;color:#7a4300;border-color:#f0d0a0}
+/* selección de varias filas para borrarlas a la vez */
+.selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;border:1px dashed #cdd5e1;border-radius:8px;font-size:13px;color:var(--ink2)}
+.selbar.on{border-style:solid;border-color:#efc4c6;background:var(--bad-bg);color:#7e1a1f}
+.tbl th.selc,.tbl td.selc{width:34px;text-align:center;padding-left:6px;padding-right:6px}
+.tbl td.selc input,.tbl th.selc input{width:16px;height:16px;cursor:pointer}
+.tbl tr.selr td{background:#fff3f3}
 .cgrid th.gs .ndm{text-transform:none}
 /* buscador general */
 .tabs .tsearch{margin-left:auto;align-self:center;border:1px solid var(--line);border-radius:18px;background:#fff;padding:5px 14px;font:inherit;font-size:13.5px;font-weight:600;color:var(--brand);cursor:pointer;white-space:nowrap}
@@ -1019,9 +1062,23 @@ function paintTop() {
   $('#org').textContent = orgName(); $('#tit').textContent = conf().tit || 'Selección de espacios electorales';
   $('#who').innerHTML = esc(ST.user) + ' · ' + esc(ROLES[myRole()]) + (isParty() && idx().pmap[myParty()] ? ' ' + pChip(myParty(), true) : '');
   const bt = $('#bakTop'); if (bt) bt.hidden = !isAdmin();
-  const myTurn = isParty() && CATS.some((t) => cfgOf(t).mode === 'turnos' && curParty(cfgOf(t)) === myParty());
-  document.title = (myTurn ? '🟢 Es vuestro turno · ' : '') + 'Espais electorals' + (conf().tit ? ' · ' + conf().tit : '');
-  if (isParty()) { if (myTurn && ST.wasTurn === false) { turnBeep(); toast('Es vuestro turno.'); } ST.wasTurn = myTurn; }
+  const mine = myTurnCats(), key = mine.join(',');
+  if (!ST.blink) document.title = baseTitle();
+  /* aviso sonoro cada vez que os llega un turno nuevo (en cualquier categoría) */
+  if (isParty()) { if (ST.wasTurn !== undefined && mine.some((t) => (ST.wasTurn || '').split(',').indexOf(t) < 0)) { turnBeep(); toast('Es vuestro turno.'); } ST.wasTurn = key; }
+}
+const myTurnCats = () => (isParty() ? CATS.filter((t) => cfgOf(t).mode === 'turnos' && curParty(cfgOf(t)) === myParty()) : []);
+const baseTitle = () => (myTurnCats().length ? '🟢 Es vuestro turno · ' : '') + 'Espais electorals' + (conf().tit ? ' · ' + conf().tit : '');
+/* quién elige después del turno actual (salta a quien ya ha completado su cupo, como el servidor) */
+function nextUp(c) {
+  const n = (c.order || []).length; if (c.mode !== 'turnos' || c.done || !n) return null;
+  let turn = c.turn || 0, round = c.round || 1;
+  for (let i = 0; i < n * 2 + 2; i++) {
+    turn++; if (turn >= n) { turn = 0; round++; }
+    const g = effOrder({ order: c.order, snake: c.snake, round })[turn];
+    if (idx().pmap[g] && myCount(c.t, g) < limOf(c, g)) return g;
+  }
+  return null;
 }
 function paintTabs() { const air = CATS.some((t) => cfgOf(t).mode !== 'cerrado' && !cfgOf(t).done); $('#tabs').innerHTML = TABS().map((t) => '<button data-a="tab" data-v="' + t[0] + '" class="' + (ST.view === t[0] ? 'on' : '') + (t[0] === 'asig' ? ' tlive' + (air ? ' onair' : '') : '') + '"' + (t[0] === 'asig' ? ' title="' + (air ? 'Selección abierta: turnos y elecciones al momento' : 'Turnos y elecciones al momento') + '"' : '') + '>' + (t[0] === 'asig' ? '<span class="ldot" aria-hidden="true"></span>' : '') + t[1] + (isParty() && CATS.includes(t[0]) && cfgOf(t[0]).mode === 'turnos' && curParty(cfgOf(t[0])) === myParty() ? ' <span class="dot-turn" title="Es vuestro turno"></span>' : '') + '</button>').join('') + '<button class="tsearch" data-a="gs-open" title="Buscar a la vez en espacios, banderolas, pancartas y prismas">🔍 Buscar</button>'; }
 function paintBanner() {
@@ -1029,9 +1086,20 @@ function paintBanner() {
   if (!ST.online) b.push('<div class="banner err"><span><b>Sin conexión con el servidor.</b> Se reintentará automáticamente; no se puede reservar hasta que vuelva la conexión.</span><button class="btn sm" data-a="retry">Reintentar ahora</button></div>');
   if (ensayo()) b.push('<div class="banner ens"><span><b>MODO ENSAYO.</b> Lo que se elija ahora es de prueba y se borrará al terminar el ensayo.</span>' + (isAdmin() ? '<button class="btn sm" data-a="ens-end">Terminar el ensayo y borrar lo elegido</button>' : '') + '</div>');
   if (myRole() === 'consulta') b.push('<div class="banner info"><span><b>Usuario de consulta:</b> puedes ver y exportar todo, pero no reservar ni modificar.</span></div>');
+  if (!isAdmin()) {
+    /* en qué punto está la sesión, para quien espera: no hace falta recargar la página */
+    const { open, ph } = liveState(), mineNow = isParty() && open.some((t) => curParty(cfgOf(t)) === myParty());
+    if (ph === 'prep') b.push('<div class="banner wait"><span><b>La selección todavía no ha empezado.</b> Esta página se actualiza sola: cuando el Ayuntamiento la abra, lo veréis aquí' + (isParty() ? ' y, cuando os toque, sonará un aviso. Dejad esta página abierta, mejor a la vista y con el sonido activado' : '') + '.</span></div>');
+    else if (ph === 'pause') b.push('<div class="banner wait"><span><b>Selección en pausa.</b> Ahora no se puede elegir. Seguirá donde se quedó en cuanto el Ayuntamiento la reanude.</span></div>');
+    else if (ph === 'end') b.push('<div class="banner info"><span><b>La selección ha terminado.</b> Podéis consultar e imprimir lo elegido.</span></div>');
+    else if (!open.length) b.push('<div class="banner wait"><span><b>Ensayo en pausa.</b> Ahora no se puede elegir.</span></div>');
+    else if (!mineNow) { const tt = open.filter((t) => cfgOf(t).mode === 'turnos' && !cfgOf(t).done && curParty(cfgOf(t))); b.push('<div class="banner live' + (ph === 'ens' ? ' ensl' : '') + '"><span><span class="ldot" aria-hidden="true"></span><b>' + (ph === 'ens' ? 'Ensayo en marcha.' : 'Selección en directo.') + '</b> ' + (tt.length ? tt.map((t) => CATN[t] + ': ahora elige ' + pChip(curParty(cfgOf(t)), true)).join(' · ') + '.' : 'Abierta.') + (isParty() ? ' Cuando os toque, lo veréis aquí y sonará un aviso.' : '') + '</span></div>'); }
+    const soon = isParty() ? open.filter((t) => cfgOf(t).mode === 'turnos' && curParty(cfgOf(t)) !== myParty() && nextUp(cfgOf(t)) === myParty()) : [];
+    if (soon.length) b.push('<div class="banner soon"><span><b>¡Preparaos! Después os toca a vosotros</b> en ' + soon.map((t) => CATN[t]).join(' y ') + '. Tened pensado qué vais a elegir.</span></div>');
+  }
   if (isParty()) {
     const mine = CATS.filter((t) => { const c = cfgOf(t); return c.mode === 'turnos' && curParty(c) === myParty(); });
-    mine.forEach((t) => { const c = cfgOf(t), left = c.quota - (c.used || 0); b.push('<div class="banner turn"><span><b>Es vuestro turno en ' + CATN[t] + '.</b> Podéis hacer ' + left + (left === 1 ? ' elección' : ' elecciones') + ' en este turno (ronda ' + (c.round || 1) + ').</span><span class="btnrow" style="margin:0">' + (ST.view !== t ? '<button class="btn sm primary" data-a="tab" data-v="' + t + '">Ir a elegir</button>' : '') + '<button class="btn sm" data-a="pass" data-t="' + t + '">Terminar mi turno</button></span></div>'); });
+    mine.forEach((t) => { const c = cfgOf(t), left = c.quota - (c.used || 0); b.push('<div class="banner turn" role="alert"><span><span class="tbig">👉 ¡OS TOCA ELEGIR!</span> <b>Es vuestro turno en ' + CATN[t] + '.</b> Podéis hacer ' + left + (left === 1 ? ' elección' : ' elecciones') + ' en este turno (ronda ' + (c.round || 1) + ').</span><span class="btnrow" style="margin:0">' + (ST.view !== t ? '<button class="btn primary tgo" data-a="tab" data-v="' + t + '">Ir a elegir ›</button>' : '') + '<button class="btn sm" data-a="pass" data-t="' + t + '">Terminar mi turno</button></span></div>'); });
     if (!idx().pmap[myParty()]) b.push('<div class="banner err"><span><b>Tu usuario no está vinculado a ninguna candidatura.</b> Así no puedes ver tu turno ni elegir: pide al Ayuntamiento que te asigne la tuya.</span></div>');
   }
   if (isAdmin() && CATS.some((t) => cfgOf(t).mode !== 'cerrado' && !cfgOf(t).done)) {
@@ -1065,12 +1133,12 @@ function statusHTML(t, full) {
   if (c.mode === 'turnos') {
     const ord = effOrder(c), tots = {}; ord.forEach((x) => { tots[x] = myCount(t, x); });
     h += c.done ? '<div class="turnbox done"><b>Selección por turnos terminada.</b></div>'
-      : '<div class="turnbox' + (cp && cp === g ? ' mine' : '') + '"><span>Ronda ' + (c.round || 1) + ' · Turno de</span> ' + pChip(cp) + '<span>' + (c.used || 0) + ' de ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' hechas en este turno</span>' +
+      : '<div class="turnbox' + (cp && cp === g ? ' mine' : '') + '"><span>Ronda ' + (c.round || 1) + ' · Turno de</span> ' + pChip(cp) + '<span>' + (c.used || 0) + ' de ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' hechas en este turno</span>' + (nextUp(c) ? '<span class="tnext">Después: ' + pChip(nextUp(c), true) + '</span>' : '') +
         (cp && (isAdmin() || cp === g) ? '<button class="btn sm" data-a="pass" data-t="' + t + '">' + (isAdmin() ? 'Pasar al siguiente' : 'Terminar mi turno') + '</button>' : '') + '</div>';
     h += '<div class="order">' + ord.map((x, i) => { const L = limOf(c, x); return '<span class="oi' + (i === (c.turn || 0) && !c.done ? ' cur' : '') + (tots[x] >= L ? ' full' : '') + '"><small>' + (i + 1) + '</small>' + pChip(x, true) + '<small>' + tots[x] + (L < Infinity ? '/' + L : '') + '</small></span>'; }).join('<span class="oarr">›</span>') + '</div>' +
       '<p class="muted small">Orden de elección' + (c.snake ? ' (se invierte en cada ronda)' : '') + ' · ' + c.quota + (c.quota === 1 ? ' elección' : ' elecciones') + ' por turno' + (hasCup(c) ? ' · cupos según el reparto' : c.max > 0 ? ' · máximo ' + c.max + ' por partido' : '') + '. A la derecha de cada partido, lo que lleva' + (hasCup(c) || c.max > 0 ? ' y su límite; quien lo completa ya no tiene turno' : '') + '.</p>';
   } else if (c.mode === 'libre') h += '<div class="turnbox"><b>Selección libre:</b>&nbsp;cada partido elige cuando quiere' + (c.max > 0 ? ', hasta ' + c.max : '') + '.</div>';
-  else h += '<div class="turnbox closed"><b>Selección cerrada.</b>&nbsp;' + (isAdmin() ? 'Solo el Ayuntamiento puede asignar. Ábrela en «Turnos y reglas».' : 'El Ayuntamiento la abrirá cuando corresponda.') + '</div>';
+  else h += '<div class="turnbox closed"><b>Selección cerrada.</b>&nbsp;' + (isAdmin() ? 'Solo el Ayuntamiento puede asignar. Se abre con «Empezar la selección», en la tarjeta «Sesión de selección» del Panel.' : 'El Ayuntamiento la abrirá cuando corresponda.') + '</div>';
   if (c.msg) h += '<div class="hint"><b>Aviso del Ayuntamiento:</b> ' + esc(c.msg).replace(/\n/g, '<br>') + '</div>';
   if (isAdmin() && c.mode === 'turnos') h += '<div class="btnrow"><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="prev">◀ Retroceder turno</button><button class="btn sm" data-a="turn" data-t="' + t + '" data-op="next">Avanzar turno ▶</button></div>';
   return h + '</div>';
@@ -1080,16 +1148,16 @@ function statusHTML(t, full) {
 function viewPanel() {
   const I = idx(), c = conf(), days = campDays();
   let h = '<div class="hero card"><div><h2>' + esc(c.tit || 'Selección de espacios electorales') + '</h2><p class="muted">' + esc(orgName()) + ' · ' + esc(TIPON[tipo()]) + (c.dv && parseISO(c.dv) != null ? ' · Votación: ' + esc(fLong(parseISO(c.dv))) : '') + (days.length ? '<br>Campaña: ' + esc(fLong(days[0])) + ' → ' + esc(fLong(days[days.length - 1])) : '') + '</p>' +
-    (c.nota ? '<div class="hint">' + esc(c.nota).replace(/\n/g, '<br>') + '</div>' : '') + '</div><div class="btnrow" style="margin:0;flex-direction:column;align-items:stretch"><button class="btn prt" data-a="pr-sel">🖨 Imprimir lo elegido por…</button><button class="btn prt" data-a="pr-menu">🖨 Imprimir resultados</button></div></div>';
+    (c.nota ? '<div class="hint">' + esc(c.nota).replace(/\n/g, '<br>') + '</div>' : '') + '</div><div class="btnrow" style="margin:0;flex-direction:column;align-items:stretch">' + (isParty() && idx().pmap[myParty()] ? '<button class="btn prt primary" data-a="pr-party" data-g="' + myParty() + '">🖨 Imprimir lo nuestro</button>' : '') + '<button class="btn prt" data-a="pr-sel">🖨 Imprimir lo elegido por…</button><button class="btn prt" data-a="pr-menu">🖨 Imprimir listas y resultados</button></div></div>';
   if (isAdmin() && (!I.parties.length || !CATS.some((t) => I.items[t].length) || !days.length)) {
     h += '<div class="card setupc"><h3>Puesta en marcha</h3><ol>' +
       '<li class="' + (days.length ? 'ok' : '') + '">Indica el tipo de elecciones y el <b>día de la votación</b> (la campaña se calcula sola) en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
       '<li class="' + (CATS.some((t) => I.items[t].length) ? 'ok' : '') + '"><b>Importa el Excel</b> de espacios, banderolas, pancartas y prismas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
       '<li class="' + (I.parties.length && !userGaps().noUser.length ? 'ok' : '') + '">Da de alta los <b>partidos</b> y su orden de preferencia en <button class="lnk" data-a="tab" data-v="partidos">Partidos</button>, y crea un usuario para cada uno.</li>' +
       '<li class="' + (I.parties.some((p) => p.vot > 0) ? 'ok' : '') + '">Escribe los votos de las anteriores elecciones y calcula el orden y los cupos en <button class="lnk" data-a="tab" data-v="reparto">Reparto</button>.</li>' +
-      '<li>Abre cada categoría <b>por turnos</b> o <b>libre</b> en <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button>.</li></ol></div>';
+      '<li>Revisa las reglas de cada categoría en <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button> y, el día de la sesión, pulsa <b>«Empezar la selección»</b> en la tarjeta <b>Sesión de selección</b>, aquí abajo (antes podéis hacer un ensayo).</li></ol></div>';
   }
-  if (isAdmin()) h += gapsCard() + ensCard();
+  if (isAdmin()) h += liveCard() + gapsCard();
   h += '<div class="grid2">' + CATS.map((t) => statusHTML(t)).join('') + '</div>';
   if (isParty()) {
     const R = I.res, mine = Object.keys(R).filter((k) => !R[k].x && R[k].g === myParty() && I.imap[R[k].i]).map((k) => R[k]);
@@ -1156,10 +1224,48 @@ function passFilter(t, it, r) {
 function listHTML(t, edit) {
   const I = idx(), pick = canPick(t), rows = I.items[t].map((it) => ({ it, r: activeRes(it.id) })).filter((x) => passFilter(t, x.it, x.r));
   if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
-  const adm = isAdmin() && !edit;
-  return '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th>' + (adm ? '<th>¿Elegible?</th>' : '') + '<th></th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
-    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + '">' + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') +
+  const adm = isAdmin() && !edit, sel = isAdmin(), S = selOf(t);
+  return (sel ? selBar(t) : '') + '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + (sel ? selHead(t) : '') + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th>' + (adm ? '<th>¿Elegible?</th>' : '') + '<th></th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
+    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') +
       '<td' + (it.nd ? '' : ' class="nowrap"') + '>' + (it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : r ? pChip(r.g) : '<span class="free-l">Libre</span>') + '</td>' + (adm ? '<td>' + ndSelect(it, r) + '</td>' : '') + '<td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td>' + (adm ? '<td><button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Borrar esta línea">🗑</button></td>' : '') + '</tr>').join('') + '</tbody></table></div>';
+}
+/* ---------- marcar varias filas y borrarlas a la vez (por ejemplo, después de importar un Excel equivocado) ---------- */
+const SELN = { esp: ['espacio', 'espacios', 'm'], ban: ['tramo de banderolas', 'tramos de banderolas', 'm'], pan: ['pancarta', 'pancartas', 'f'], pri: ['prisma', 'prismas', 'm'], par: ['candidatura', 'candidaturas', 'f'] };
+const selOf = (t) => { ST.ui.sel = ST.ui.sel || {}; return ST.ui.sel[t] || (ST.ui.sel[t] = new Set()); };
+const selExists = (t, id) => (t === 'par' ? !!idx().pmap[id] : !!idx().imap[id]);
+/* filas que se ven ahora (con el filtro y la búsqueda de la lista) */
+function selVisible(t) {
+  const I = idx();
+  if (t === 'par') return I.parties.map((p) => p.id);
+  if (t === 'esp') return I.items.esp.map((it) => it.id);
+  return I.items[t].filter((it) => passFilter(t, it, activeRes(it.id))).map((it) => it.id);
+}
+function selBar(t) {
+  const S = selOf(t); [...S].forEach((id) => { if (!selExists(t, id)) S.delete(id); });
+  const n = S.size, N = SELN[t], vis = selVisible(t), all = t === 'par' ? idx().parties.length : idx().items[t].length, m = (k) => (N[2] === 'f' ? (k === 1 ? 'marcada' : 'marcadas') : k === 1 ? 'marcado' : 'marcados');
+  if (!vis.length) return '';
+  return '<div class="selbar' + (n ? ' on' : '') + '">' + (n ? '<b>' + n + ' ' + (n === 1 ? N[0] : N[1]) + ' ' + m(n) + '</b>' : '<span>Para borrar varias filas a la vez, márcalas en la primera columna.</span>') +
+    '<button class="btn sm" data-a="sel-vis" data-t="' + t + '">' + (vis.length === all ? 'Marcar ' + (N[2] === 'f' ? 'todas' : 'todos') + ' (' + all + ')' : 'Marcar las ' + vis.length + ' filas que se ven') + '</button>' +
+    (n ? '<button class="btn sm" data-a="sel-none" data-t="' + t + '">Desmarcar</button><button class="btn sm danger solid" data-a="sel-del" data-t="' + t + '">🗑 Borrar ' + (n === 1 ? 'la fila marcada' : 'las ' + n + ' filas marcadas') + '</button>' : '') + '</div>';
+}
+function selHead(t) { const S = selOf(t), vis = selVisible(t), on = vis.length && vis.every((id) => S.has(id)); return '<th class="selc"><input type="checkbox" data-a="sel-all" data-t="' + t + '"' + (on ? ' checked' : '') + ' aria-label="Marcar o desmarcar todas las filas que se ven" title="Marcar o desmarcar todas las filas que se ven"></th>'; }
+const selCell = (t, id) => '<td class="selc"><input type="checkbox" data-a="sel" data-t="' + t + '" data-id="' + id + '"' + (selOf(t).has(id) ? ' checked' : '') + ' aria-label="Marcar esta fila"></td>';
+function selToggleAll(t, on) { const S = selOf(t); selVisible(t).forEach((id) => (on ? S.add(id) : S.delete(id))); renderView(); }
+async function selDel(t) {
+  if (!adminOnly()) return;
+  const I = idx(), S = selOf(t), N = SELN[t], ids = [...S].filter((id) => selExists(t, id));
+  const R = I.res, busy = new Set(Object.keys(R).filter((k) => !R[k].x).map((k) => (t === 'par' ? R[k].g : R[k].i)));
+  const ok = ids.filter((id) => !busy.has(id)), kept = ids.length - ok.length;
+  if (!ok.length) return toast((ids.length === 1 ? 'Lo marcado tiene' : 'Todo lo marcado tiene') + ' reservas: libéralas o reasígnalas antes de borrarlo.', 'err');
+  const nm = (id) => (t === 'par' ? pName(id) : iName(I.imap[id])), us = t === 'par' ? ST.users.filter((u) => u.role === 'partido' && ok.includes(u.party)) : [];
+  const list = ok.slice(0, 8).map((id) => '<li>' + esc(nm(id)) + '</li>').join('') + (ok.length > 8 ? '<li>… y ' + (ok.length - 8) + ' más</li>' : '');
+  if (!(await confirmBox({ title: 'Borrar ' + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]), text: 'Se borrarán:<ul style="margin:6px 0 8px;padding-left:20px">' + list + '</ul>' +
+    (kept ? '<b>' + kept + (kept === 1 ? ' no se borra' : ' no se borran') + '</b> porque ' + (kept === 1 ? 'tiene' : 'tienen') + ' reservas (libéralas antes).<br>' : '') +
+    (us.length ? 'Sus usuarios (' + us.map((u) => esc(u.name)).join(', ') + ') se quedarán sin candidatura y no podrán elegir.<br>' : '') +
+    'Antes de borrar se guarda una copia de seguridad en el servidor: si te equivocas, en <b>Ajustes → Copias de seguridad</b> puedes volver atrás.', ok: '🗑 Borrar ' + ok.length, danger: true }))) return;
+  const pre = t === 'par' ? 'g:' : 'i:';
+  ok.forEach((id) => { const e = ST.db.E[pre + id]; if (e) putQuiet(pre + id, Object.assign({}, e, { x: true })); S.delete(id); });
+  markDirty(); toast('Borrad' + (N[2] === 'f' ? 'as ' : 'os ') + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]) + (kept ? ' (' + kept + ' con reservas no se han borrado)' : '') + '.');
 }
 /* desplegable «Elegible / No elegible» de cada elemento (administración) */
 function ndSelect(it, r) { return '<select class="ndsel' + (it.nd ? ' off' : '') + '" data-i="' + it.id + '" aria-label="¿Se puede elegir?"' + (r ? ' disabled title="Está reservado: libéralo antes de cambiarlo"' : '') + '><option value="1"' + (!it.nd ? ' selected' : '') + '>Elegible</option><option value="0"' + (it.nd ? ' selected' : '') + '>No elegible</option></select>'; }
@@ -1176,7 +1282,8 @@ function rowAction(t, it, r, pick, edit) {
 function gridHTML(edit) {
   const I = idx(), days = campDays(), E = I.items.esp.filter((it) => passFilter('esp', it, null)), f = ST.ui.flt.esp || 'all';
   let h = '';
-  if (edit) h += '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr>' + colsOf('esp').map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
+  if (edit) h += selBar('esp') + '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + selHead('esp') + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr' + (selOf('esp').has(it.id) ? ' class="selr"' : '') + '>' + selCell('esp', it.id) + colsOf('esp').map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
+  if (!edit && isAdmin() && I.items.esp.length) h += '<p class="muted small" style="margin:0 0 6px">Para borrar varios espacios a la vez, pulsa <b>«✎ Editar lista»</b> y márcalos en la primera columna.</p>';
   if (!days.length) return h + '<p class="hint warn">Para ver el cuadrante hay que indicar las fechas de la campaña en Ajustes.</p>';
   h += '<p class="muted small">Pulsa una casilla para ' + (isAdmin() ? 'asignarla, liberarla o marcar su disponibilidad; pulsa el nombre de un espacio para marcar su disponibilidad en bloque (varios días o franjas a la vez)' : isParty() ? 'reservarla o liberarla' : 'ver su detalle') + '. Mañana (M) y tarde (T) de cada día de campaña.</p>' +
     '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>';
@@ -1255,8 +1362,8 @@ function viewPartidos() {
   if (!I.parties.length) return h + empty('Todavía no hay partidos', adm ? 'Añádelos, pégalos desde Excel o impórtalos.' : '') + '</div>';
   if (!adm) return h + '<div class="tblwrap"><table class="tbl"><thead><tr><th>Orden</th><th>Siglas</th><th>Nombre</th>' + CATS.map((t) => '<th>' + CATN[t] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.parties.map((p) => '<tr><td>' + (p.ord != null ? p.ord : '') + '</td><td>' + pChip(p.id) + '</td><td>' + esc(p.nom) + '</td>' + CATS.map((t) => '<td>' + myCount(t, p.id) + '</td>').join('') + '<td><button class="btn sm prt" data-a="pr-party" data-g="' + p.id + '" title="Imprimir lo elegido por ' + esc(p.sig || p.nom) + '">🖨</button></td></tr>').join('') + '</tbody></table></div></div>';
   const XP = xfOf('par');
-  return h + '<div class="tblwrap"><table class="tbl ftbl"><thead><tr><th>Orden</th><th>Color</th><th>Siglas</th><th>Nombre</th><th>Representante</th><th>Teléfono</th><th>Correo</th><th>Notas</th>' + XP.map((d) => '<th>' + esc(d.n) + '</th>').join('') + '<th>Usuarios</th><th></th></tr></thead><tbody>' +
-    I.parties.map((p) => '<tr><td style="width:70px">' + rin('g', p, 'ord', 'number', 46, 'Orden') + '</td><td><input type="color" data-r="g" data-f="col" data-id="' + p.id + '" value="' + esc(p.col) + '" aria-label="Color"></td><td>' + rin('g', p, 'sig', 'text', 90, 'Siglas') + '</td><td>' + rin('g', p, 'nom', 'text', 200, 'Nombre') + '</td><td>' + rin('g', p, 'rep', 'text', 140, 'Representante') + '</td><td>' + rin('g', p, 'tel', 'tel', 100, 'Teléfono') + '</td><td>' + rin('g', p, 'mail', 'email', 150, 'Correo') + '</td><td>' + rin('g', p, 'nota', 'text', 140, 'Notas') + '</td>' + XP.map((d) => '<td>' + rin('g', p, 'x_' + d.id, 'text', 120, d.n) + '</td>').join('') +
+  return h + selBar('par') + '<div class="tblwrap"><table class="tbl ftbl"><thead><tr>' + selHead('par') + '<th>Orden</th><th>Color</th><th>Siglas</th><th>Nombre</th><th>Representante</th><th>Teléfono</th><th>Correo</th><th>Notas</th>' + XP.map((d) => '<th>' + esc(d.n) + '</th>').join('') + '<th>Usuarios</th><th></th></tr></thead><tbody>' +
+    I.parties.map((p) => '<tr' + (selOf('par').has(p.id) ? ' class="selr"' : '') + '>' + selCell('par', p.id) + '<td style="width:70px">' + rin('g', p, 'ord', 'number', 46, 'Orden') + '</td><td><input type="color" data-r="g" data-f="col" data-id="' + p.id + '" value="' + esc(p.col) + '" aria-label="Color"></td><td>' + rin('g', p, 'sig', 'text', 90, 'Siglas') + '</td><td>' + rin('g', p, 'nom', 'text', 200, 'Nombre') + '</td><td>' + rin('g', p, 'rep', 'text', 140, 'Representante') + '</td><td>' + rin('g', p, 'tel', 'tel', 100, 'Teléfono') + '</td><td>' + rin('g', p, 'mail', 'email', 150, 'Correo') + '</td><td>' + rin('g', p, 'nota', 'text', 140, 'Notas') + '</td>' + XP.map((d) => '<td>' + rin('g', p, 'x_' + d.id, 'text', 120, d.n) + '</td>').join('') +
       '<td class="nowrap">' + (users(p.id).map(esc).join(', ') || '<span class="tag bad" title="Sin usuario no puede elegir en su turno">sin usuario</span>') + ' <button class="btn sm" data-a="u-add" data-g="' + p.id + '">+ Usuario</button></td><td class="nowrap"><button class="btn sm prt" data-a="pr-party" data-g="' + p.id + '" title="Imprimir sus asignaciones">🖨</button> <button class="btn sm ghost" data-a="g-del" data-id="' + p.id + '" title="Eliminar">✕</button></td></tr>').join('') + '</tbody></table></div>' +
     '<div class="btnrow"><button class="btn sm" data-a="xf-open" data-t="par">Campos propios de las candidaturas…</button></div></div>';
 }
@@ -1264,7 +1371,7 @@ function viewPartidos() {
 /* ---------- turnos y reglas (Ayuntamiento) ---------- */
 function viewTurnos() {
   const I = idx();
-  return ensCard() + '<div class="card"><h3>Cómo funciona</h3><p class="muted">Cada categoría puede estar <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> (los partidos eligen en el orden indicado, con un número de elecciones por turno) o <b>libre</b> (cada partido elige cuando quiere, hasta el máximo). En modo por turnos, el turno pasa solo al siguiente cuando el partido completa sus elecciones (o pulsa «Terminar mi turno»), y se saltan los que ya han llegado al máximo. Todo queda en el Registro.</p></div>' +
+  return liveCard() + '<div class="card"><h3>Cómo funciona</h3><p class="muted">Cada categoría puede estar <b>cerrada</b> (solo el Ayuntamiento asigna), <b>por turnos</b> (los partidos eligen en el orden indicado, con un número de elecciones por turno) o <b>libre</b> (cada partido elige cuando quiere, hasta el máximo). En modo por turnos, el turno pasa solo al siguiente cuando el partido completa sus elecciones (o pulsa «Terminar mi turno»), y se saltan los que ya han llegado al máximo. Todo queda en el Registro.</p></div>' +
     CATS.map((t) => {
       const c = cfgOf(t), inOrd = new Set(c.order || []), rest = I.parties.filter((p) => !inOrd.has(p.id));
       return '<div class="card"><div class="fhead"><h3>' + CATN[t] + '</h3><span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></div>' +
@@ -1447,9 +1554,9 @@ function viewAsig() {
   const I = idx(), R = asigList(), fp = ST.ui.ap || '', fc = ST.ui.ac || '';
   const last = R.slice().sort((a, b) => b.ts - a.ts).slice(0, 12);
   const air = CATS.some((t) => cfgOf(t).mode !== 'cerrado' && !cfgOf(t).done);
-  let h = '<div class="livehead' + (air ? ' onair' : '') + '"><span class="ldot" aria-hidden="true"></span><b>EN DIRECTO</b>' + (ensayo() ? '<span class="ensb">ENSAYO</span>' : '') + '<span>' + (air ? 'Selección abierta: turnos y elecciones al momento, sin recargar la página' : 'Ahora no hay ninguna selección abierta') + '</span><span class="lclock">' + esc(fStamp(Date.now()).slice(11)) + '</span></div>' +
+  let h = '<div class="livehead' + (air ? ' onair' : '') + '"><span class="ldot" aria-hidden="true"></span><b>EN DIRECTO</b>' + (ensayo() ? '<span class="ensb">ENSAYO</span>' : '') + '<span>' + (air ? 'Selección abierta: turnos y elecciones al momento, sin recargar la página' : { pause: 'Selección en pausa: seguirá donde se quedó', end: 'La selección ha terminado' }[liveState().ph] || 'La selección todavía no ha empezado') + '</span><span class="lclock">' + esc(fStamp(Date.now()).slice(11)) + '</span></div>' +
     '<div class="card"><div class="fhead"><h3>Turno en cada categoría</h3><span class="muted small">Se actualiza solo cada pocos segundos</span></div><div class="live">' +
-    CATS.map((t) => { const c = cfgOf(t), cp = curParty(c); return '<div class="lv"><div><b>' + CATN[t] + '</b> <span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></div><div class="lvt">' + (c.mode === 'turnos' ? (c.done ? 'Selección terminada' : 'Ronda ' + (c.round || 1) + ' · elige ' + pChip(cp)) : c.mode === 'libre' ? 'Cada candidatura elige cuando quiere' : 'Cerrada') + '</div><small class="muted">' + takenOf(t) + ' de ' + slotsOf(t) + (t === 'esp' ? ' franjas' : '') + ' elegidos</small></div>'; }).join('') + '</div>' +
+    CATS.map((t) => { const c = cfgOf(t), cp = curParty(c); return '<div class="lv"><div><b>' + CATN[t] + '</b> <span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span></div><div class="lvt">' + (c.mode === 'turnos' ? (c.done ? 'Selección terminada' : '<small>Ronda ' + (c.round || 1) + ' · ahora elige</small><div class="lvnow">' + pChip(cp) + '</div>' + (nextUp(c) ? '<small>Después: ' + pChip(nextUp(c), true) + '</small>' : '')) : c.mode === 'libre' ? 'Cada candidatura elige cuando quiere' : 'Cerrada') + '</div><small class="muted">' + takenOf(t) + ' de ' + slotsOf(t) + (t === 'esp' ? ' franjas' : '') + ' elegidos</small></div>'; }).join('') + '</div>' +
     '<h4 style="margin:14px 0 6px">Últimas elecciones</h4>' + (last.length ? '<div class="tblwrap"><table class="tbl lastres"><tbody>' + last.map((r, k) => '<tr class="' + (k === 0 && Date.now() - r.ts < 60000 ? 'new' : '') + '"><td class="nowrap muted">' + esc(fStamp(r.ts).slice(11)) + '</td><td>' + pChip(r.g) + '</td><td>' + CATN[r.t] + '</td><td><b>' + esc(iName(I.imap[r.i])) + '</b>' + (r.slot ? ' · ' + esc(slotTxt(r.slot)) : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="muted">Todavía no ha elegido nadie.</p>') + '</div>';
   const P = I.parties.filter((p) => !fp || (fp === 'mine' ? p.id === myParty() : p.id === fp)), cats = CATS.filter((t) => !fc || fc === t);
   h += '<div class="card"><div class="fhead"><h3>Lo que tiene cada candidatura <span class="n">' + R.length + '</span></h3><div class="btnrow" style="margin:0"><button class="btn sm" data-a="asig-csv">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-sel">🖨 Imprimir lo elegido por…</button><button class="btn sm prt" data-a="pr-asig">🖨 Imprimir lo que se ve</button></div></div>' +
@@ -1515,24 +1622,111 @@ function prActa() {
     R.length + ' asignaciones · ' + L.length + ' movimientos');
 }
 /* aviso sonoro breve cuando le llega el turno a la candidatura */
-function turnBeep() { try { const A = new (window.AudioContext || window.webkitAudioContext)(), o = A.createOscillator(), g = A.createGain(); o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.06; o.connect(g); g.connect(A.destination); o.start(); setTimeout(() => { o.frequency.value = 1175; }, 160); setTimeout(() => { o.stop(); A.close(); }, 360); } catch (e) { /* sin sonido */ } }
-/* ensayo: probar la selección con las candidaturas y borrar después lo elegido */
-function ensCard() {
-  if (!isAdmin()) return '';
-  const R = asigList().filter((r) => r.ens).length;
-  return ensayo() ? '<div class="card ensc"><div class="fhead"><h3>Ensayo en marcha <span class="tag ens">ENSAYO</span></h3><button class="btn danger solid sm" data-a="ens-end">Terminar el ensayo y borrar lo elegido</button></div><p class="muted small" style="margin:0">Las candidaturas pueden elegir como el día de verdad. Llevan ' + R + (R === 1 ? ' elección' : ' elecciones') + ' de prueba. Al terminar se borran todas y los turnos vuelven a la ronda 1; las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan.</p></div>'
-    : '<div class="card"><div class="fhead"><h3>Ensayo</h3><button class="btn sm" data-a="ens-start">Empezar un ensayo</button></div><p class="muted small" style="margin:0">Para probar la selección con las candidaturas antes del día de verdad: eligen por turnos como en la sesión real y, al terminar, se borra todo lo elegido en el ensayo y los turnos vuelven a empezar. Antes se guarda una copia de seguridad. Después, si hace falta empezar de cero, «Borrar datos de prueba…» permite borrar todas las selecciones o también las candidaturas.</p><div class="btnrow" style="margin:8px 0 0"><button class="btn sm ghost" data-a="purge-open">Borrar datos de prueba…</button></div></div>';
+function turnBeep() {
+  try {
+    const A = new (window.AudioContext || window.webkitAudioContext)(), o = A.createOscillator(), g = A.createGain(), t0 = A.currentTime;
+    o.type = 'sine'; g.gain.value = 0.0001; o.connect(g); g.connect(A.destination);
+    [0, 1.1].forEach((d) => [[659, 0], [880, 0.18], [1175, 0.36]].forEach(([fq, x]) => { o.frequency.setValueAtTime(fq, t0 + d + x); g.gain.setValueAtTime(0.14, t0 + d + x); g.gain.setValueAtTime(0.0001, t0 + d + x + 0.16); }));
+    o.start(t0); o.stop(t0 + 1.7); setTimeout(() => A.close(), 2000);
+  } catch (e) { /* sin sonido */ }
 }
+/* ============================================================
+   SESIÓN DE SELECCIÓN: preparación → (ensayo) → empezar → pausar / reanudar → terminar
+   Un solo sitio, arriba del Panel, para saber en qué punto está todo y qué hay que pulsar.
+   ============================================================ */
+const liveRec = () => { const e = ST.db && ST.db.E['s:live']; return e && !e.x ? e : {}; };
+/* prep: nada abierto · ens: ensayo · live: abierta · pause: en pausa · end: terminada */
+function liveState() {
+  const L = liveRec(), open = CATS.filter((t) => cfgOf(t).mode !== 'cerrado');
+  const ph = ensayo() ? 'ens' : open.length ? 'live' : L.paused ? 'pause' : L.ended ? 'end' : 'prep';
+  return { L, open, ph };
+}
+const PHN = { prep: 'PREPARACIÓN', ens: 'ENSAYO EN MARCHA', live: 'EN DIRECTO', pause: 'EN PAUSA', end: 'TERMINADA' };
+/* qué categorías se abrirán y cómo (lo que se marque en la tarjeta; por defecto, lo de la última vez o todo por turnos) */
+function liveModes() {
+  const I = idx(), L = liveRec(), cur = {}; CATS.forEach((t) => { if (cfgOf(t).mode !== 'cerrado') cur[t] = cfgOf(t).mode; });
+  /* con categorías ya abiertas (a mano, en Turnos y reglas), se respeta lo que está abierto */
+  if (Object.keys(cur).length) { const o = {}; CATS.forEach((t) => { o[t] = I.items[t].length ? cur[t] || '' : ''; }); return o; }
+  const base = L.modes || null;
+  if (!ST.ui.lm) { ST.ui.lm = {}; CATS.forEach((t) => { const m = base ? base[t] : 'turnos'; ST.ui.lm[t] = m === 'turnos' || m === 'libre' ? m : ''; }); }
+  const o = {}; CATS.forEach((t) => { o[t] = I.items[t].length ? ST.ui.lm[t] || '' : ''; }); return o;
+}
+function liveChecks() {
+  const I = idx(), days = campDays(), G = userGaps(), nIt = CATS.filter((t) => I.items[t].length);
+  const real = asigList().filter((r) => !r.ens).length, cups = CATS.some((t) => hasCup(cfgOf(t)));
+  const L = [];
+  L.push([days.length ? 'ok' : 'no', days.length ? 'Campaña: del ' + esc(fDMY(days[0])) + ' al ' + esc(fDMY(days[days.length - 1])) + '.' : 'Falta el día de la votación (la campaña se calcula sola).', days.length ? '' : '<button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>']);
+  L.push([nIt.length ? 'ok' : 'no', nIt.length ? 'Cargado: ' + CATS.map((t) => I.items[t].length + ' ' + CATN[t].toLowerCase()).join(', ') + '.' : 'Todavía no hay nada cargado.', nIt.length ? '' : '<button class="lnk" data-a="imp-xls">Importar el Excel…</button>']);
+  L.push([I.parties.length && !G.noUser.length ? 'ok' : 'no', !I.parties.length ? 'Todavía no hay candidaturas.' : G.noUser.length ? (G.noUser.length === 1 ? '1 candidatura no tiene usuario' : G.noUser.length + ' candidaturas no tienen usuario') + ': ' + G.noUser.map((p) => esc(p.sig || p.nom)).join(', ') + '. No podrán elegir por sí mismas.' : I.parties.length + ' candidaturas, todas con su usuario.', !I.parties.length ? '<button class="lnk" data-a="tab" data-v="partidos">Partidos</button>' : G.noUser.length ? '<button class="lnk" data-a="u-bulk">Crear los usuarios que faltan…</button>' : '']);
+  L.push([cups ? 'ok' : 'wa', cups ? 'Cupos del reparto calculados.' : 'Sin cupos del reparto: cada candidatura podrá elegir hasta el máximo general de cada categoría.', cups ? '' : '<button class="lnk" data-a="tab" data-v="reparto">Reparto</button>']);
+  L.push([real ? 'wa' : 'ok', real ? 'Ya hay ' + real + (real === 1 ? ' selección hecha' : ' selecciones hechas') + ' antes de empezar. Se mantendrán; si son de prueba, bórralas antes.' : 'No hay ninguna selección hecha: se empieza de cero.', real ? '<button class="lnk" data-a="purge-open">Borrar datos de prueba…</button>' : '']);
+  return L;
+}
+function liveCard() {
+  if (!isAdmin()) return '';
+  const I = idx(), { L, open, ph } = liveState(), nEns = asigList().filter((r) => r.ens).length;
+  const statList = (cats) => '<div class="lstat">' + cats.map((t) => { const c = cfgOf(t), cp = curParty(c); return '<div><b>' + CATN[t] + '</b> <span class="mode m-' + c.mode + '">' + MODEN[c.mode] + '</span><br>' + (c.mode === 'turnos' ? (c.done ? 'Terminada' : 'Ronda ' + (c.round || 1) + ' · elige ' + pChip(cp, true)) : c.mode === 'libre' ? 'Cada candidatura elige cuando quiere' : 'Cerrada') + '<br><small>' + takenOf(t) + ' de ' + slotsOf(t) + ' elegidos</small></div>'; }).join('') + '</div>';
+  let h = '<div class="card livec ph-' + ph + (ph === 'ens' ? ' ensc' : '') + '"><div class="fhead"><h3>Sesión de selección <span class="lstate s-' + ph + '">' + (ph === 'live' ? '<span class="ldot" aria-hidden="true"></span>' : '') + PHN[ph] + '</span></h3>' + (ph === 'live' || ph === 'ens' ? '<button class="btn sm" data-a="tab" data-v="asig">Ver «En directo» (para proyectar)</button>' : '') + '</div>';
+  if (ph === 'prep') {
+    const M = liveModes();
+    h += '<p class="lead">Las candidaturas <b>no pueden elegir nada</b> hasta que pulses <b>«Empezar la selección»</b>. Si queréis practicar antes, haced un <b>ensayo</b>: se elige igual y al terminar se borra lo elegido.</p>' +
+      '<h4>1. Comprueba que está todo listo</h4><ul class="lcheck">' + liveChecks().map((c) => '<li class="' + c[0] + '"><span class="i">' + (c[0] === 'ok' ? '✓' : c[0] === 'no' ? '✗' : '!') + '</span><span>' + c[1] + (c[2] ? ' ' + c[2] : '') + '</span></li>').join('') + '</ul>' +
+      '<h4>2. Elige qué se abre y cómo</h4><div class="lcats">' + CATS.map((t) => { const n = I.items[t].length, m = M[t]; return '<div class="lcat' + (n ? '' : ' off') + '"><label><input type="checkbox" data-a="lm-on" data-t="' + t + '"' + (m ? ' checked' : '') + (n ? '' : ' disabled') + '> ' + CATN[t] + ' <small>' + (n ? n + (n === 1 ? ' elemento' : ' elementos') : 'sin nada cargado') + '</small></label>' + (n ? '<div class="seg segsm">' + ['turnos', 'libre'].map((v) => '<button data-a="lm" data-t="' + t + '" data-v="' + v + '" class="' + ((m || 'turnos') === v && m ? 'on' : '') + '"' + (m ? '' : ' disabled') + '>' + MODEN[v] + '</button>').join('') + '</div>' : '') + '</div>'; }).join('') + '</div>' +
+      '<h4>3. Empieza</h4><div class="btnrow"><button class="btn go" data-a="live-start">▶ Empezar la selección</button><button class="btn ensbtn" data-a="ens-start">Empezar un ensayo</button></div>' +
+      '<p class="muted small" style="margin:6px 0 0">Al empezar, las categorías marcadas se abren a la vez; las que van por turnos empiezan en la ronda 1 con la primera candidatura del orden, que lo verá en su pantalla con un aviso sonoro. Todo el mundo verá <b>EN DIRECTO</b> sin recargar la página. Antes se guarda una copia de seguridad.</p>';
+  } else if (ph === 'ens') {
+    h += '<p class="lead">Las candidaturas pueden elegir como el día de verdad. Llevan <b>' + nEns + (nEns === 1 ? ' elección' : ' elecciones') + ' de prueba</b>. Al terminar se borran todas, los turnos vuelven a la ronda 1 y <b>todo queda cerrado</b> hasta que pulses «Empezar la selección». Las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan.</p>' +
+      (open.length ? statList(open) : '<p class="hint">Ensayo en pausa: ahora no se puede elegir.</p>') +
+      '<div class="btnrow"><button class="btn danger solid" data-a="ens-end">Terminar el ensayo y borrar lo elegido</button>' + (open.length ? '<button class="btn" data-a="live-pause">⏸ Pausar</button>' : L.paused ? '<button class="btn" data-a="live-resume">▶ Reanudar el ensayo</button>' : '') + '</div>';
+  } else if (ph === 'live') {
+    h += '<p class="lead">' + (L.on && L.since ? 'Selección abierta desde las <b>' + esc(hhmm(L.since).slice(0, 5)) + '</b>' + (L.by ? ' (' + esc(L.by) + ')' : '') + '.' : 'Hay categorías abiertas desde «Turnos y reglas».') + ' Lo que elige cada candidatura queda reservado al instante y todos lo ven en unos segundos.</p>' + statList(open) +
+      '<div class="btnrow"><button class="btn" data-a="live-pause">⏸ Pausar</button><button class="btn danger" data-a="live-end">⏹ Terminar la selección</button>' + (L.on ? '' : '<button class="btn ensbtn" data-a="ens-start">Empezar un ensayo</button>') + '</div>' +
+      '<p class="muted small" style="margin:6px 0 0"><b>Pausar:</b> nadie puede elegir; los turnos se conservan y «Reanudar» sigue donde se quedó (por ejemplo, para resolver una duda en la sala). <b>Terminar:</b> cierra todas las categorías; después guarda la copia permanente y el acta. Los turnos se controlan uno a uno en cada categoría (Panel) o en «Turnos y reglas».</p>';
+  } else if (ph === 'pause') {
+    h += '<p class="lead">Selección <b>en pausa</b> desde las ' + esc(hhmm(L.paused).slice(0, 5)) + ': nadie puede elegir. Los turnos están guardados donde se quedaron.</p>' +
+      '<div class="btnrow"><button class="btn go" data-a="live-resume">▶ Reanudar la selección</button><button class="btn danger" data-a="live-end">⏹ Terminar la selección</button></div>';
+  } else {
+    h += '<p class="lead">La selección terminó a las <b>' + esc(hhmm(L.ended).slice(0, 5)) + '</b>. Ahora conviene guardar el resultado y el acta.</p>' +
+      '<div class="btnrow"><button class="btn primary" data-a="bak-keep">Guardar copia permanente…</button><button class="btn prt" data-a="pr-acta">🖨 Acta de la selección</button><button class="btn" data-a="live-resume">Volver a abrir donde se quedó</button></div>';
+  }
+  if (ph === 'prep' || ph === 'end') h += '<div class="btnrow" style="margin:10px 0 0"><button class="btn sm ghost" data-a="purge-open">Borrar datos de prueba…</button></div>';
+  return h + '</div>';
+}
+/* texto de lo que se va a abrir, para las confirmaciones */
+function liveSummary(M) { return CATS.filter((t) => M[t]).map((t) => { const o = (cfgOf(t).order || []).filter((g) => idx().pmap[g]), first = o.length ? o[0] : (idx().parties[0] || {}).id; return '<b>' + CATN[t] + '</b> ' + (M[t] === 'libre' ? '(libre)' : '(por turnos' + (first ? ', empieza ' + esc(pName(first)) : '') + ')'); }).join(', '); }
+async function liveStart() {
+  if (!adminOnly()) return;
+  const M = liveModes(); if (!CATS.some((t) => M[t])) return toast('Marca al menos una categoría para abrir.', 'err');
+  const G = userGaps(), real = asigList().filter((r) => !r.ens).length;
+  if (!(await confirmBox({ title: 'Empezar la selección', text: 'Se abren a la vez: ' + liveSummary(M) + '. Los turnos empiezan en la ronda 1.<br><br>Desde este momento <b>lo que elijan las candidaturas es definitivo</b>.' + (G.noUser.length ? '<br><br><b class="bad">' + G.noUser.length + (G.noUser.length === 1 ? ' candidatura no tiene usuario' : ' candidaturas no tienen usuario') + '</b>: cuando les toque, tendrás que elegir por ellas.' : '') + (real ? '<br><br>Ya hay ' + real + ' selecciones hechas, que se mantienen.' : ''), ok: '▶ Empezar ahora' }))) return;
+  await flush(); if (await act('sesion', { op: 'start', modes: M })) { toast('¡Selección en marcha! Las candidaturas ya ven su turno.'); ST.ui.lm = null; }
+}
+async function livePause() {
+  if (!adminOnly()) return;
+  if (!(await confirmBox({ title: 'Pausar la selección', text: 'Nadie podrá elegir hasta que pulses «Reanudar». Los turnos se quedan donde están y lo elegido no se toca.', ok: '⏸ Pausar' }))) return;
+  await flush(); if (await act('sesion', { op: 'pause' })) toast('Selección en pausa.');
+}
+async function liveResume() {
+  if (!adminOnly()) return;
+  await flush(); if (await act('sesion', { op: 'resume' })) toast('Selección reanudada: sigue donde se había quedado.');
+}
+async function liveEnd() {
+  if (!adminOnly()) return;
+  if (!(await confirmBox({ title: 'Terminar la selección', text: 'Se cierran todas las categorías: ya no se podrá elegir ni liberar (el Ayuntamiento sí puede seguir asignando). Antes se guarda una copia de seguridad. Después conviene guardar una copia permanente con nombre e imprimir el acta.', ok: '⏹ Terminar', danger: true }))) return;
+  await flush(); if (await act('sesion', { op: 'end' })) toast('Selección terminada. Guarda la copia permanente y el acta.');
+}
+/* ensayo: probar la selección con las candidaturas y borrar después lo elegido */
 async function ensStart() {
   if (!adminOnly()) return;
-  if (!(await confirmBox({ title: 'Empezar un ensayo', text: 'Todas las candidaturas verán el aviso <b>MODO ENSAYO</b>. Los turnos empiezan desde la ronda 1 y lo que se elija a partir de ahora será de prueba: al terminar el ensayo se borrará y los turnos volverán a empezar. Las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Antes se guarda una copia de seguridad.', ok: 'Empezar el ensayo' }))) return;
-  await flush(); if (await act('ensayo', { op: 'start' })) toast('Ensayo en marcha. Ya pueden elegir las candidaturas.');
+  const M = liveModes(); if (!CATS.some((t) => M[t])) return toast('Marca al menos una categoría para el ensayo.', 'err');
+  if (!(await confirmBox({ title: 'Empezar un ensayo', text: 'Se abren para practicar: ' + liveSummary(M) + '. Todas las candidaturas verán el aviso <b>MODO ENSAYO</b>. Los turnos empiezan desde la ronda 1 y lo que se elija a partir de ahora será de prueba: al terminar el ensayo se borrará, los turnos volverán a empezar y todo quedará cerrado. Las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Antes se guarda una copia de seguridad.', ok: 'Empezar el ensayo' }))) return;
+  await flush(); if (await act('ensayo', { op: 'start', modes: M })) { toast('Ensayo en marcha. Ya pueden elegir las candidaturas.'); ST.ui.lm = null; }
 }
 async function ensEnd() {
   if (!adminOnly()) return;
   const n = asigList().filter((r) => r.ens).length;
-  if (!(await confirmBox({ title: 'Terminar el ensayo', text: 'Se borrarán las <b>' + n + '</b> elecciones hechas durante el ensayo y los turnos volverán a la ronda 1, con la primera candidatura. Lo demás no se toca. Antes se guarda una copia de seguridad.', ok: 'Terminar y borrar lo elegido', danger: true }))) return;
-  await flush(); if (await act('ensayo', { op: 'end' })) toast('Ensayo terminado: se han borrado ' + n + ' elecciones de prueba. Todo listo para la sesión de verdad.');
+  if (!(await confirmBox({ title: 'Terminar el ensayo', text: 'Se borrarán las <b>' + n + '</b> elecciones hechas durante el ensayo, los turnos volverán a la ronda 1 y <b>todo quedará cerrado</b> hasta que pulses «Empezar la selección». Lo demás no se toca. Antes se guarda una copia de seguridad.', ok: 'Terminar y borrar lo elegido', danger: true }))) return;
+  await flush(); if (await act('ensayo', { op: 'end' })) toast('Ensayo terminado: se han borrado ' + n + ' elecciones de prueba. Cuando queráis, pulsa «Empezar la selección».');
 }
 document.addEventListener('change', (e) => { if (e.target.id === 'lens') { ST.ui.lens = e.target.checked; renderView(); } });
 /* imprimir lo elegido por una candidatura (cualquier usuario; cada partido tiene la suya ya marcada) */
@@ -1603,6 +1797,12 @@ const ASIG_ACT = {
   'gs-open': () => gsOpen(),
   'gs-go': (el) => { const t = el.dataset.t; closeModal(); ST.ui.q[t] = el.dataset.q; ST.ui.flt[t] = 'all'; gotoView(t); },
   'ens-start': () => ensStart(), 'ens-end': () => ensEnd(),
+  'live-start': () => liveStart(), 'live-pause': () => livePause(), 'live-resume': () => liveResume(), 'live-end': () => liveEnd(),
+  'lm-on': (el) => { liveModes(); if (!ST.ui.lm) return; ST.ui.lm[el.dataset.t] = el.checked ? 'turnos' : ''; renderView(); },
+  lm: (el) => { liveModes(); if (!ST.ui.lm) return; ST.ui.lm[el.dataset.t] = el.dataset.v; renderView(); },
+  sel: (el) => { const S = selOf(el.dataset.t); if (el.checked) S.add(el.dataset.id); else S.delete(el.dataset.id); renderView(); },
+  'sel-all': (el) => selToggleAll(el.dataset.t, el.checked), 'sel-vis': (el) => selToggleAll(el.dataset.t, true), 'sel-none': (el) => { selOf(el.dataset.t).clear(); renderView(); },
+  'sel-del': (el) => selDel(el.dataset.t),
   'pr-acta': () => { closeModal(); doPrint(prActa(), true); },
   'asig-csv': () => asigCSV(),
   'pr-asig': () => { const fp = ST.ui.ap || ''; if (fp && fp !== 'mine') doPrint(prParty(fp)); else if (fp === 'mine') doPrint(prParty(myParty())); else doPrint(prAllRes()); },
@@ -1636,9 +1836,9 @@ const TURNOS_HTML = () => '<p>Para cada categoría (espacios, banderolas, pancar
 function helpCand() {
   return '<p>Esta ayuda explica a las candidaturas cómo se reparten los espacios electorales, las banderolas, las pancartas y los prismas, y cómo se eligen con el programa. El reparto lo acuerda la Junta Electoral de Zona y lo aplica el ' + esc(orgName()) + '.</p>' +
     hsec(1, 'El día de la sesión, paso a paso', '<div class="hint"><ol style="margin:0;padding-left:20px">' +
-      '<li><b>Entrad</b> con vuestro usuario desde vuestro ordenador o móvil, en la sala o a distancia.</li>' +
+      '<li><b>Entrad</b> con vuestro usuario desde vuestro ordenador o móvil, en la sala o a distancia. Hasta que el Ayuntamiento empiece la selección veréis el aviso <b>«La selección todavía no ha empezado»</b>: no hace falta recargar la página, cambia sola.</li>' +
       '<li>Para <b>seguir la sesión</b>, abrid la pestaña <b>● En directo</b>: de quién es el turno en cada categoría, qué se acaba de elegir y lo que lleva cada candidatura. El Ayuntamiento puede proyectarla en la sala.</li>' +
-      '<li>Cuando os toque, <b>en cualquier pestaña</b> aparece arriba el aviso verde <b>«Es vuestro turno en…»</b>, suena un aviso corto y cambia el título de la pestaña del navegador.</li>' +
+      '<li>Cuando vais a ser los siguientes, aparece el aviso amarillo <b>«¡Preparaos! Después os toca a vosotros»</b>. Cuando os toque, <b>en cualquier pestaña</b> aparece arriba el aviso verde grande <b>«¡OS TOCA ELEGIR! Es vuestro turno en…»</b>, suena un aviso y, si estáis en otra pestaña o programa, el título de la pestaña parpadea. Solo puede elegir la candidatura que tiene el turno (y el Ayuntamiento).</li>' +
       '<li>Pulsad <b>«Ir a elegir»</b>: llegáis a la lista o al cuadrante de esa categoría. Si no encontráis algo, usad <b>«🔍 Buscar»</b>.</li>' +
       '<li>Pulsad <b>«Reservar»</b> y confirmad. Queda reservado y en unos segundos aparece ocupado para todas las candidaturas, que ya no lo pueden elegir.</li>' +
       '<li>Al completar las elecciones de vuestro turno (normalmente una), <b>el turno pasa solo</b> a la siguiente candidatura. Si no queréis elegir más en esa ronda, pulsad <b>«Terminar mi turno»</b>.</li>' +
@@ -1667,8 +1867,8 @@ function helpAdmin() {
     hsec(2, 'Cómo se hace el reparto en el programa', '<ol><li>En <b>Reparto</b>, escribe las <b>elecciones de referencia</b> y los <b>votos</b> que obtuvo cada candidatura en ellas. Las candidaturas nuevas, sin resultados anteriores, se dejan en 0. Los votos también pueden venir en el Excel.</li><li>Pulsa <b>«Ordenar las candidaturas por votos»</b>: la que tuvo más votos elige primero. Ese orden se aplica en Partidos y en los turnos de todas las categorías.</li><li>Elige el <b>método</b> de cada categoría y, si la Junta lo acuerda, un <b>mínimo</b> para cada candidatura:<ul><li><b>Proporcional (restos mayores):</b> cada candidatura recibe la parte entera de lo que le corresponde por sus votos y lo que sobra va a los restos más altos. Es el más fiel al porcentaje de votos.</li><li><b>Proporcional (D’Hondt):</b> el sistema del reparto de escaños; favorece un poco a las candidaturas con más votos.</li><li><b>A partes iguales:</b> lo mismo para todas; recomendado para los locales de actos (igualdad de oportunidades, art. 57).</li><li><b>Sin cupos:</b> sin límite por candidatura (se aplica, si lo hay, el máximo general de «Turnos y reglas»).</li></ul></li><li>Pulsa <b>«Calcular y fijar los cupos»</b>. Cada número se puede retocar a mano si la Junta acuerda otra cosa. Lo que esté marcado como no disponible no cuenta.</li></ol>' +
       '<div class="hint"><b>Ejemplo.</b> 30 tramos de banderolas y 4 candidaturas con 12.000, 8.000, 4.000 y 1.000 votos, con un mínimo de 1. Primero cada una recibe 1 (quedan 26). Los 26 se reparten en proporción a los votos: 12,48 · 8,32 · 4,16 · 1,04. Las partes enteras suman 25 y el tramo que sobra va al resto más alto (0,48). Cupos: <b>14, 9, 5 y 2</b>. El desarrollo ronda a ronda está en la ayuda para las candidaturas.</div>') +
     hsec(3, 'Turnos y reglas', '<p>Cada categoría puede estar <b>cerrada</b> (solo asigna el Ayuntamiento), <b>por turnos</b> o <b>libre</b> (cada candidatura elige cuando quiere, hasta su cupo o el máximo). En modo por turnos se fija el <b>orden</b>, las <b>elecciones por turno</b> y, si no hay cupos del reparto, un <b>máximo por candidatura</b>. El turno pasa solo al completar las elecciones del turno, cuando la candidatura completa su cupo o cuando pulsa «Terminar mi turno»; las que ya lo tienen completo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a una candidatura o reiniciar, y escribir un aviso que verán todas. Existe la opción de invertir el orden en cada ronda, pero no se recomienda: el art. 56 LOREG habla de orden decreciente de votos.</p>') +
-    hsec(4, 'Ensayo antes de la sesión', '<p>Con <b>«Empezar un ensayo»</b> (en el Panel o en Turnos y reglas) las candidaturas pueden practicar con sus usuarios y elegir por turnos como el día de verdad. Todos ven el aviso naranja <b>MODO ENSAYO</b>. Antes de empezar se guarda una copia de seguridad y los turnos empiezan desde la ronda 1. Al pulsar <b>«Terminar el ensayo y borrar lo elegido»</b> se borran todas las elecciones hechas durante el ensayo y los turnos vuelven a la ronda 1; las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Los movimientos del ensayo quedan en el Registro marcados como «ensayo» (ocultos salvo que se marque «Mostrar») y no salen en el acta.</p><p><b>Borrar datos de prueba.</b> En Ajustes (y en el recuadro del ensayo), «Borrar datos…» pregunta qué borrar: <b>todas las selecciones</b> o, además, <b>las candidaturas con sus usuarios</b>. Pide escribir BORRAR y guarda antes una copia de seguridad, a la que se puede volver con «Restaurar». Nunca borra los espacios, las banderolas, las pancartas, los prismas, las reglas, los usuarios de la administración ni el registro.</p>') +
-    hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, abre la categoría <b>por turnos</b> en «Turnos y reglas»: el turno es de la primera candidatura y los avisos verdes y los saltos de turno van solos. Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p>') +
+    hsec(4, 'Ensayo antes de la sesión', '<p>En la tarjeta <b>Sesión de selección</b> (arriba del Panel y de Turnos y reglas) marca qué categorías se abren y cómo, y pulsa <b>«Empezar un ensayo»</b>: las candidaturas practican con sus usuarios y eligen por turnos como el día de verdad. Todos ven el aviso naranja <b>MODO ENSAYO</b>. Antes de empezar se guarda una copia de seguridad y los turnos empiezan desde la ronda 1. Al pulsar <b>«Terminar el ensayo y borrar lo elegido»</b> se borran todas las elecciones hechas durante el ensayo, los turnos vuelven a la ronda 1 y <b>todo queda cerrado</b> hasta que pulses «Empezar la selección»; las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Los movimientos del ensayo quedan en el Registro marcados como «ensayo» (ocultos salvo que se marque «Mostrar») y no salen en el acta.</p><p><b>Borrar datos de prueba.</b> En Ajustes (y en el recuadro del ensayo), «Borrar datos…» pregunta qué borrar: <b>todas las selecciones</b> o, además, <b>las candidaturas con sus usuarios</b>. Pide escribir BORRAR y guarda antes una copia de seguridad, a la que se puede volver con «Restaurar». Nunca borra los espacios, las banderolas, las pancartas, los prismas, las reglas, los usuarios de la administración ni el registro.</p>') +
+    hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, en la tarjeta <b>Sesión de selección</b> del Panel revisa la lista «¿Está todo listo?», marca qué categorías se abren (por turnos o libre) y pulsa <b>«▶ Empezar la selección»</b>: se abren todas a la vez, el turno es de la primera candidatura del orden y los avisos y los saltos de turno van solos. Si hace falta parar (una duda, un problema en la sala), <b>«⏸ Pausar»</b> cierra todo sin perder los turnos y <b>«▶ Reanudar»</b> sigue donde se quedó. Al acabar, <b>«⏹ Terminar la selección»</b>. (También se puede abrir o cerrar cada categoría por separado en «Turnos y reglas».) Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p>') +
     hsec(6, 'Inhabilitar y disponibilidad', '<p>Si una banderola, pancarta, prisma o un espacio entero no se puede usar (obras, un mercado, un acto institucional…), el desplegable <b>«Elegible / No elegible»</b> de su fila (en los espacios, en la ventana que se abre al pulsar su nombre en el cuadrante) lo marca como <b>no elegible con un motivo</b>. Queda en gris con el motivo a la vista de todos, nadie lo puede elegir y deja de contar en el reparto. Volviendo a «Elegible» vuelve a estar disponible. Un elemento reservado no se puede inhabilitar hasta liberarlo. El botón <b>🗑</b> de cada fila (o «🗑 Borrar este espacio») borra esa línea, con confirmación; lo reservado no se puede borrar hasta liberarlo.</p><p>En los espacios, además, cada franja se marca como disponible, con restricciones o no disponible pulsando la casilla, y en bloque (un rango de días, solo mañanas o tardes, ciertos días de la semana) pulsando el nombre del espacio. Las franjas ya reservadas no se tocan.</p>') +
     hsec(7, 'Partidos y usuarios', '<p>En <b>Partidos</b> se dan de alta las candidaturas con su orden, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. Cada usuario de partido está <b>vinculado a su candidatura</b>: con ella entra, ve cuándo le toca y elige lo suyo; un usuario sin candidatura no puede elegir. El botón «+ Usuario» de cada fila crea el usuario de esa candidatura con una contraseña provisional, que la candidatura cambia al entrar. Más rápido: <b>«Crear los usuarios que faltan»</b> (en Partidos, en Ajustes o en el aviso rojo del Panel) crea de una vez un usuario para cada candidatura que no tiene, ya vinculado a ella, y permite imprimir una hoja con el usuario y la contraseña provisional de cada una para entregarla en mano. Mientras falte algún usuario o haya un usuario de partido sin candidatura, el Panel lo avisa en rojo. En Ajustes se gestionan todos los usuarios: cambiar la candidatura o el rol, restablecer la contraseña o dar de baja (se queda fuera al momento). Una candidatura con reservas no se puede eliminar hasta liberarlas o reasignarlas. Hay tres roles: <b>Administración</b>, <b>Partido</b> (elige lo suyo cuando le toca) y <b>Consulta</b> (solo lectura, por ejemplo para la Junta Electoral de Zona).</p>') +
     hsec(8, 'Importar desde Excel', '<p>Un solo Excel con todo: el programa reconoce cada hoja por su nombre y coloca cada cosa en su sitio: <b>ESPAIS</b> en Espacios, <b>BANDEROLES</b> en Banderolas, <b>PANCARTES</b> en Pancartas, <b>PRISMES</b> en Prismas y <b>PARTITS</b> (siglas, nombre, orden y votos) en Partidos; también lee la lista de partidos que hay junto al cuadrante de la hoja GRAELLA. En Ajustes se puede descargar una <b>plantilla</b> con todas las hojas preparadas. Antes de importar muestra cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada.</p>') +
@@ -1865,14 +2065,17 @@ function startTimers() {
   /* actualización frecuente mientras alguna selección está abierta, para ver los turnos casi en directo */
   ST.timers.push(setInterval(() => {
     if (!ST.db) return;
-    /* cada 4 s mientras se trabaja o mientras una candidatura espera su turno; más espaciado si nadie toca nada o la pestaña está oculta */
+    /* cada 4 s mientras se trabaja o mientras una candidatura espera su turno; más espaciado si nadie toca nada o la pestaña está oculta; cada 8 s mientras se espera a que empiece */
     const live = CATS.some((t) => cfgOf(t).mode !== 'cerrado'), waiting = isParty() && CATS.some((t) => cfgOf(t).mode === 'turnos' && !cfgOf(t).done);
-    const gap = !live ? 16000 : document.hidden ? 15000 : waiting || Date.now() - ST.lastAct < 120000 ? 4000 : 10000;
+    /* la candidatura que espera turno consulta cada 4 s aunque tenga la pestaña oculta, para que el aviso de turno le llegue enseguida */
+    const gap = !live ? (document.hidden ? 16000 : 8000) : waiting ? 4000 : document.hidden ? 15000 : Date.now() - ST.lastAct < 120000 ? 4000 : 10000;
     if (Date.now() - (ST.lastPoll || 0) >= gap - 200) { ST.lastPoll = Date.now(); poll(); }
   }, 2000));
   ST.timers.push(setInterval(() => { const k = $('.lclock'); if (k) k.textContent = fStamp(Date.now()).slice(11); }, 5000));
+  /* os toca y estáis en otra pestaña o programa: el título de la pestaña parpadea hasta que volváis */
+  ST.timers.push(setInterval(() => { if (!ST.db) return; if (document.hidden && myTurnCats().length) { ST.blink = !ST.blink; document.title = ST.blink ? '🟢🟢 ¡OS TOCA ELEGIR! 🟢🟢' : baseTitle(); } else if (ST.blink) { ST.blink = false; document.title = baseTitle(); } }, 1000));
   ST.timers.push(setInterval(saveLocalCopy, 5 * 60000)); ST.timers.push(setTimeout(saveLocalCopy, 3000));
-  ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 30 * 60000) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
+  ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 30 * 60000 && !CATS.some((t) => cfgOf(t).mode !== 'cerrado') && !ensayo()) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
 }
 /* copia local en el navegador de la administración (tercera copia, además del servidor y del almacén de copias) */
 const LOCAL_KEY = 'espais.copia.local';
@@ -1951,7 +2154,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.5 · 16/10/2026';
+const APP_VERSION = '1.6 · 19/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2029,7 +2232,7 @@ const ACT = {
   'pr-log': () => { closeModal(); doPrint(prDoc('Registro de movimientos', prTable(['Fecha y hora', 'Usuario', 'Candidatura', 'Movimiento', 'Categoría'], idx().logs.map((l) => [fStamp(l.ts), esc(l.by), l.g && idx().pmap[l.g] ? esc(pName(l.g)) : '', (l.ens ? '[ensayo] ' : '') + esc(l.a), CATN[l.t] || '']))), true); },
   'pr-help': () => doPrint(prDoc('Manual de Espais electorals', $('#view .help').innerHTML.replace(/<button[^>]*>.*?<\/button>/g, ''))),
   'imp-xls': () => { if (!adminOnly()) return; const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xlsm,.csv'; i.hidden = true; i.addEventListener('change', () => { if (i.files[0]) importExcel(i.files[0]); i.remove(); }); document.body.appendChild(i); i.click(); },
-  'imp-ok': () => { const plan = ST.imp; if (!plan) return; const sel = {}; $$('.impChk').forEach((c) => { sel[c.value] = c.checked; }); const n = applyImport(plan, sel); ST.imp = null; closeModal(true); toast(n ? 'Importados ' + n + ' registros. Se están guardando en el servidor…' : 'No había nada nuevo que importar.'); },
+  'imp-ok': () => { const plan = ST.imp; if (!plan) return; const sel = {}; $$('.impChk').forEach((c) => { sel[c.value] = c.checked; }); const n = applyImport(plan, sel); ST.imp = null; closeModal(true); toast(n ? 'Importados ' + n + ' registros. Se están guardando en el servidor… Si algo no es correcto, en cada lista puedes marcar varias filas y borrarlas a la vez.' : 'No había nada nuevo que importar.'); },
   'bak-dl': () => backupDownload(),
   'bak-local': () => { const c = localCopy(); if (!c) return toast('Este navegador todavía no tiene copia.', 'err'); const d = new Date(c.at); download('ESPAIS-copia-navegador-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json', 'application/json', JSON.stringify(c)); toast('Copia del navegador descargada. Se puede volver a cargar con «Importar copia…».'); }, 'bak-imp': () => { if (adminOnly()) backupImport(); }, 'h-load': () => historyLoad(), 'h-restore': (el) => historyRestore(el.dataset.key)
 };

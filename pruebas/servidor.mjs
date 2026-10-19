@@ -15,13 +15,22 @@ if (STORE && fs.existsSync(STORE)) { const o = JSON.parse(fs.readFileSync(STORE,
 let saveT = null;
 const save = () => { if (!STORE) return; clearTimeout(saveT); saveT = setTimeout(() => fs.writeFileSync(STORE, JSON.stringify(Object.fromEntries(M))), 50); };
 const LAT = +process.env.LAT || 0, lag = () => (LAT ? new Promise((r) => setTimeout(r, LAT * (0.5 + Math.random()))) : null);
-let OPS = 0;
+let OPS = 0, ETN = 0;
+const ET = new Map(); /* etiqueta de versión de cada clave, como el ETag de Netlify Blobs */
+const etag = (k) => { if (!ET.has(k)) ET.set(k, '"e' + ++ETN + '"'); return ET.get(k); };
 function memStore(prefix) {
   return {
     async get(k, o) { OPS++; await lag(); k = prefix + k; if (!M.has(k)) return null; const v = M.get(k); return o && o.type === 'json' ? JSON.parse(v) : v; },
-    async setJSON(k, v, o) { OPS++; await lag(); k = prefix + k; if (o && o.onlyIfNew && M.has(k)) return { modified: false }; M.set(k, JSON.stringify(v)); save(); return { modified: true }; },
+    async getMetadata(k) { OPS++; await lag(); k = prefix + k; return M.has(k) ? { etag: etag(k), metadata: {} } : null; },
+    async getWithMetadata(k, o) { OPS++; await lag(); k = prefix + k; if (!M.has(k)) return null; const v = M.get(k); return { data: o && o.type === 'json' ? JSON.parse(v) : v, etag: etag(k), metadata: {} }; },
+    async setJSON(k, v, o) {
+      OPS++; await lag(); k = prefix + k;
+      if (o && o.onlyIfNew && M.has(k)) return { modified: false };
+      if (o && o.onlyIfMatch && (!M.has(k) || etag(k) !== o.onlyIfMatch)) return { modified: false };
+      M.set(k, JSON.stringify(v)); ET.set(k, '"e' + ++ETN + '"'); save(); return { modified: true, etag: ET.get(k) };
+    },
     async list({ prefix: p }) { OPS++; await lag(); const full = prefix + p; return { blobs: [...M.keys()].filter((k) => k.startsWith(full)).map((k) => ({ key: k.slice(prefix.length) })) }; },
-    async delete(k) { M.delete(prefix + k); save(); }
+    async delete(k) { M.delete(prefix + k); ET.delete(prefix + k); save(); }
   };
 }
 const handler = makeHandler({ store: memStore('D/'), backup: memStore('C/'), env: { ESPAIS_CLAVE_INICIAL: 'clave-prueba' } });

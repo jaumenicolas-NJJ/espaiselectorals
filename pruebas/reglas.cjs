@@ -207,5 +207,35 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   ok('Restaurar la copia anterior al borrado devuelve las candidaturas', r.status === 200 && cnt(d.E, (e) => e.k === 'g' && !e.x) === nG);
   lg = await api('login', { name: 'BCN', password: 'clave-bcn-1' }); ok('…y sus usuarios, con su contraseña y su candidatura', lg.status === 200 && lg.j.me.party === 'p4', lg.status);
   ok('…y lo deja anotado en el registro', Object.values(d.E).some((e) => e.k === 'h' && /restauró .* y recuperó \d+ usuarios/.test(e.a)));
+  // v1.6 · sesión de selección: empezar, pausar, reanudar y terminar con un solo botón
+  const TBC = lg.j.token, closedAll = (E) => ['esp', 'ban', 'pan', 'pri'].every((t) => !E['c:' + t] || E['c:' + t].mode === 'cerrado');
+  r = await api('sesion', { op: 'start', modes: { pan: 'turnos' } }, TBC); ok('v1.6 · Un partido no puede empezar la sesión', r.status === 403);
+  r = await api('sesion', { op: 'start', modes: {} }, A); ok('…hay que marcar alguna categoría', r.status === 400);
+  await api('ensayo', { op: 'start', modes: { pan: 'libre', pri: 'turnos' } }, A); d = (await api('data', null, A)).j;
+  ok('El ensayo abre las categorías marcadas', d.E['s:ens'].on === true && d.E['c:pan'].mode === 'libre' && d.E['c:pri'].mode === 'turnos' && d.E['c:pri'].round === 1);
+  r = await api('sesion', { op: 'start', modes: { pan: 'turnos' } }, A); ok('…y con el ensayo en marcha no se puede empezar de verdad', r.status === 409);
+  r = await api('ensayo', { op: 'end' }, A); d = (await api('data', null, A)).j;
+  ok('Terminar el ensayo lo deja todo cerrado (nadie elige de verdad antes de tiempo)', r.status === 200 && closedAll(d.E) && d.E['s:live'].on === false && d.E['s:live'].modes.pan === 'libre');
+  await api('sync', { changes: { 'c:pan': { k: 'c', mode: 'cerrado', order: [], quota: 1, max: 0 } }, since: 0 }, A);
+  r = await api('sesion', { op: 'start', modes: { pan: 'turnos', pri: 'libre', esp: 'patata' } }, A); d = (await api('data', null, A)).j;
+  ok('«Empezar la selección» abre de una vez lo marcado', r.status === 200 && d.E['c:pan'].mode === 'turnos' && d.E['c:pri'].mode === 'libre' && (!d.E['c:esp'] || d.E['c:esp'].mode === 'cerrado') && d.E['s:live'].on === true, JSON.stringify(r.j.opened || r.j.error));
+  ok('…por turnos desde la ronda 1 y, sin orden, con el de la pestaña Partidos', d.E['c:pan'].round === 1 && d.E['c:pan'].turn === 0 && d.E['c:pan'].order.join() === 'p0,p1,p2,p3,p4,p5' && Object.values(d.E).some((e) => e.k === 'h' && /EMPEZÓ LA SELECCIÓN/.test(e.a)), d.E['c:pan'].order.join());
+  await api('turn', { t: 'pan', op: 'goto', g: 'p4' }, A);
+  r = await api('reserve', { i: 'q1' }, TBC); ok('…y la candidatura elige en su turno', r.status === 200, r.j.error);
+  const before = (await api('data', null, A)).j.E['c:pan'];
+  r = await api('sesion', { op: 'pause' }, A); d = (await api('data', null, A)).j;
+  ok('Pausar cierra todo y guarda los turnos donde estaban', r.status === 200 && closedAll(d.E) && d.E['c:pan'].turn === before.turn && d.E['c:pan'].round === before.round && d.E['s:live'].paused > 0);
+  r = await api('reserve', { i: 'r4' }, TBC); ok('…en pausa nadie puede elegir', r.status === 403);
+  r = await api('sesion', { op: 'resume' }, A); d = (await api('data', null, A)).j;
+  ok('Reanudar sigue exactamente donde se quedó', r.status === 200 && d.E['c:pan'].mode === 'turnos' && d.E['c:pri'].mode === 'libre' && d.E['c:pan'].turn === before.turn && d.E['c:pan'].round === before.round && d.E['s:live'].on === true);
+  r = await api('sesion', { op: 'end' }, A); d = (await api('data', null, A)).j;
+  ok('Terminar cierra todas las categorías y queda en el registro', r.status === 200 && closedAll(d.E) && d.E['s:live'].ended > 0 && Object.values(d.E).some((e) => e.k === 'h' && /TERMINÓ LA SELECCIÓN/.test(e.a)));
+  const hs = (await api('history', null, A)).j.items; ok('…con copia de seguridad al empezar y al terminar', hs.some((k) => /antes-de-empezar/.test(k)) && hs.some((k) => /fin-de-la-seleccion/.test(k)));
+  r = await api('sesion', { op: 'resume' }, A); d = (await api('data', null, A)).j; ok('Después de terminar se puede volver a abrir donde se quedó', r.status === 200 && d.E['c:pan'].mode === 'turnos' && d.E['c:pan'].turn === before.turn);
+  await api('sesion', { op: 'end' }, A); r = await api('sesion', { op: 'pause' }, A); ok('No se puede pausar lo que ya está cerrado', r.status === 409);
+  // v1.6 · el aviso de cambios no se pierde ninguno aunque se guarden muchos a la vez
+  await Promise.all(Array.from({ length: 12 }, (_, i) => api('sync', { changes: { ['i:z' + i]: { k: 'i', t: 'pri', ord: 100 + i, lloc: 'Z' + i, num: String(i) } }, since: 0 }, A)));
+  const fin = (await api('changes?since=0&urev=0&force=1', null, A)).j.seq, q = (await api('changes?since=' + (fin - 1) + '&urev=0', null, A)).j;
+  ok('Con 12 cambios a la vez, la consulta rápida sigue viendo el último', q.seq === fin && Object.keys(q.E).length > 0, 'seq ' + q.seq + ' / ' + fin);
   console.log(R.join('\n')); console.log(R.filter((x) => x.startsWith('OK')).length + '/' + R.length); process.exitCode = R.some((x) => x.startsWith('FALLO')) ? 1 : 0;
 })().catch((e) => { console.log(R.join('\n')); console.error('ERROR', e); process.exit(1); });
