@@ -1287,7 +1287,10 @@ function gridHTML(edit) {
   let h = '';
   if (edit) h += selBar('esp') + '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + selHead('esp') + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr' + (selOf('esp').has(it.id) ? ' class="selr"' : '') + '>' + selCell('esp', it.id) + colsOf('esp').map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
   if (!edit && isAdmin() && I.items.esp.length) h += '<p class="muted small" style="margin:0 0 6px">Para borrar varios espacios a la vez, pulsa <b>«✎ Editar lista»</b> y márcalos en la primera columna.</p>';
-  if (!days.length) return h + '<p class="hint warn">Para ver el cuadrante hay que indicar las fechas de la campaña en Ajustes.</p>';
+  /* sin fechas de campaña no hay cuadrante, pero la lista de espacios se ve igual (con todas sus columnas) */
+  if (!days.length) return h + '<p class="hint warn">Faltan las fechas de la campaña: ' + (isAdmin() ? 'indícalas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button> (basta con el día de la votación y «Calcular la campaña»)' : 'el Ayuntamiento las indicará en breve') + '. Con ellas aparece el cuadrante de mañanas y tardes para reservar.</p>' +
+    (edit ? '' : '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '</tr></thead><tbody>' +
+      E.map((it) => '<tr class="' + (it.nd ? 'ndr' : 'free') + '">' + colsOf('esp').map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (c[0] === 'nom' ? '<b>' + esc(it.nom || '') + '</b>' + (it.nd ? ' <span class="nd-l">No disponible</span>' : '') : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
   h += '<p class="muted small">Pulsa una casilla para ' + (isAdmin() ? 'asignarla, liberarla o marcar su disponibilidad; pulsa el nombre de un espacio para marcar su disponibilidad en bloque (varios días o franjas a la vez)' : isParty() ? 'reservarla o liberarla' : 'ver su detalle') + '. Mañana (M) y tarde (T) de cada día de campaña.</p>' +
     '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>';
   E.forEach((it) => {
@@ -2237,7 +2240,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.7 · 20/10/2026';
+const APP_VERSION = '1.8 · 20/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;

@@ -87,7 +87,7 @@ function hcOK(hc) {
   return o;
 }
 /* enlace con Eleccions: una clave de solo lectura con la que Eleccions trae el reparto (GET /api/reparto) */
-const APP_VER = '1.7 · 20/10/2026';
+const APP_VER = '1.8 · 20/10/2026';
 const LINK_RE = /^Bearer (ee1_[\w-]{20,80})$/;
 const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
 /* el reparto tal como ha quedado, con todos los datos de cada punto y de las candidaturas (también su contacto, porque Eleccions es
