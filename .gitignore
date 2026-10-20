@@ -1,2 +1,4 @@
 node_modules/
 .netlify/
+# reparto de ejemplo para probar Eleccions: sale del Excel real, no se sube
+pruebas/datos/reparto-ejemplo.json

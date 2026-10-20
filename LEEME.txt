@@ -84,7 +84,23 @@ El Panel muestra una lista de «Puesta en marcha». En resumen:
 
 Si te equivocas al importar el Excel: en cada lista (y en Espacios con «✎ Editar lista»)
 marca varias filas en la primera columna, o «Marcar todos», y pulsa «🗑 Borrar las filas
-marcadas». Antes de borrar se guarda una copia de seguridad en el servidor.
+marcadas». Para que no se haga por accidente, hay que escribir BORRAR. Antes de borrar se
+guarda una copia de seguridad en el servidor.
+Columnas que no hacen falta: en cada lista, «☰ Columnas…» (o Ajustes → «Columnas de las
+listas»). Quitar una columna pide confirmación y solo la oculta: los datos se conservan.
+
+ENLACE CON ELECCIONS (versión 1.7)
+----------------------------------
+El programa Eleccions (planificación electoral) trae de aquí todo lo adjudicado en su
+menú «Adjudicaciones»: cada espacio, banderola, pancarta y prisma con sus datos, la
+candidatura que lo tiene (y en los espacios, el día y la franja), las candidaturas con
+sus datos de contacto, las reglas y quién adjudicó cada cosa y cuándo.
+  1. Ajustes → «Enlace con Eleccions» → «Crear la clave de enlace…». Se muestra una sola
+     vez: cópiala y pégala en Eleccions → Adjudicaciones, con la dirección de este
+     programa.
+  2. La clave solo sirve para leer (GET /api/reparto). Trátala como una contraseña: si se
+     pierde o se ha visto, crea otra (la anterior deja de valer) o revócala.
+  3. Sin clave: «Descargar reparto para Eleccions (.json)» e importarlo en Eleccions.
 La pestaña Ayuda lo explica todo con detalle, incluida la base legal (LOREG, arts. 51 y
 55 a 57).
 

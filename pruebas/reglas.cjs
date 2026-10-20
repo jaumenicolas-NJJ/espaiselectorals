@@ -237,5 +237,32 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   await Promise.all(Array.from({ length: 12 }, (_, i) => api('sync', { changes: { ['i:z' + i]: { k: 'i', t: 'pri', ord: 100 + i, lloc: 'Z' + i, num: String(i) } }, since: 0 }, A)));
   const fin = (await api('changes?since=0&urev=0&force=1', null, A)).j.seq, q = (await api('changes?since=' + (fin - 1) + '&urev=0', null, A)).j;
   ok('Con 12 cambios a la vez, la consulta rápida sigue viendo el último', q.seq === fin && Object.keys(q.E).length > 0, 'seq ' + q.seq + ' / ' + fin);
+  // v1.7 · quitar columnas de la vista y enlace con Eleccions
+  d = (await api('data', null, A)).j;
+  r = await api('sync', { changes: { 's:conf': Object.assign({}, d.E['s:conf'], { hc: { esp: ['hor', 'nota'], ban: ['pf'] } }) } }, A);
+  d = (await api('data', null, A)).j; ok('Quitar columnas de la vista se guarda', r.j.rejected.length === 0 && d.E['s:conf'].hc.esp.join() === 'hor,nota' && d.E['s:conf'].hc.ban.join() === 'pf');
+  r = await api('sync', { changes: { 's:conf': Object.assign({}, d.E['s:conf'], { hc: { esp: ['nom'] } }) } }, A); ok('La columna principal no se puede quitar', r.j.rejected.length === 1);
+  r = await api('sync', { changes: { 's:conf': Object.assign({}, d.E['s:conf'], { hc: { esp: ['inventada'] } }) } }, A); ok('Columna desconocida: rechazo', r.j.rejected.length === 1);
+  // datos propios de esta parte (las pruebas anteriores borran candidaturas y reservas)
+  r = await api('sync', { changes: { 'g:q1': { k: 'g', sig: 'BCN', nom: 'Barcelona en Comú', ord: 9, col: '#123456', rep: 'Rep BCN', tel: '931112233', mail: 'bcn@x.es', vot: 1234 }, 'i:qb1': { k: 'i', t: 'ban', ord: 900, nom: 'Calle Q', tram: 'A/B', bf: 2, pf: 1 } } }, A);
+  r = await api('reserve', { i: 'qb1', g: 'q1' }, A); ok('Datos para el reparto', r.status === 200, JSON.stringify(r.j).slice(0, 120));
+  const uq = await api('users', { op: 'add', name: 'Usuario BCN', role: 'partido', party: 'q1', password: 'provis123' }, A); const TQ = (await api('login', { name: 'Usuario BCN', password: 'provis123' })).j.token; ok('Usuario de la candidatura nueva', uq.status === 200 && !!TQ, uq.status + ' ' + ((uq.j && uq.j.error) || ''));
+  r = await api('reparto', null); ok('Reparto sin clave ni sesión: rechazo', r.status === 401);
+  r = await api('reparto', null, TQ); ok('Una candidatura no puede descargar el reparto', r.status === 403, r.status);
+  r = await api('enlace', { op: 'crear' }, TQ); ok('Una candidatura no puede crear la clave', r.status === 403, r.status);
+  r = await api('enlace', { op: 'crear' }, T.JEZ); ok('Consulta no puede crear la clave', r.status === 403);
+  r = await api('enlace', { op: 'crear' }, A); const K = r.j.clave; ok('La administración crea la clave de enlace', r.status === 200 && /^ee1_/.test(K));
+  r = await api('reparto', null, K); const rep = r.j;
+  ok('Con la clave: reparto completo', r.status === 200 && rep.formato === 'espaiselectorals-reparto' && rep.partidos.length >= 4 && rep.ban.length >= 6 && rep.reglas.ban.modo);
+  ok('Reparto: candidaturas con su contacto (Eleccions es del Ayuntamiento)', rep.partidos.some((p) => p.siglas === 'BCN' && p.correo === 'bcn@x.es' && p.representante === 'Rep BCN' && p.votos === 1234));
+  ok('Reparto: lo adjudicado, con quién y cuándo', rep.ban.some((b) => b.id === 'qb1' && b.partido === 'q1' && b.adjudicado_por === 'Rosana' && b.adjudicado_el));
+  ok('Reparto: las columnas quitadas también se envían (los datos no se pierden)', 'horario' in rep.esp[0] && 'plafones' in rep.ban[0]);
+  r = await api('reparto', null, K.slice(0, -1) + (K.slice(-1) === 'a' ? 'b' : 'a')); ok('Clave alterada: rechazo', r.status === 401);
+  r = await api('enlace', { op: 'crear' }, A); const K2 = r.j.clave;
+  r = await api('reparto', null, K); ok('Clave nueva: la anterior deja de valer', r.status === 401);
+  r = await api('reparto', null, K2); ok('…y la nueva vale', r.status === 200);
+  r = await api('enlace', { op: 'revocar' }, A); r = await api('reparto', null, K2); ok('Revocada: ya no vale', r.status === 401);
+  r = await api('enlace', null, A); ok('Estado del enlace tras revocar', r.status === 200 && r.j.activa === false);
+  d = (await api('data', null, A)).j; ok('La clave no aparece en los datos', !JSON.stringify(d).includes(K2.slice(4, 24)));
   console.log(R.join('\n')); console.log(R.filter((x) => x.startsWith('OK')).length + '/' + R.length); process.exitCode = R.some((x) => x.startsWith('FALLO')) ? 1 : 0;
 })().catch((e) => { console.log(R.join('\n')); console.error('ERROR', e); process.exit(1); });

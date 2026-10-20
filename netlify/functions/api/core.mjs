@@ -77,6 +77,58 @@ function xvOK(xv) {
   for (const k in xv) { const v = xv[k]; if (!/^[a-z0-9]{1,12}$/.test(k) || !(v == null || (typeof v === 'string' && v.length <= 500))) return null; if (v != null && v.trim() !== '') o[k] = v.trim(); }
   return o;
 }
+/* columnas de siempre que el Ayuntamiento puede quitar de la vista (la principal, nombre o lugar, siempre se ve; los datos se conservan) */
+const HCOLS = { esp: ['ord', 'ot', 'dir', 'hor', 'nota'], ban: ['ord', 'tram', 'bf', 'pf', 'nota'], pan: ['ord', 'lim', 'nota'], pri: ['ord', 'num', 'nota'] };
+function hcOK(hc) {
+  if (hc == null) return {};
+  if (typeof hc !== 'object' || Array.isArray(hc)) return null;
+  const o = {};
+  for (const t in hc) { if (!HCOLS[t] || !Array.isArray(hc[t]) || !hc[t].every((k) => HCOLS[t].includes(k))) return null; if (hc[t].length) o[t] = [...new Set(hc[t])]; }
+  return o;
+}
+/* enlace con Eleccions: una clave de solo lectura con la que Eleccions trae el reparto (GET /api/reparto) */
+const APP_VER = '1.7 · 20/10/2026';
+const LINK_RE = /^Bearer (ee1_[\w-]{20,80})$/;
+const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
+/* el reparto tal como ha quedado, con todos los datos de cada punto y de las candidaturas (también su contacto, porque Eleccions es
+   del Ayuntamiento), las reglas de cada categoría y quién adjudicó cada cosa y cuándo. Lo elegido en un ensayo no se envía */
+const DEF_METH = { esp: '', ban: 'prop', pan: 'prop', pri: 'prop' };
+function repartoOut(db, t) {
+  const E = db.E, c = E['s:conf'] && !E['s:conf'].x ? E['s:conf'] : {}, xf = c.xf || {};
+  const ncmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'es', { numeric: true, sensitivity: 'base' });
+  const P = [], I = { esp: [], ban: [], pan: [], pri: [] }, R = {};
+  for (const k in E) {
+    const e = E[k]; if (!e || e.x) continue;
+    if (e.k === 'g') P.push(Object.assign({ id: k.slice(2) }, e));
+    else if (e.k === 'i' && I[e.t]) I[e.t].push(Object.assign({ id: k.slice(2) }, e));
+    else if (e.k === 'r' && !e.ens) (R[e.i] = R[e.i] || []).push(e);
+  }
+  P.sort((a, b) => ((a.ord == null ? 999 : a.ord) - (b.ord == null ? 999 : b.ord)) || ncmp(a.sig || a.nom, b.sig || b.nom));
+  const live = new Set(P.map((p) => p.id));
+  CATS.forEach((x) => I[x].sort((a, b) => ((a.ord == null ? 9999 : a.ord) - (b.ord == null ? 9999 : b.ord)) || ncmp(a.nom || a.lloc, b.nom || b.lloc)));
+  const iso = (ms) => (ms ? new Date(ms).toISOString() : null);
+  const campos = (x, e) => { const o = {}; for (const d of xf[x] || []) if (!d.h && e.xv && e.xv[d.id]) o[d.n] = e.xv[d.id]; return o; };
+  const comun = (x, e) => ({ nota: e.nota || '', no_disponible: !!e.nd, no_disponible_motivo: e.nd ? e.ndm || '' : '', campos: campos(x, e) });
+  const quien = (r) => ({ partido: r.g, adjudicado_el: iso(r.ts), adjudicado_por: r.by || '' });
+  const owner = (e) => { const r = (R[e.id] || []).find((x) => !x.slot && live.has(x.g)); return r ? quien(r) : { partido: null, adjudicado_el: null, adjudicado_por: '' }; };
+  const franjas = (e, v) => Object.keys(e.blk || {}).filter((s) => e.blk[s] === v).sort().map((s) => ({ fecha: s.slice(0, 10), franja: s[10] }));
+  const reglas = {};
+  CATS.forEach((x) => { const r = E['c:' + x] && !E['c:' + x].x ? E['c:' + x] : {}, rm = c.rmeth || {}; reglas[x] = { modo: r.mode || 'cerrado', metodo: rm[x] != null ? rm[x] : DEF_METH[x], orden: (r.order || []).filter((g) => live.has(g)), por_turno: r.quota || 1, maximo: r.max || 0, cupos: Object.fromEntries(Object.entries(r.cup || {}).filter(([g]) => live.has(g))), terminada: !!r.done }; });
+  return {
+    formato: 'espaiselectorals-reparto', version: 1, generado: new Date(t).toISOString(),
+    origen: { url: 'https://espaiselectorals.netlify.app', programa: 'Espais electorals', version: APP_VER },
+    proceso: { titulo: c.tit || '', organismo: c.org || '', tipo: c.tipo || 'generales', votacion: c.dv || null, campanya_desde: c.d0 || null, campanya_hasta: c.d1 || null, instrucciones: c.nota || '', elecciones_referencia: c.rv || '', minimo_por_candidatura: c.rmin || 0 },
+    partidos: P.map((p, i) => ({ id: p.id, siglas: p.sig || '', nombre: p.nom || '', color: p.col || PALETTE[i % PALETTE.length], orden: p.ord == null ? null : p.ord, representante: p.rep || '', telefono: p.tel || '', correo: p.mail || '', votos: p.vot == null ? null : p.vot, nota: p.nota || '', campos: campos('par', p) })),
+    reglas,
+    esp: I.esp.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, nombre: e.nom || '', tipo: e.ot || '', direccion: e.dir || '', horario: e.hor || '' }, comun('esp', e), {
+      franjas_no_disponibles: franjas(e, 'nd'), franjas_con_restricciones: franjas(e, 'rs'),
+      reservas: (R[e.id] || []).filter((r) => r.slot && live.has(r.g)).sort((a, b) => (a.slot < b.slot ? -1 : 1)).map((r) => Object.assign({ fecha: r.slot.slice(0, 10), franja: r.slot[10] }, quien(r)))
+    })),
+    ban: I.ban.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, calle: e.nom || '', tramo: e.tram || '', banderolas: e.bf == null ? null : e.bf, plafones: e.pf == null ? null : e.pf }, comun('ban', e), owner(e))),
+    pan: I.pan.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, lugar: e.lloc || '', limites: e.lim || '' }, comun('pan', e), owner(e))),
+    pri: I.pri.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, lugar: e.lloc || '', numero: e.num || '' }, comun('pri', e), owner(e)))
+  };
+}
 function totals(db, t) { const n = {}; for (const k in db.E) { const e = db.E[k]; if (e.k === 'r' && !e.x && e.t === t) n[e.g] = (n[e.g] || 0) + 1; } return n; }
 function freeLeft(db, t) {
   /* ¿queda algo libre en esta categoría? (para dar por terminada la selección) */
@@ -275,7 +327,8 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
       if (!(ch.dv == null || ch.dv === '' || isISO(ch.dv))) return 'Día de la votación no válido.';
       if (!(ch.tipo == null || ch.tipo === '' || TIPOS.includes(ch.tipo))) return 'Tipo de elecciones no válido.';
       const xf = xfOK(ch.xf); if (!xf) return 'Campos propios no válidos.';
-      e = { k: 's', org: (ch.org || '').trim(), tit: (ch.tit || '').trim(), d0: ch.d0 || '', d1: ch.d1 || '', nota: (ch.nota || '').trim(), rv: (ch.rv || '').trim(), rmin: rmin || 0, rmeth, tipo: ch.tipo || 'generales', dv: ch.dv || '', xf };
+      const hc = hcOK(ch.hc); if (!hc) return 'Columnas no válidas.';
+      e = { k: 's', org: (ch.org || '').trim(), tit: (ch.tit || '').trim(), d0: ch.d0 || '', d1: ch.d1 || '', nota: (ch.nota || '').trim(), rv: (ch.rv || '').trim(), rmin: rmin || 0, rmeth, tipo: ch.tipo || 'generales', dv: ch.dv || '', xf, hc };
     } else if (kind === 'g') {
       if (ch.x) {
         if (!cur) return null;
@@ -749,6 +802,34 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
       const { cur: d2 } = await update('db', initDB, (d) => { log(d, who, now(), 'guardó una copia permanente: «' + label + '»'); return null; });
       await bumpMeta(d2.seq, null);
       return json({ ok: true, key, label });
+    },
+    /* enlace con Eleccions: la clave solo se muestra al crearla; aquí se guarda su huella, fuera de los datos (que ven todos los usuarios) */
+    'GET enlace': async (req) => {
+      const who = await authed(req); need(who, ['admin']);
+      const l = await getJ('enlace');
+      return json(l && l.h ? { activa: true, creada: l.at, por: l.by, uso: l.used || 0 } : { activa: false });
+    },
+    'POST enlace': async (req, body) => {
+      const who = await authed(req); need(who, ['admin']);
+      if (body.op !== 'crear' && body.op !== 'revocar') throw new HttpErr(400, 'Operación no válida.');
+      let clave = null;
+      if (body.op === 'crear') { clave = 'ee1_' + randomBytes(24).toString('base64url'); await store.setJSON('enlace', { h: sha(clave).toString('hex'), at: now(), by: who.u.name, used: 0 }); }
+      else await store.delete('enlace');
+      const { cur: db } = await update('db', initDB, (d) => { log(d, who, now(), body.op === 'crear' ? 'creó una clave de enlace con Eleccions (si había otra, deja de valer)' : 'revocó la clave de enlace con Eleccions'); return null; });
+      await bumpMeta(db.seq, null);
+      return json(Object.assign({ ok: true, seq: db.seq }, clave ? { clave } : {}));
+    },
+    /* el reparto para Eleccions: con la clave de enlace (desde el servidor de Eleccions) o con la sesión de un administrador (descarga) */
+    'GET reparto': async (req) => {
+      const m = LINK_RE.exec(req.headers.get('authorization') || '');
+      if (m) {
+        const got = await store.getWithMetadata('enlace', { type: 'json' }), l = got && got.data;
+        if (!l || !l.h || !safeEq(sha(m[1]).toString('hex'), l.h)) { await sleep(500); throw new HttpErr(401, 'La clave de enlace no es válida o se ha revocado.'); }
+        /* último uso, como mucho una vez por hora; solo si nadie ha cambiado ni revocado la clave mientras tanto */
+        if (now() - (l.used || 0) > 3600000 && got.etag) later(store.setJSON('enlace', Object.assign({}, l, { used: now() }), { onlyIfMatch: got.etag }));
+      } else { const who = await authed(req); need(who, ['admin']); }
+      const d = (await readDB()) || initDB();
+      return json(repartoOut(d, now()));
     },
     'GET history': async (req) => {
       const who = await authed(req); need(who, ['admin']);

@@ -1005,7 +1005,9 @@ const TIPOREF = { generales: 'Generales 2023 · Congreso · Santa Coloma de Gram
 const tipo = () => (TIPON[conf().tipo] ? conf().tipo : 'generales');
 /* campos propios añadidos por el Ayuntamiento: 'x_<id>' en las columnas y el valor en r.xv[id] */
 const xfOf = (t) => ((conf().xf || {})[t] || []).filter((d) => !d.h);
-const colsOf = (t) => COLS[t].concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
+/* columnas de siempre quitadas de la vista por el Ayuntamiento (la segunda, nombre o lugar, no se puede quitar) */
+const hcOf = (t) => ((conf().hc || {})[t] || []);
+const colsOf = (t) => COLS[t].filter((c) => hcOf(t).indexOf(c[0]) < 0).concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
 const fv = (r, k) => (k.indexOf('x_') === 0 ? (r.xv || {})[k.slice(2)] : r[k]);
 function campDays() { const c = conf(), a = parseISO(c.d0), b = parseISO(c.d1), o = []; if (a == null || b == null || b < a) return o; for (let t = a; t <= b && o.length < 61; t += DAY) o.push(t); return o; }
 const cfgOf = (t) => idx().cfg[t] || { t, mode: 'cerrado', order: [], quota: 1, max: 0, cup: {}, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false };
@@ -1122,7 +1124,7 @@ function renderView() {
   if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { if (s0 != null) n.setSelectionRange(s0, s1); } catch (e) { /* nada */ } } }
   window.scrollTo(0, sy); const g2 = $('.gscroll'); if (g2) g2.scrollLeft = gl;
 }
-function gotoView(v) { ST.view = v; LS.set('espais.view', v); renderAll(); window.scrollTo(0, 0); }
+function gotoView(v) { if (v === 'ajustes') ST.enl = null; ST.view = v; LS.set('espais.view', v); renderAll(); window.scrollTo(0, 0); }
 
 /* ---------- estado de una categoría (turno, cupos, recuento) ---------- */
 function statusHTML(t, full) {
@@ -1205,7 +1207,7 @@ function viewCat(t) {
   let h = statusHTML(t, true);
   const pick = canPick(t);
   h += '<div class="card"><div class="fhead"><h3>' + CATN[t] + ' <span class="n">' + I.items[t].length + '</span></h3><div class="btnrow" style="margin:0">' +
-    (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button><button class="btn sm" data-a="xf-open" data-t="' + t + '">Campos propios…</button>' : '') + '<button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
+    (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button>' : '') + '<button class="btn sm" data-a="xf-open" data-t="' + t + '" title="Quitar o volver a poner columnas y añadir campos propios">☰ Columnas…</button><button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
     '<button class="btn sm" data-a="csv" data-t="' + t + '">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-cat" data-t="' + t + '">🖨 Imprimir</button></div></div>';
   if (isParty() && !pick.ok) h += '<p class="hint">' + esc(pick.why) + '</p>';
   if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), isAdmin() ? 'Impórtalos desde el Excel o añádelos con «Editar lista».' : 'El Ayuntamiento los cargará en breve.') + '</div>';
@@ -1263,7 +1265,7 @@ async function selDel(t) {
   if (!(await confirmBox({ title: 'Borrar ' + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]), text: 'Se borrarán:<ul style="margin:6px 0 8px;padding-left:20px">' + list + '</ul>' +
     (kept ? '<b>' + kept + (kept === 1 ? ' no se borra' : ' no se borran') + '</b> porque ' + (kept === 1 ? 'tiene' : 'tienen') + ' reservas (libéralas antes).<br>' : '') +
     (us.length ? 'Sus usuarios (' + us.map((u) => esc(u.name)).join(', ') + ') se quedarán sin candidatura y no podrán elegir.<br>' : '') +
-    'Antes de borrar se guarda una copia de seguridad en el servidor: si te equivocas, en <b>Ajustes → Copias de seguridad</b> puedes volver atrás.', ok: '🗑 Borrar ' + ok.length, danger: true }))) return;
+    'Antes de borrar se guarda una copia de seguridad en el servidor: si te equivocas, en <b>Ajustes → Copias de seguridad</b> puedes volver atrás.', ok: '🗑 Borrar ' + ok.length, danger: true, word: ok.length > 1 ? 'BORRAR' : '' }))) return;
   const pre = t === 'par' ? 'g:' : 'i:';
   ok.forEach((id) => { const e = ST.db.E[pre + id]; if (e) putQuiet(pre + id, Object.assign({}, e, { x: true })); S.delete(id); });
   markDirty(); toast('Borrad' + (N[2] === 'f' ? 'as ' : 'os ') + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]) + (kept ? ' (' + kept + ' con reservas no se han borrado)' : '') + '.');
@@ -1410,7 +1412,8 @@ function viewAjustes() {
     '<div class="two3"><label class="field"><span>Día de la votación</span><input type="date" data-conf="dv" value="' + esc(c.dv || '') + '"></label><label class="field"><span>Primer día de campaña</span><input type="date" data-conf="d0" value="' + esc(c.d0 || '') + '"></label><label class="field"><span>Último día de campaña</span><input type="date" data-conf="d1" value="' + esc(c.d1 || '') + '"></label></div>' +
     '<div class="btnrow"><button class="btn sm" data-a="camp-calc">Calcular la campaña a partir del día de la votación</button><span class="muted small">La campaña dura 15 días y acaba a las cero horas del día anterior a la votación (art. 51 LOREG).</span></div>' +
     '<label class="field"><span>Instrucciones generales para los partidos (aparecen en el panel)</span><textarea data-conf="nota" style="min-height:70px">' + esc(c.nota || '') + '</textarea></label></div>';
-  h += '<div class="card"><h3>Campos de las listas</h3><p class="muted">Además de los campos de siempre, puedes añadir campos propios a cada lista (por ejemplo «Aforo», «Metros» o «Tipo de soporte»). Aparecen en las listas, en la edición, en los impresos y en el CSV, y al importar se rellenan si el Excel tiene una columna con ese mismo nombre. Quitar un campo solo lo oculta: sus datos se conservan.</p><div class="btnrow">' + CATS.concat(['par']).map((t) => '<button class="btn sm" data-a="xf-open" data-t="' + t + '">' + (t === 'par' ? 'Candidaturas' : CATN[t]) + ' <span class="muted">(' + xfOf(t).length + ')</span></button>').join('') + '</div></div>';
+  h += '<div class="card"><h3>Columnas de las listas</h3><p class="muted">En cada lista puedes <b>quitar las columnas que no hagan falta</b> (por ejemplo «Notas» u «Horario de uso») y añadir <b>campos propios</b> (por ejemplo «Aforo», «Metros» o «Responsable»). Los campos propios aparecen en las listas, en la edición, en los impresos y en el CSV, y al importar se rellenan si el Excel tiene una columna con ese mismo nombre. Quitar una columna o un campo solo lo oculta: <b>sus datos se conservan</b> y vuelven al ponerlo otra vez.</p><div class="btnrow">' + CATS.concat(['par']).map((t) => { const nh = t === 'par' ? 0 : hcOf(t).length; return '<button class="btn sm" data-a="xf-open" data-t="' + t + '">' + (t === 'par' ? 'Candidaturas' : CATN[t]) + ' <span class="muted">(' + (t === 'par' ? xfOf(t).length + ' propios' : colsOf(t).length + ' columnas' + (nh ? ', ' + nh + (nh === 1 ? ' quitada' : ' quitadas') : '')) + ')</span></button>'; }).join('') + '</div></div>';
+  h += enlaceCard();
   h += '<div class="card"><div class="fhead"><h3>Borrar datos de prueba</h3><button class="btn sm danger" data-a="purge-open">Borrar datos…</button></div><p class="muted small" style="margin:0">Para empezar de cero después de las pruebas: borra todas las selecciones y, si se quiere, también las candidaturas con sus usuarios. <b>Nunca</b> borra los espacios, las banderolas, las pancartas, los prismas, las reglas, los usuarios de la administración ni el registro. Antes se guarda una copia de seguridad, y se puede volver a ella con «Restaurar».</p></div>';
   h += '<div class="card"><h3>Importar desde Excel</h3><p class="muted">Carga los espacios electorales, las banderolas, las pancartas y los prismas desde el Excel del Ayuntamiento (hojas ESPAIS, BANDEROLES, PANCARTES y PRISMES) y, si las hay, la lista de partidos. Solo añade lo nuevo y rellena campos vacíos: nunca borra ni cambia lo que ya hay ni toca las reservas.</p><div class="btnrow"><button class="btn primary" data-a="imp-xls">Importar desde Excel…</button><a class="btn" href="plantilla-espais.xlsx" download="plantilla-espais.xlsx">Descargar la plantilla (.xlsx)</a></div><p class="muted small">Un solo Excel con todo: cada hoja va a su sitio (ESPAIS, BANDEROLES, PANCARTES, PRISMES y PARTITS, con los votos). La plantilla trae las hojas preparadas con sus columnas.</p></div>';
   const us = ST.users.slice().sort((a, b) => ({ admin: 0, partido: 1, consulta: 2 }[a.role] - { admin: 0, partido: 1, consulta: 2 }[b.role]) || norm(a.name).localeCompare(norm(b.name)));
@@ -1426,6 +1429,42 @@ function viewAjustes() {
     (!hist ? '' : '<p class="muted small" style="margin-top:8px">' + (hist.keep || []).length + ' copias permanentes · ' + hist.items.length + ' copias completas recientes · ' + hist.days.length + (hist.days.length === 1 ? ' copia diaria' : ' copias diarias') + ' · ' + hist.changes + ' modificaciones copiadas una a una.</p>' +
       (hist.items.length || hist.days.length || (hist.keep || []).length ? '<table class="plist"><thead><tr><th>Copias guardadas en el servidor (hora de este ordenador)</th><th></th></tr></thead><tbody>' + (hist.keep || []).map((x) => hrow(fStamp(x.at), 'copia permanente: «' + x.label + '» · ' + x.by, x.key)).join('') + hist.items.slice(0, 60).map((k) => hrow(kt(k), why(k), k)).join('') + hist.days.map((k) => hrow(fDMY(parseISO(k.slice(4))), 'copia diaria permanente', k)).join('') + '</tbody></table>' : '<p class="muted">Todavía no hay copias en el servidor.</p>')) + '</div>';
   return h + '</div>';
+}
+
+/* ---------- enlace con Eleccions: clave de solo lectura para que Eleccions traiga el reparto ---------- */
+function enlaceLoad() { ST.enl = { cargando: true }; api('enlace').then((r) => { ST.enl = r; }, (e) => { ST.enl = { err: e.message }; }).then(() => { if (ST.view === 'ajustes') renderView(); }); }
+function enlaceCard() {
+  if (!ST.enl) enlaceLoad();
+  const L = ST.enl || {};
+  const st = L.cargando ? '<p class="muted small">Comprobando el enlace…</p>' : L.err ? '<p class="hint err">No se ha podido comprobar el enlace: ' + esc(L.err) + '</p>' :
+    L.activa ? '<p class="hint ok">✔ Hay una clave de enlace activa, creada el ' + esc(fStamp(L.creada)) + ' por ' + esc(L.por || '—') + '. ' + (L.uso ? 'Eleccions la usó por última vez el ' + esc(fStamp(L.uso)) + '.' : 'Eleccions todavía no la ha usado.') + '</p>' : '<p class="muted small">Todavía no hay ninguna clave de enlace.</p>';
+  return '<div class="card"><h3>Enlace con Eleccions</h3><p class="muted">El programa <b>Eleccions</b> (planificación electoral) puede traer de aquí el <b>reparto</b>: qué candidatura tiene cada espacio (día y franja), banderola, pancarta y prisma. Se envía <b>todo</b>: los datos completos de cada punto, las candidaturas (también su representante, teléfono, correo y votos), las reglas de cada categoría y quién adjudicó cada cosa y cuándo. Lo elegido en un ensayo no se envía. Para ello se le da una <b>clave de enlace</b> que solo sirve para leer: no permite cambiar nada ni entrar en el programa. <b>Guárdala como una contraseña</b>: quien la tenga puede leer esos datos.</p>' + st +
+    '<div class="btnrow"><button class="btn primary" data-a="enl-new">' + (L.activa ? 'Crear una clave nueva…' : 'Crear la clave de enlace…') + '</button>' + (L.activa ? '<button class="btn danger" data-a="enl-del">Revocar la clave…</button>' : '') + '<button class="btn" data-a="rep-dl">Descargar reparto para Eleccions (.json)</button></div>' +
+    '<p class="muted small">Sin clave también se puede: descarga el archivo .json y, en Eleccions, impórtalo desde «Adjudicaciones».</p></div>';
+}
+async function enlaceNew() {
+  if (!adminOnly()) return;
+  const act = ST.enl && ST.enl.activa;
+  if (!(await confirmBox({ title: act ? 'Crear una clave nueva' : 'Crear la clave de enlace', text: (act ? 'La clave actual <b>dejará de valer</b> en cuanto se cree la nueva: habrá que pegar la nueva en Eleccions.<br>' : '') + 'La clave se muestra <b>una sola vez</b>. Cópiala y pégala en Eleccions → «Adjudicaciones».', ok: act ? 'Crear la clave nueva' : 'Crear la clave' }))) return;
+  let r; try { r = await api('enlace', { op: 'crear' }); } catch (e) { return toast(e.message, 'err'); }
+  ST.enl = null; renderView();
+  openModal('<h2>Clave de enlace con Eleccions</h2><p>Cópiala ahora y pégala en <b>Eleccions → Adjudicaciones</b>. Por seguridad <b>no se volverá a mostrar</b>; si se pierde, crea otra. Trátala como una contraseña: no la envíes por correo ni la dejes a la vista.</p>' +
+    '<label class="field"><span>Dirección de este programa</span><input type="text" readonly value="' + esc(location.origin) + '"></label>' +
+    '<label class="field"><span>Clave de enlace</span><input type="text" id="enlKey" readonly value="' + esc(r.clave) + '" style="font-family:Consolas,monospace"></label>' +
+    '<div class="acts"><button class="btn" data-a="enl-copy">📋 Copiar la clave</button><button class="btn primary" data-a="m-no">Hecho</button></div>');
+  const k = $('#enlKey'); if (k) { k.focus(); k.select(); }
+}
+async function enlaceDel() {
+  if (!adminOnly()) return;
+  if (!(await confirmBox({ title: 'Revocar la clave de enlace', text: 'Eleccions <b>dejará de poder traer el reparto</b> hasta que se cree una clave nueva y se pegue allí. Los datos de este programa no cambian.', ok: 'Revocar la clave', danger: true }))) return;
+  try { await api('enlace', { op: 'revocar' }); toast('Clave de enlace revocada.'); } catch (e) { return toast(e.message, 'err'); }
+  ST.enl = null; renderView();
+}
+async function repartoDownload() {
+  if (!adminOnly()) return;
+  let r; try { r = await api('reparto'); } catch (e) { return toast(e.message, 'err'); }
+  const d = new Date(); download('reparto-espais-electorals-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json', 'application/json', JSON.stringify(r, null, 1));
+  toast('Reparto descargado. En Eleccions, impórtalo desde «Adjudicaciones».');
 }
 
 /* ============================================================
@@ -1872,11 +1911,12 @@ function helpAdmin() {
     hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, en la tarjeta <b>Sesión de selección</b> del Panel revisa la lista «¿Está todo listo?», marca qué categorías se abren (por turnos o libre) y pulsa <b>«▶ Empezar la selección»</b>: se abren todas a la vez, el turno es de la primera candidatura del orden y los avisos y los saltos de turno van solos. Si hace falta parar (una duda, un problema en la sala), <b>«⏸ Pausar»</b> cierra todo sin perder los turnos y <b>«▶ Reanudar»</b> sigue donde se quedó. Al acabar, <b>«⏹ Terminar la selección»</b>. (También se puede abrir o cerrar cada categoría por separado en «Turnos y reglas».) Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p>') +
     hsec(6, 'Inhabilitar y disponibilidad', '<p>Si una banderola, pancarta, prisma o un espacio entero no se puede usar (obras, un mercado, un acto institucional…), el desplegable <b>«Elegible / No elegible»</b> de su fila (en los espacios, en la ventana que se abre al pulsar su nombre en el cuadrante) lo marca como <b>no elegible con un motivo</b>. Queda en gris con el motivo a la vista de todos, nadie lo puede elegir y deja de contar en el reparto. Volviendo a «Elegible» vuelve a estar disponible. Un elemento reservado no se puede inhabilitar hasta liberarlo. El botón <b>🗑</b> de cada fila (o «🗑 Borrar este espacio») borra esa línea, con confirmación; lo reservado no se puede borrar hasta liberarlo.</p><p>En los espacios, además, cada franja se marca como disponible, con restricciones o no disponible pulsando la casilla, y en bloque (un rango de días, solo mañanas o tardes, ciertos días de la semana) pulsando el nombre del espacio. Las franjas ya reservadas no se tocan.</p>') +
     hsec(7, 'Partidos y usuarios', '<p>En <b>Partidos</b> se dan de alta las candidaturas con su orden, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. Cada usuario de partido está <b>vinculado a su candidatura</b>: con ella entra, ve cuándo le toca y elige lo suyo; un usuario sin candidatura no puede elegir. El botón «+ Usuario» de cada fila crea el usuario de esa candidatura con una contraseña provisional, que la candidatura cambia al entrar. Más rápido: <b>«Crear los usuarios que faltan»</b> (en Partidos, en Ajustes o en el aviso rojo del Panel) crea de una vez un usuario para cada candidatura que no tiene, ya vinculado a ella, y permite imprimir una hoja con el usuario y la contraseña provisional de cada una para entregarla en mano. Mientras falte algún usuario o haya un usuario de partido sin candidatura, el Panel lo avisa en rojo. En Ajustes se gestionan todos los usuarios: cambiar la candidatura o el rol, restablecer la contraseña o dar de baja (se queda fuera al momento). Una candidatura con reservas no se puede eliminar hasta liberarlas o reasignarlas. Hay tres roles: <b>Administración</b>, <b>Partido</b> (elige lo suyo cuando le toca) y <b>Consulta</b> (solo lectura, por ejemplo para la Junta Electoral de Zona).</p>') +
-    hsec(8, 'Importar desde Excel', '<p>Un solo Excel con todo: el programa reconoce cada hoja por su nombre y coloca cada cosa en su sitio: <b>ESPAIS</b> en Espacios, <b>BANDEROLES</b> en Banderolas, <b>PANCARTES</b> en Pancartas, <b>PRISMES</b> en Prismas y <b>PARTITS</b> (siglas, nombre, orden y votos) en Partidos; también lee la lista de partidos que hay junto al cuadrante de la hoja GRAELLA. En Ajustes se puede descargar una <b>plantilla</b> con todas las hojas preparadas. Antes de importar muestra cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada.</p>') +
-    hsec(9, 'Editar y campos propios', '<p>Después de importar el Excel, todo se puede corregir. Con «✎ Editar lista» se modifican todos los campos de cada elemento y se añaden o eliminan elementos (uno con reservas no se puede eliminar hasta liberarlas). Si hace falta un dato más (por ejemplo «Aforo» o «Metros»), en «Editar lista» → «Campos propios…» o en Ajustes → «Campos de las listas» se añade como una columna más, también en las candidaturas. Se puede renombrar; quitarlo solo lo oculta, sin borrar los datos.</p>') +
+    hsec(8, 'Importar desde Excel', '<p>Un solo Excel con todo: el programa reconoce cada hoja por su nombre y coloca cada cosa en su sitio: <b>ESPAIS</b> en Espacios, <b>BANDEROLES</b> en Banderolas, <b>PANCARTES</b> en Pancartas, <b>PRISMES</b> en Prismas y <b>PARTITS</b> (siglas, nombre, orden y votos) en Partidos; también lee la lista de partidos que hay junto al cuadrante de la hoja GRAELLA. En Ajustes se puede descargar una <b>plantilla</b> con todas las hojas preparadas. Antes de importar muestra cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada. Si una hoja trae una columna que el programa no conoce y tiene datos (por ejemplo el <b>responsable</b> de cada espacio), ofrece añadirla como <b>campo propio</b>; al volver a importar se rellena sola.</p>') +
+    hsec(9, 'Editar y campos propios', '<p>Después de importar el Excel, todo se puede corregir. Con «✎ Editar lista» se modifican todos los campos de cada elemento y se añaden o eliminan elementos (uno con reservas no se puede eliminar hasta liberarlas). Con <b>«☰ Columnas…»</b> (en cada lista o en Ajustes → «Columnas de las listas») se <b>quitan las columnas que no hagan falta</b> y se añaden <b>campos propios</b> (por ejemplo «Aforo» o «Metros»), también en las candidaturas. Quitar una columna o un campo pide confirmación y solo lo oculta en las listas, la impresión y el CSV: <b>los datos no se borran</b> y vuelven al ponerlo otra vez. Para borrar <b>varias filas</b> a la vez se marcan en la primera columna; el programa pide escribir <b>BORRAR</b> para que no se haga por accidente, y antes guarda una copia de seguridad.</p>') +
     hsec(10, 'Registro, impresión y exportación', '<p>Cada reserva, liberación, asignación, reasignación y cambio de turno queda en el <b>Registro</b> con la fecha y la hora, el usuario, la candidatura y el elemento (con el día y la franja en los espacios). El registro <b>no se puede borrar ni modificar</b>: ni desde el programa, ni al restaurar, ni importando una copia. Los botones «🖨 Imprimir» preparan documentos A4: la hoja de asignaciones de una candidatura («🖨 Imprimir lo elegido por…» en el Panel y en En directo, el menú de impresión o el 🖨 de su fila en Partidos), las de todas, la relación completa de asignaciones, el resultado de cada categoría, el cuadrante de espacios, el reparto con la hoja de conformidad, la ayuda para las candidaturas y el registro. Cada lista tiene también «Exportar (.csv)» para Excel.</p>') +
     hsec(11, 'Copias de seguridad', '<p><b>Todo se guarda solo:</b> cada modificación se guarda al instante y se copia una a una en un almacén de copias separado; el servidor hace una copia completa (datos y usuarios) cada 10 minutos de actividad y antes de eliminar, importar o restaurar, y una copia diaria que no se borra nunca; el navegador de la administración guarda otra copia cada 5 minutos.</p><p><b>Para descargar una copia</b> en el ordenador: botón <b>«💾 Copia»</b> de la cabecera, en cualquier pantalla; también en el Panel y en Ajustes → Copias de seguridad. Al terminar la selección conviene pulsar <b>«Guardar copia permanente…»</b> y ponerle nombre (por ejemplo, «Generales · resultado final»): queda guardada en el servidor para siempre y se descarga a la vez. Desde Ajustes se ven todas las copias y se puede volver a cualquiera sin perder el registro.</p>') +
-    hsec(12, 'Seguridad y trabajo simultáneo', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Tras 5 intentos fallidos el usuario se bloquea 10 minutos y la sesión se cierra tras 30 minutos sin actividad. Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor, no el navegador. Está probado con más de 20 usuarios conectados y eligiendo a la vez. Los datos viven en el servidor: cambiar de ordenador no borra nada, y las actualizaciones del programa no tocan los datos.</p>');
+    hsec(12, 'Seguridad y trabajo simultáneo', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Tras 5 intentos fallidos el usuario se bloquea 10 minutos y la sesión se cierra tras 30 minutos sin actividad. Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor, no el navegador. Está probado con más de 20 usuarios conectados y eligiendo a la vez. Los datos viven en el servidor: cambiar de ordenador no borra nada, y las actualizaciones del programa no tocan los datos.</p>') +
+    hsec(13, 'Enlace con Eleccions', '<p>El programa <b>Eleccions</b> (planificación electoral del Ayuntamiento) puede traer de aquí todo lo adjudicado, en su menú <b>«Adjudicaciones»</b>: los datos completos de cada espacio, banderola, pancarta y prisma, la candidatura que tiene cada uno (y en los espacios, el día y la franja), las candidaturas con sus datos, las reglas de cada categoría y quién adjudicó cada cosa y cuándo. Lo elegido en un ensayo no se envía.</p><ol><li>En <b>Ajustes → Enlace con Eleccions</b>, pulsa «Crear la clave de enlace…». La clave se muestra <b>una sola vez</b>: cópiala.</li><li>En Eleccions → Adjudicaciones, pega la dirección de este programa y la clave. Desde entonces, un botón trae el reparto actualizado cuando se quiera.</li><li>La clave solo sirve para leer: no permite cambiar nada ni entrar aquí. Trátala como una contraseña; si se pierde o se ha visto, crea una nueva (la anterior deja de valer) o revócala.</li></ol><p>Sin clave también se puede: «Descargar reparto para Eleccions (.json)» y, en Eleccions, importar ese archivo.</p>');
 }
 function viewAyuda() {
   const part = ST.ui.help || (isAdmin() ? 'man' : 'cand');
@@ -1913,8 +1953,33 @@ function sheetKind(name) { const n = hnorm(name); if (/graella|cuadrante|quadran
 function headerRow(sh, test, min) { for (let r = 0; r < Math.min(sh.rows.length, 15); r++) { const hs = sh.rows[r].map(hnorm); if (hs.filter((h) => h && test(h)).length >= (min || 2)) return r; } return -1; }
 function colOf(sh, hr, re) { const hs = sh.rows[hr].map(hnorm); for (let c = 0; c < hs.length; c++) if (hs[c] && re.test(hs[c])) return c; return -1; }
 function parseWorkbook(sheets) {
-  const out = { esp: [], ban: [], pan: [], pri: [], par: [], sheets: [] }, g = (row, c) => (c >= 0 ? row[c] : null), grids = [];
-  const addX = (T, sh, hr, row, o) => { const X = xfOf(T).map((d) => [d.id, colOf(sh, hr, new RegExp('^' + hnorm(d.n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'))]).filter((x) => x[1] >= 0); if (X.length) { o.xv = {}; X.forEach(([id, col]) => { const v = sval(row[col]); if (v) o.xv[id] = v; }); } return o; };
+  const out = { esp: [], ban: [], pan: [], pri: [], par: [], sheets: [], xc: {} }, g = (row, c) => (c >= 0 ? row[c] : null), grids = [];
+  /* cabeceras efectivas de una hoja: si una columna con datos tiene una cabecera genérica («Columna1») y la de al lado tiene nombre
+     pero está vacía, ese nombre es el de la columna con datos (Excel desplazado, como el responsable en ESPAIS) */
+  const generic = (n) => !n || /^col(?:umn|umna)?\s*\d*$/i.test(n), isPart = (v) => /partit|partido/.test(hnorm(v));
+  const effH = (sh, hr) => {
+    if (sh._eh && sh._eh.hr === hr) return sh._eh.h;
+    const H = (sh.rows[hr] || []).map((v) => sval(v)), body = sh.rows.slice(hr + 1), has = (c) => body.some((row) => sval(row[c]));
+    for (let c = 0; c < H.length - 1; c++) if (generic(H[c]) && !generic(H[c + 1]) && has(c) && !has(c + 1)) { H[c] = H[c + 1]; H[c + 1] = ''; }
+    sh._eh = { hr, h: H }; return H;
+  };
+  const colX = (sh, hr, name) => { const k = hnorm(name); return k ? effH(sh, hr).findIndex((h) => h && hnorm(h) === k) : -1; };
+  const addX = (T, sh, hr, row, o) => { const X = xfOf(T).map((d) => [d.id, colX(sh, hr, d.n)]).filter((x) => x[1] >= 0); if (X.length) { o.xv = {}; X.forEach(([id, col]) => { const v = sval(row[col]); if (v) o.xv[id] = v; }); } Object.defineProperty(o, '_row', { value: row }); return o; };
+  /* columnas del Excel con datos que el programa no conoce (por ejemplo, el responsable de cada espacio): se ofrecen como campos propios */
+  const extras = (T, sh, hr, used, from) => {
+    const objs = out[T].slice(from).filter((o) => o._row), H = effH(sh, hr), U = new Set(used.filter((c) => c >= 0)), X = (conf().xf || {})[T] || [];
+    X.forEach((d) => { const c = colX(sh, hr, d.n); if (c >= 0) U.add(c); });
+    const has = (c) => objs.some((o) => sval(o._row[c])), names = new Set(X.map((d) => norm(d.n)).concat((out.xc[T] || []).map((x) => norm(x.n))));
+    const nc = objs.reduce((m, o) => Math.max(m, o._row.length), H.length);
+    for (let c = 0; c < nc; c++) {
+      if (U.has(c) || isPart(H[c]) || !has(c)) continue;
+      let nm = generic(H[c]) ? 'Columna ' + colName(c) : H[c];
+      if (nm === nm.toUpperCase() && /[A-ZÀ-Ý]{2}/.test(nm)) nm = nm.charAt(0) + nm.slice(1).toLowerCase();
+      nm = nm.slice(0, 40); if (names.has(norm(nm))) continue; names.add(norm(nm));
+      let cnt = 0; objs.forEach((o) => { const v = sval(o._row[c]); if (v) { (o.xx = o.xx || {})[nm] = v; cnt++; } });
+      (out.xc[T] = out.xc[T] || []).push({ n: nm, cnt });
+    }
+  };
   sheets.forEach((sh) => {
     const T = sheetKind(sh.name); if (!T) return;
     if (T === 'grid') { grids.push(sh); return; }
@@ -1923,14 +1988,15 @@ function parseWorkbook(sheets) {
       for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], sig = sval(g(row, c.sig)), nom = sval(g(row, c.nom)); if (!sig && !nom) continue; out.par.push(addX('par', sh, hr, row, { ord: ival(g(row, c.ord)), sig: sig || nom.slice(0, 40), nom, rep: sval(g(row, c.rep)), tel: sval(g(row, c.tel)), mail: sval(g(row, c.mail)), vot: vval(g(row, c.vot)) })); } return; }
     const rx = { esp: /ordre|orden|^nom|horari|horario|adreca/, ban: /tram|banderol|plafon|partit|partido/, pan: /tram|lloc|lugar|limit|partit/, pri: /partit|partido|columnes|columnas/ }[T];
     const hr = headerRow(sh, (h) => rx.test(h), 2); if (hr < 0) return;
+    const from = out[T] ? out[T].length : 0;
     if (T === 'esp') { const c = { ord: colOf(sh, hr, /ordre|orden|^n$/), nom: colOf(sh, hr, /^nom|nombre/), ot: colOf(sh, hr, /^o t$|tipus|tipo|obert/), dir: colOf(sh, hr, /adreca|direccion/), hor: colOf(sh, hr, /horari|horario/) };
-      let k = 0; for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], nom = sval(g(row, c.nom)); if (!nom || g(row, c.ord) == null) continue; k++; const o = ival(g(row, c.ord)); out.esp.push(addX('esp', sh, hr, row, { ord: o != null ? o : 100 + k, nom: (o == null ? sval(g(row, c.ord)) + '. ' : '') + nom, ot: sval(g(row, c.ot)), dir: sval(g(row, c.dir)), hor: sval(g(row, c.hor)) })); } }
+      let k = 0; for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], nom = sval(g(row, c.nom)); if (!nom || g(row, c.ord) == null) continue; k++; const o = ival(g(row, c.ord)); out.esp.push(addX('esp', sh, hr, row, { ord: o != null ? o : 100 + k, nom: (o == null ? sval(g(row, c.ord)) + '. ' : '') + nom, ot: sval(g(row, c.ot)), dir: sval(g(row, c.dir)), hor: sval(g(row, c.hor)) })); } extras('esp', sh, hr, Object.values(c), from); }
     if (T === 'ban') { const c = { nom: colOf(sh, hr, /^nom|nombre|carrer|calle/), tram: colOf(sh, hr, /tram/), bf: colOf(sh, hr, /banderol/), pf: colOf(sh, hr, /plafon/) };
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof row[0] !== 'number' || !sval(g(row, c.nom))) continue; out.ban.push(addX('ban', sh, hr, row, { ord: ival(row[0]), nom: sval(g(row, c.nom)), tram: sval(g(row, c.tram)), bf: ival(g(row, c.bf)), pf: ival(g(row, c.pf)) })); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof row[0] !== 'number' || !sval(g(row, c.nom))) continue; out.ban.push(addX('ban', sh, hr, row, { ord: ival(row[0]), nom: sval(g(row, c.nom)), tram: sval(g(row, c.tram)), bf: ival(g(row, c.bf)), pf: ival(g(row, c.pf)) })); } extras('ban', sh, hr, Object.values(c).concat([0]), from); }
     if (T === 'pan') { const c = { ord: colOf(sh, hr, /tram|^n$|num/), lloc: colOf(sh, hr, /lloc|lugar/), lim: colOf(sh, hr, /limit/) };
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof g(row, c.ord) !== 'number' || !sval(g(row, c.lloc))) continue; out.pan.push(addX('pan', sh, hr, row, { ord: ival(g(row, c.ord)), lloc: sval(g(row, c.lloc)), lim: sval(g(row, c.lim)) })); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r]; if (typeof g(row, c.ord) !== 'number' || !sval(g(row, c.lloc))) continue; out.pan.push(addX('pan', sh, hr, row, { ord: ival(g(row, c.ord)), lloc: sval(g(row, c.lloc)), lim: sval(g(row, c.lim)) })); } extras('pan', sh, hr, Object.values(c), from); }
     if (T === 'pri') { const cl = colOf(sh, hr, /columnes|columnas|lloc|lugar|ubicaci/), cp = colOf(sh, hr, /partit|partido/), cn = cl + 1 < cp ? cl + 1 : -1; let k = 0;
-      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], lloc = sval(g(row, cl)); if (!lloc || lloc.length > 80) continue; out.pri.push(addX('pri', sh, hr, row, { ord: ++k, lloc, num: sval(g(row, cn)) })); } }
+      for (let r = hr + 1; r < sh.rows.length; r++) { const row = sh.rows[r], lloc = sval(g(row, cl)); if (!lloc || lloc.length > 80) continue; out.pri.push(addX('pri', sh, hr, row, { ord: ++k, lloc, num: sval(g(row, cn)) })); } extras('pri', sh, hr, [cl, cn, cp], from); }
   });
   /* lista de partidos al lado del cuadrante (siglas y número de orden). Se descartan las columnas con cabecera «Nom»/«Ordre»
      y los nombres de espacios, para no confundir la lista de espacios con la de partidos */
@@ -1949,19 +2015,33 @@ function planImport(W) {
     const ch = {};
     for (const f in o) {
       const v = o[f]; if (v == null || v === '') continue;
+      if (f === 'xx') continue;
       if (f === 'xv') { const nx = {}; for (const k in v) if (v[k] && !((cur.xv || {})[k])) nx[k] = v[k]; if (Object.keys(nx).length) ch.xv = Object.assign({}, cur.xv || {}, nx); continue; }
       if (cur[f] == null || cur[f] === '') ch[f] = v;
     }
     return ch;
   };
-  CATS.forEach((t) => { const have = {}; I.items[t].forEach((r) => { have[IKEY[t](r)] = r; }); const P = plan[t] = { add: [], fill: [], same: 0 }; W[t].forEach((o) => { const k = IKEY[t](o), cur = have[k]; if (!cur) { P.add.push(o); have[k] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } }); });
+  CATS.forEach((t) => { const have = {}; I.items[t].forEach((r) => { have[IKEY[t](r)] = r; }); const P = plan[t] = { add: [], fill: [], same: 0, xx: [] }; W[t].forEach((o) => { const k = IKEY[t](o), cur = have[k]; if (!cur) { P.add.push(o); have[k] = o; } else { if (o.xx && cur.id) P.xx.push({ id: cur.id, xx: o.xx }); const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } }); });
+  plan.xc = W.xc || {};
   const byS = {}; I.parties.forEach((p) => { byS[norm(p.sig)] = p; byS[norm(p.nom)] = p; });
   const P = plan.par = { add: [], fill: [], same: 0 }; W.par.forEach((o) => { const cur = byS[norm(o.sig)] || (o.nom && byS[norm(o.nom)]); if (!cur) { P.add.push(o); byS[norm(o.sig)] = o; } else { const ch = fill(cur, o); if (Object.keys(ch).length) P.fill.push({ id: cur.id, ch }); else P.same++; } });
   return plan;
 }
 function applyImport(plan, sel) {
   let n = 0; const E = ST.db.E;
-  CATS.forEach((t) => { if (!sel[t]) return; plan[t].add.forEach((o) => { putQuiet('i:' + uid(), Object.assign({ k: 'i', t }, o, t === 'esp' ? { blk: {} } : {})); n++; }); plan[t].fill.forEach((f) => { putQuiet('i:' + f.id, Object.assign({}, E['i:' + f.id], f.ch)); n++; }); });
+  CATS.forEach((t) => {
+    if (!sel[t]) return;
+    const XC = sel['xc:' + t] ? plan.xc[t] || [] : [], idOf = {};
+    if (XC.length) {
+      const list = ((conf().xf || {})[t] || []).slice();
+      XC.forEach((x, i) => { if (list.length >= 15) return; const id = (Date.now() + i).toString(36).slice(-7) + i; list.push({ id, n: x.n }); idOf[x.n] = id; });
+      const c = Object.assign({ k: 's' }, conf()); c.xf = Object.assign({}, c.xf || {}, { [t]: list }); putQuiet('s:conf', c);
+    }
+    const xvFrom = (xx, base) => { const o = Object.assign({}, base || {}); let k = 0; for (const nm in xx || {}) if (idOf[nm] && !o[idOf[nm]]) { o[idOf[nm]] = xx[nm]; k++; } return k ? o : null; };
+    plan[t].add.forEach((o0) => { const o = Object.assign({}, o0); delete o.xx; const xv = xvFrom(o0.xx, o.xv); if (xv) o.xv = xv; putQuiet('i:' + uid(), Object.assign({ k: 'i', t }, o, t === 'esp' ? { blk: {} } : {})); n++; });
+    plan[t].fill.forEach((f) => { putQuiet('i:' + f.id, Object.assign({}, E['i:' + f.id], f.ch)); n++; });
+    (plan[t].xx || []).forEach((f) => { const cur = E['i:' + f.id], xv = cur && xvFrom(f.xx, cur.xv); if (xv) { putQuiet('i:' + f.id, Object.assign({}, cur, { xv })); n++; } });
+  });
   if (sel.par) { const used = idx().parties.length; plan.par.add.forEach((o, i) => { putQuiet('g:' + uid(), Object.assign({ k: 'g', col: PALETTE[(used + i) % PALETTE.length] }, o)); n++; }); plan.par.fill.forEach((f) => { putQuiet('g:' + f.id, Object.assign({}, E['g:' + f.id], f.ch)); n++; }); }
   if (n) markDirty();
   return n;
@@ -1971,7 +2051,8 @@ async function importExcel(file) {
   let sheets; try { sheets = /\.csv$/i.test(file.name) ? readCsv(await file.text()) : await readXlsx(await file.arrayBuffer()); } catch (e) { return toast('No se ha podido leer el Excel: ' + e.message, 'err'); }
   const W = parseWorkbook(sheets), plan = planImport(W); ST.imp = plan;
   const line = (k, lab, P) => { const tot = P.add.length + P.fill.length + P.same; if (!tot) return ''; const ej = P.add.slice(0, 3).map((o) => o.sig || o.nom || o.lloc || '').filter(Boolean); return '<label class="chk"><input type="checkbox" class="impChk" value="' + k + '" checked> <span><b>' + lab + '</b>: ' + P.add.length + ' nuevos · ' + P.fill.length + ' se completarán · ' + P.same + ' ya estaban' + (ej.length ? '<br><small class="muted">Por ejemplo: ' + esc(ej.join(' · ')) + (P.add.length > 3 ? '…' : '') + '</small>' : '') + '</span></label>'; };
-  const lines = CATS.map((t) => line(t, CATN[t], plan[t])).join('') + line('par', 'Partidos', plan.par);
+  const xline = (t) => { const X = plan.xc[t] || []; if (!X.length || !line(t, '', plan[t])) return ''; return '<label class="chk" style="margin-left:26px"><input type="checkbox" class="impChk" value="xc:' + t + '" checked> <span>Añadir también ' + (X.length === 1 ? 'la columna ' : 'las columnas ') + X.map((x) => '<b>«' + esc(x.n) + '»</b> (' + x.cnt + ' con datos)').join(', ') + ' como ' + (X.length === 1 ? 'campo propio' : 'campos propios') + '.<br><small class="muted">Las candidaturas también lo verán. Puedes cambiarle el nombre o quitarlo después en «☰ Columnas…».</small></span></label>'; };
+  const lines = CATS.map((t) => line(t, CATN[t], plan[t]) + xline(t)).join('') + line('par', 'Partidos', plan.par);
   if (!lines) return toast('No se ha reconocido ninguna hoja de espacios, banderolas, pancartas, prismas o partidos en ese Excel.', 'err');
   openModal('<h2>Importar desde Excel</h2><p>Hojas reconocidas en «' + esc(file.name) + '»: ' + esc(W.sheets.join(', ')) + '.</p><div class="hint">No se borra ni se cambia nada de lo que ya hay, ni las reservas: solo se <b>añaden</b> elementos nuevos y se <b>rellenan campos vacíos</b>.</div><div style="margin:12px 0">' + lines + '</div>' +
     (plan.par.add.length ? '<p class="muted">Los partidos se crean con el número del Excel como orden de preferencia; revísalo en la pestaña Partidos.</p>' : '') + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="imp-ok">Importar</button></div>', true);
@@ -1998,7 +2079,8 @@ function prSummary(t) { const by = {}; idx().items[t].forEach((it) => { if (t ==
 function prCat(t) {
   const I = idx();
   if (t !== 'esp') return prDoc(CATN[t], prSummary(t) + prTable(colsOf(t).map((c) => c[1]).concat(['Partido']), I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => (c[0] === 'nom' || c[0] === 'lloc' ? '<b>' + esc(fv(it, c[0]) || '') + '</b>' : esc(fv(it, c[0]) == null ? '' : fv(it, c[0])))).concat(r ? '<b>' + esc(pName(r.g)) + '</b>' : it.nd ? 'No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') : ''); })), I.items[t].length + ' elementos · ' + takenOf(t) + ' reservados');
-  const days = campDays(), XE = xfOf('esp'); let h = prSummary('esp') + prTable(['Nº', 'Espacio', 'Abierto / cerrado', 'Dirección', 'Horario'].concat(XE.map((d) => d.n)), I.items.esp.map((it) => [esc(it.ord != null ? it.ord : ''), '<b>' + esc(it.nom) + '</b>' + (it.nd ? '<br><i>No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</i>' : ''), esc(it.ot), esc(it.dir), esc(it.hor)].concat(XE.map((d) => esc((it.xv || {})[d.id] || '')))));
+  const days = campDays(), CE = colsOf('esp').filter((c) => c[0] !== 'nota');
+  let h = prSummary('esp') + prTable(CE.map((c) => (c[0] === 'nom' ? 'Espacio' : c[1])), I.items.esp.map((it) => CE.map((c) => (c[0] === 'nom' ? '<b>' + esc(it.nom) + '</b>' + (it.nd ? '<br><i>No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</i>' : '') : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))))));
   for (let i = 0; i < days.length; i += 8) {
     const ch = days.slice(i, i + 8);
     h += '<h2 class="pr-h2 pr-break">Cuadrante · ' + esc(fShort(ch[0])) + ' – ' + esc(fShort(ch[ch.length - 1])) + '</h2><table class="pr-t pr-grid"><thead><tr><th rowspan="2">Espacio</th>' + ch.map((d) => '<th colspan="2">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + ch.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>' +
@@ -2083,7 +2165,7 @@ const LOCAL_KEY = 'espais.copia.local';
 function localCopy() { try { return JSON.parse(LS.get(LOCAL_KEY) || 'null'); } catch (e) { return null; } }
 function saveLocalCopy() { if (!isAdmin() || !ST.db) return; LS.set(LOCAL_KEY, JSON.stringify({ app: 'espais', kind: 'copia-local', at: Date.now(), by: ST.user, E: ST.db.E })); }
 function stopTimers() { ST.timers.forEach(clearInterval); ST.timers = []; clearTimeout(ST.saveT); clearTimeout(ST.retryT); }
-function endSession() { ST.wasTurn = undefined; stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
+function endSession() { ST.wasTurn = undefined; ST.enl = null; stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
 async function logout() {
   if (pendCount()) await flush();
   if (pendCount() && !(await confirmBox({ title: 'Hay cambios sin enviar', text: 'Hay ' + pendCount() + ' cambios que todavía no han llegado al servidor. Se enviarán la próxima vez que entres desde aquí. ¿Salir igualmente?', ok: 'Salir' }))) return;
@@ -2155,7 +2237,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.6 · 19/10/2026';
+const APP_VERSION = '1.7 · 20/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2228,7 +2310,12 @@ const ACT = {
   },
   'xf-open': (el) => { if (adminOnly()) modalXF(el.dataset.t); },
   'xf-add': (el) => { const t = el.dataset.t, n = ($('#xfNew').value || '').trim(); if (!n) return toast('Escribe el nombre del campo.', 'err'); if (n.length > 40) return toast('Nombre demasiado largo (máximo 40).', 'err'); const all = (conf().xf || {})[t] || []; if (all.some((d) => norm(d.n) === norm(n) && !d.h)) return toast('Ya hay un campo con ese nombre.', 'err'); if (all.length >= 15) return toast('Máximo 15 campos por lista.', 'err'); const old = all.find((d) => norm(d.n) === norm(n) && d.h); xfPut(t, old ? all.map((d) => (d === old ? { id: d.id, n } : d)) : all.concat([{ id: Date.now().toString(36).slice(-8), n }])); modalXF(t); toast(old ? 'Campo recuperado con sus datos.' : 'Campo añadido.'); },
-  'xf-hide': (el) => { const t = el.dataset.t; xfPut(t, ((conf().xf || {})[t] || []).map((d) => (d.id === el.dataset.id ? Object.assign({}, d, { h: true }) : d))); modalXF(t); toast('Campo quitado de la vista. Sus datos se conservan.'); },
+  'hc-tog': (el) => { if (adminOnly()) hcToggle(el); },
+  'enl-new': () => enlaceNew(),
+  'enl-del': () => enlaceDel(),
+  'enl-copy': async () => { const k = $('#enlKey'); if (!k) return; try { await navigator.clipboard.writeText(k.value); toast('Clave copiada. Pégala en Eleccions.'); } catch (e) { k.focus(); k.select(); toast('Selecciónala y cópiala con Ctrl+C.'); } },
+  'rep-dl': () => repartoDownload(),
+  'xf-hide': async (el) => { const t = el.dataset.t, d0 = ((conf().xf || {})[t] || []).find((d) => d.id === el.dataset.id); if (!d0) return; if (!(await confirmBox({ title: 'Quitar el campo «' + d0.n + '»', text: 'El campo «' + esc(d0.n) + '» dejará de verse en ' + esc(XNAME[t]) + ' para todos los usuarios.<br><b>Sus datos no se borran</b>: puedes volver a mostrarlo desde «☰ Columnas…».', ok: 'Quitar el campo', danger: true }))) { modalXF(t); return; } xfPut(t, ((conf().xf || {})[t] || []).map((d) => (d.id === el.dataset.id ? Object.assign({}, d, { h: true }) : d))); modalXF(t); toast('Campo quitado de la vista. Sus datos se conservan.'); },
   'xf-show': (el) => { const t = el.dataset.t; xfPut(t, ((conf().xf || {})[t] || []).map((d) => (d.id === el.dataset.id ? { id: d.id, n: d.n } : d))); modalXF(t); toast('Campo visible de nuevo.'); },
   'pr-log': () => { closeModal(); doPrint(prDoc('Registro de movimientos', prTable(['Fecha y hora', 'Usuario', 'Candidatura', 'Movimiento', 'Categoría'], idx().logs.map((l) => [fStamp(l.ts), esc(l.by), l.g && idx().pmap[l.g] ? esc(pName(l.g)) : '', (l.ens ? '[ensayo] ' : '') + esc(l.a), CATN[l.t] || '']))), true); },
   'pr-help': () => doPrint(prDoc('Manual de Espais electorals', $('#view .help').innerHTML.replace(/<button[^>]*>.*?<\/button>/g, ''))),
@@ -2241,9 +2328,24 @@ Object.assign(ACT, REP_ACT, ASIG_ACT);
 /* campos propios de cada lista: añadir, renombrar, quitar de la vista (los datos nunca se borran) */
 const XNAME = { esp: 'Espacios electorales', ban: 'Banderolas', pan: 'Pancartas', pri: 'Prismas', par: 'Candidaturas' };
 function xfPut(t, list) { const c = Object.assign({ k: 's' }, conf()); c.xf = Object.assign({}, c.xf || {}, { [t]: list }); put('s:conf', c); }
+function hcPut(t, list) { const c = Object.assign({ k: 's' }, conf()); c.hc = Object.assign({}, c.hc || {}, { [t]: list }); put('s:conf', c); }
+/* columnas de siempre: se pueden quitar de la vista (listas, impresión y CSV) y volver a poner; los datos no se borran */
+function hcHTML(t) {
+  if (!COLS[t]) return '';
+  const H = hcOf(t);
+  return '<h3 style="margin:14px 0 6px">Columnas de la lista</h3><p class="muted small" style="margin:0 0 8px">Desmarca las que no hagan falta. Quitar una columna solo la oculta en las listas, la impresión y el CSV: <b>sus datos no se borran</b> y vuelven al marcarla otra vez.</p><div class="olist">' +
+    COLS[t].map((c, i) => '<label class="chk orow"><input type="checkbox" data-a="hc-tog" data-t="' + t + '" data-k="' + c[0] + '"' + (H.indexOf(c[0]) < 0 ? ' checked' : '') + (i === 1 ? ' disabled title="Esta columna siempre se ve"' : '') + '> <span>' + esc(c[1]) + (i === 1 ? ' <span class="muted small">(siempre se ve)</span>' : '') + '</span></label>').join('') + '</div><h3 style="margin:16px 0 6px">Campos propios</h3>';
+}
+async function hcToggle(el) {
+  const t = el.dataset.t, k = el.dataset.k, H = hcOf(t), col = (COLS[t] || []).find((c) => c[0] === k); if (!col) return;
+  const hide = !el.checked;
+  if (hide && !(await confirmBox({ title: 'Quitar la columna «' + col[1] + '»', text: 'La columna «' + esc(col[1]) + '» dejará de verse en ' + esc(XNAME[t]) + ' (lista, impresión y CSV) para todos los usuarios.<br><b>Sus datos no se borran</b>: puedes volver a ponerla cuando quieras desde «☰ Columnas…».', ok: 'Quitar la columna', danger: true }))) { modalXF(t); return; }
+  hcPut(t, hide ? H.concat([k]) : H.filter((x) => x !== k)); modalXF(t);
+  toast(hide ? 'Columna «' + col[1] + '» quitada de la vista. Sus datos se conservan.' : 'Columna «' + col[1] + '» visible de nuevo.');
+}
 function modalXF(t) {
   const all = (conf().xf || {})[t] || [], vis = all.filter((d) => !d.h), hid = all.filter((d) => d.h);
-  openModal('<h2>Campos propios · ' + XNAME[t] + '</h2><p class="muted">Se añaden a la lista como una columna más, editable. Para cambiar el nombre, escríbelo y sal de la casilla. Quitar un campo solo lo oculta: los datos se conservan y vuelven si lo recuperas.</p>' +
+  openModal('<h2>' + (COLS[t] ? 'Columnas' : 'Campos propios') + ' · ' + XNAME[t] + '</h2>' + hcHTML(t) + '<p class="muted">Se añaden a la lista como una columna más, editable. Para cambiar el nombre, escríbelo y sal de la casilla. Quitar un campo solo lo oculta: los datos se conservan y vuelven si lo recuperas.</p>' +
     (vis.length ? '<div class="olist">' + vis.map((d) => '<div class="orow"><input type="text" data-xfren="' + t + '" data-id="' + d.id + '" value="' + esc(d.n) + '" maxlength="40" aria-label="Nombre del campo"><button class="btn sm ghost" data-a="xf-hide" data-t="' + t + '" data-id="' + d.id + '" title="Quitar de la vista">✕</button></div>').join('') + '</div>' : '<p class="muted">Todavía no hay campos propios en esta lista.</p>') +
     '<div class="btnrow"><input type="text" id="xfNew" placeholder="Nombre del campo nuevo (p. ej. Aforo)" maxlength="40" style="max-width:320px"><button class="btn primary" data-a="xf-add" data-t="' + t + '">+ Añadir campo</button></div>' +
     (hid.length ? '<p class="muted small">Campos ocultos: ' + hid.map((d) => esc(d.n) + ' <button class="lnk" data-a="xf-show" data-t="' + t + '" data-id="' + d.id + '">mostrar</button>').join(' · ') + '</p>' : '') +

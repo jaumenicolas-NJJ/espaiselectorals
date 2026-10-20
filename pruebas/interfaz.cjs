@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.6/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.7/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -350,7 +350,7 @@ const pdfInfo = (f) => {
   await A.click('[data-a=edit][data-t=ban]'); await A.click('[data-a=xf-open][data-t=ban]'); await A.waitForSelector('[data-xfren=ban]');
   await A.fill('[data-xfren=ban]', 'Longitud'); await A.press('[data-xfren=ban]', 'Tab'); ok('Renombrar un campo propio', await toastIs(A, /Nombre del campo cambiado/));
   await A.click('#modal [data-a=m-no]'); await settled(A);
-  await A.click('[data-a=xf-open][data-t=ban]'); await A.click('[data-a=xf-hide][data-t=ban]'); await toastIs(A, /Sus datos se conservan/);
+  await A.click('[data-a=xf-open][data-t=ban]'); await A.click('[data-a=xf-hide][data-t=ban]'); await yes(A); await toastIs(A, /Sus datos se conservan/);
   await settled(A); d = await apiAs(A, 'data');
   ok('Quitar un campo solo lo oculta: el dato sigue guardado', d.E['s:conf'].xf.ban[0].h === true && d.E['i:' + b0].xv[xid] === '25 m' && !/Longitud/i.test(await txt(A, '#view thead')));
   await A.click('#modal [data-a=xf-show]'); await toastIs(A, /visible de nuevo/); await A.click('#modal [data-a=m-no]'); await settled(A);
@@ -552,7 +552,7 @@ const pdfInfo = (f) => {
   const hc = await txt(PP, '#view');
   ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
   await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
-  ok('Manual del programa separado (12 apartados): reparto, ensayo, inhabilitar, Excel, copias', (await PP.locator('#view .help h3').count()) === 12 && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
+  ok('Manual del programa separado (13 apartados): reparto, ensayo, inhabilitar, Excel, copias, enlace con Eleccions', (await PP.locator('#view .help h3').count()) === 13 && /Enlace con Eleccions/.test(hm) && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
   await tab(A, 'ayuda'); ok('La administración abre por defecto el manual', /Manual de Espais electorals/.test(await txt(A, '#view h2')));
   await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await A.click('#view [data-a=pr-help]'); await A.waitForTimeout(300);
@@ -647,7 +647,7 @@ const pdfInfo = (f) => {
   ok('Cada lista tiene una columna para marcar filas', (await A.locator('#view .ltbl td.selc input[data-a=sel]').count()) === pans.length && (await A.locator('#view .selbar').count()) === 1, pans.length + ' pancartas');
   for (const id of two) await A.click('#view input[data-a=sel][data-id="' + id + '"]');
   ok('…cuenta las marcadas', /2 pancartas marcadas/.test(await txt(A, '#view .selbar')), await txt(A, '#view .selbar'));
-  await A.click('#view [data-a=sel-del]'); await yes(A); ok('Borrar las marcadas de una vez', await toastIs(A, /Borradas 2 pancartas/));
+  await A.click('#view [data-a=sel-del]'); await A.waitForSelector('#cfWord'); ok('Borrar varias exige escribir BORRAR', await A.isDisabled('#cfYes')); await A.fill('#cfWord', 'BORRAR'); await yes(A); ok('Borrar las marcadas de una vez', await toastIs(A, /Borradas 2 pancartas/));
   await settled(A); d = await apiAs(A, 'data');
   ok('…se borran en el servidor, con copia de seguridad antes', two.length === 2 && two.every((id) => d.E['i:' + id].x === true) && Object.values(d.E).filter((e) => e.k === 'i' && e.t === 'pan' && !e.x).length === pans.length - 2 && (await apiAs(A, 'history')).items.some((k) => /antes-de-eliminar/.test(k)));
 
