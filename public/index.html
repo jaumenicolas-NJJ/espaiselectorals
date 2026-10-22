@@ -610,6 +610,8 @@ table.cgrid{border-collapse:separate;border-spacing:0;font-size:12px}
 .cgrid td.cc.rs button{background:#fff4d4;color:#7a5600}
 .cgrid td.cc.nd button{background:#e3e4e8;color:#777;cursor:pointer}
 .cgh{margin:18px 0 4px;font-size:16px}
+.cgset{border:2px dashed var(--brand2,#264d92);border-radius:10px;padding:4px 16px 14px;margin:10px 0 14px;background:var(--info-bg,#e9f0fd)}
+.cgset .cgh{margin-top:12px}
 .cgrid td.cc.hz button{background:repeating-linear-gradient(135deg,#eceef1 0 5px,#e1e3e8 5px 10px);color:#999;font-weight:400}
 .legend .lgc.hz{background:repeating-linear-gradient(135deg,#eceef1 0 4px,#d9dce2 4px 8px);color:#888}
 .cgrid tbody th.gs small.hzt{color:#2b5a8a}
@@ -1342,7 +1344,9 @@ function gridHTML(edit) {
   if (edit) h += selBar('esp') + '<div class="tblwrap" style="margin-bottom:14px"><table class="tbl ftbl"><thead><tr>' + selHead('esp') + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + I.items.esp.map((it) => '<tr' + (selOf('esp').has(it.id) ? ' class="selr"' : '') + '>' + selCell('esp', it.id) + colsOf('esp').map((c) => '<td>' + rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 170), c[1]) + '</td>').join('') + '<td>' + rowAction('esp', it, null, null, true) + '</td></tr>').join('') + '</tbody></table></div>';
   if (!edit && isAdmin() && I.items.esp.length) h += '<p class="muted small" style="margin:0 0 6px">Para borrar varios espacios a la vez, pulsa <b>«✎ Editar lista»</b> y márcalos en la primera columna.</p>';
   /* sin fechas de campaña no hay cuadrante, pero la lista de espacios se ve igual (con todas sus columnas) */
-  if (!days.length) return h + '<p class="hint warn">Faltan las fechas de la campaña: ' + (isAdmin() ? 'indícalas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button> (basta con el día de la votación y «Calcular la campaña»)' : 'el Ayuntamiento las indicará en breve') + '. Con ellas aparece el <b>cuadrante de uso durante la campaña</b>, donde cada partido elige por turnos los días y franjas (mañana o tarde) de cada espacio según su horario.</p>' +
+  if (!days.length) return h + (isAdmin()
+    ? '<div class="cgset"><h3 class="cgh">Cuadrante de uso durante la campaña</h3><p>Aquí cada espacio se elige <b>por días y franjas</b> (mañana o tarde), no para toda la campaña: el mismo espacio puede ser de un partido un día y de otro el siguiente. Para que aparezca el cuadrante falta indicar la campaña: escribe el <b>día de la votación</b> y pulsa el botón; la campaña se calcula sola (art. 51 LOREG).</p><div class="btnrow"><label class="field" style="margin:0"><span>Día de la votación</span><input type="date" id="cgDv" value="' + esc(conf().dv || '') + '"></label><button class="btn primary" data-a="cg-dv">Calcular la campaña y mostrar el cuadrante</button><button class="lnk" data-a="tab" data-v="ajustes">o poner las fechas a mano en Ajustes</button></div></div>'
+    : '<p class="hint warn">El Ayuntamiento todavía no ha indicado las fechas de la campaña. Cuando lo haga, aquí aparecerá el <b>cuadrante de uso durante la campaña</b>, donde cada partido elige por turnos los días y franjas (mañana o tarde) de cada espacio según su horario.</p>') +
     (edit ? '' : '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '</tr></thead><tbody>' +
       E.map((it) => '<tr class="' + (it.nd ? 'ndr' : 'free') + '">' + colsOf('esp').map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (c[0] === 'nom' ? '<b>' + esc(it.nom || '') + '</b>' + (it.nd ? ' <span class="nd-l">No disponible</span>' : '') : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
   h += '<h3 class="cgh">Cuadrante de uso durante la campaña</h3><p class="muted">Cada partido elige, en su turno, un espacio un día concreto por la mañana o por la tarde. Solo se pueden elegir los días y franjas que permite el horario de cada espacio; ningún espacio queda asignado a un partido para toda la campaña.</p>' +
@@ -2296,7 +2300,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.9.1 · 22/10/2026';
+const APP_VERSION = '1.9.2 · 22/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2362,6 +2366,12 @@ const ACT = {
   'pr-party': (el) => { closeModal(); doPrint(prParty(el.dataset.g)); },
   'pr-party-sel': () => { const g = $('#prParty').value; if (!g) return toast('Elige la candidatura.', 'err'); closeModal(); doPrint(prParty(g)); },
   'pr-allres': () => { closeModal(); doPrint(prAllRes()); },
+  'cg-dv': () => {
+    if (!adminOnly()) return; const dv = ($('#cgDv') || {}).value || '', v = parseISO(dv);
+    if (v == null) return toast('Escribe el día de la votación.', 'err');
+    put('s:conf', Object.assign({ k: 's' }, conf(), { dv, d0: toISO(v - 16 * DAY), d1: toISO(v - 2 * DAY) }));
+    toast('Campaña: del ' + fDMY(v - 16 * DAY) + ' al ' + fDMY(v - 2 * DAY) + '. Ya se ve el cuadrante.');
+  },
   'camp-calc': () => {
     if (!adminOnly()) return; const c = conf(), v = parseISO(c.dv);
     if (v == null) return toast('Primero indica el día de la votación.', 'err');

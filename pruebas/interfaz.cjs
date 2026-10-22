@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.9.1/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.2/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -650,6 +650,18 @@ const pdfInfo = (f) => {
   await A.click('#view [data-a=sel-del]'); await A.waitForSelector('#cfWord'); ok('Borrar varias exige escribir BORRAR', await A.isDisabled('#cfYes')); await A.fill('#cfWord', 'BORRAR'); await yes(A); ok('Borrar las marcadas de una vez', await toastIs(A, /Borradas 2 pancartas/));
   await settled(A); d = await apiAs(A, 'data');
   ok('…se borran en el servidor, con copia de seguridad antes', two.length === 2 && two.every((id) => d.E['i:' + id].x === true) && Object.values(d.E).filter((e) => e.k === 'i' && e.t === 'pan' && !e.x).length === pans.length - 2 && (await apiAs(A, 'history')).items.some((k) => /antes-de-eliminar/.test(k)));
+
+  /* ================= CUADRANTE SIN FECHAS DE CAMPAÑA (v1.9.2) ================= */
+  d = await apiAs(A, 'data'); const conf0 = Object.assign({}, d.E['s:conf']); ['u', 'b', 's'].forEach((f) => delete conf0[f]);
+  await A.evaluate(async (c) => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { 's:conf': Object.assign({}, c, { dv: '', d0: '', d1: '' }) }, since: 0 }) }); }, conf0);
+  await tab(A, 'esp'); await A.waitForSelector('#cgDv', { timeout: 20000 }).catch(() => {});
+  ok('Sin fechas de campaña, Espacios pide el día de la votación para mostrar el cuadrante', (await A.locator('#cgDv').count()) === 1 && /por días y franjas/.test(await txt(A, '#view .cgset')) && !(await A.locator('#view table.cgrid').count()));
+  await tab(PC, 'esp'); await PC.waitForFunction(() => /todavía no ha indicado las fechas/.test(document.querySelector('#view').innerText), null, { timeout: 20000 }).catch(() => {});
+  ok('…y a los partidos les explica que el Ayuntamiento las indicará', /todavía no ha indicado las fechas de la campaña/.test(await txt(PC, '#view')) && !(await PC.locator('#cgDv').count()));
+  await A.click('#view [data-a=cg-dv]'); ok('Sin fecha, avisa', await toastIs(A, /Escribe el día de la votación/));
+  await A.fill('#cgDv', '2023-07-23'); await A.click('#view [data-a=cg-dv]'); ok('Con la fecha, calcula la campaña', await toastIs(A, /del 07\/07\/2023 al 21\/07\/2023\. Ya se ve el cuadrante/));
+  await A.waitForSelector('#view table.cgrid'); await settled(A); d = await apiAs(A, 'data');
+  ok('…y aparece el cuadrante por día y franja, con la campaña guardada', (await A.locator('#view table.cgrid thead th', { hasText: /Mañana/i }).count()) === 15 && d.E['s:conf'].d0 === '2023-07-07' && d.E['s:conf'].d1 === '2023-07-21' && d.E['s:conf'].dv === '2023-07-23');
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;

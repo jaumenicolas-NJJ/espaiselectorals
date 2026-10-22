@@ -60,7 +60,11 @@ PRIMEROS PASOS DENTRO DEL PROGRAMA
 ----------------------------------
 El Panel muestra una lista de «Puesta en marcha». En resumen:
   1. Ajustes: tipo de elecciones (por defecto, Generales al Congreso de los Diputados),
-     nombre del Ajuntament y día de la votación (la campaña se calcula sola).
+     nombre del Ajuntament y día de la votación (la campaña se calcula sola). Sin fechas
+     de campaña no hay cuadrante: la pestaña Espacios pide entonces el día de la votación
+     y, al pulsar «Calcular la campaña y mostrar el cuadrante», aparece el «Cuadrante de
+     uso durante la campaña», donde cada espacio se elige por día y franja (mañana o
+     tarde) y el mismo espacio puede ser de partidos distintos en días distintos.
   2. Ajustes → «Importar desde Excel…»: un solo Excel con todo (hojas ESPAIS, BANDEROLES,
      PANCARTES, PRISMES y PARTITS con los votos). En Ajustes se descarga la plantilla.
   3. Partidos: revisa las candidaturas y crea su usuario con «Crear los usuarios que
