@@ -65,6 +65,10 @@ El Panel muestra una lista de «Puesta en marcha». En resumen:
      y, al pulsar «Calcular la campaña y mostrar el cuadrante», aparece el «Cuadrante de
      uso durante la campaña», donde cada espacio se elige por día y franja (mañana o
      tarde) y el mismo espacio puede ser de partidos distintos en días distintos.
+     Los centros que en el Excel van con letra (A, B, C…) salen solo con su letra
+     («A. Centre Cívic…»), y las franjas fuera del «Horario de uso» de cada centro salen
+     rayadas y desactivadas (por ejemplo, «De dilluns a divendres de 17 a 20:30 hores»
+     deja solo las tardes de lunes a viernes).
   2. Ajustes → «Importar desde Excel…»: un solo Excel con todo (hojas ESPAIS, BANDEROLES,
      PANCARTES, PRISMES y PARTITS con los votos). En Ajustes se descarga la plantilla.
   3. Partidos: revisa las candidaturas y crea su usuario con «Crear los usuarios que

@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.2/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.3/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -662,6 +662,15 @@ const pdfInfo = (f) => {
   await A.fill('#cgDv', '2023-07-23'); await A.click('#view [data-a=cg-dv]'); ok('Con la fecha, calcula la campaña', await toastIs(A, /del 07\/07\/2023 al 21\/07\/2023\. Ya se ve el cuadrante/));
   await A.waitForSelector('#view table.cgrid'); await settled(A); d = await apiAs(A, 'data');
   ok('…y aparece el cuadrante por día y franja, con la campaña guardada', (await A.locator('#view table.cgrid thead th', { hasText: /Mañana/i }).count()) === 15 && d.E['s:conf'].d0 === '2023-07-07' && d.E['s:conf'].d1 === '2023-07-21' && d.E['s:conf'].dv === '2023-07-23');
+  // centros con letra en el Excel (A, B, C…): solo la letra, nunca el número interno
+  await A.evaluate(async () => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { 'i:zletA': { k: 'i', t: 'esp', ord: 140, nom: 'A. Centre Cívic Prova', ot: 'Tancat', dir: 'C. Prova, 1', hor: '' } }, since: 0 }) }); });
+  await A.waitForFunction(() => /A\. Centre Cívic Prova/.test(document.querySelector('#view').innerText), null, { timeout: 20000 }).catch(() => {});
+  const lab = await A.evaluate(() => [...document.querySelectorAll('#view table.cgrid th.gs')].map((t) => t.innerText).find((x) => /Centre Cívic Prova/.test(x)) || '');
+  ok('Centro con letra: en el cuadrante sale «A. Centre Cívic Prova», sin el número interno', /^A\. Centre Cívic Prova/i.test(lab) && !/140/.test(lab), lab);
+  await A.click('#tabs [data-a=gs-open]'); await A.waitForSelector('#gsq'); await A.fill('#gsq', 'Centre Cívic Prova'); await A.waitForSelector('#gsres .gstbl');
+  ok('…y en el buscador tampoco sale el número', /Centre Cívic Prova/.test(await txt(A, '#gsres')) && !/140/.test(await txt(A, '#gsres')), await txt(A, '#gsres'));
+  await A.click('#modal [data-a=m-no]').catch(() => A.keyboard.press('Escape'));
+  await A.evaluate(async () => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { 'i:zletA': { x: true } }, since: 0 }) }); });
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;

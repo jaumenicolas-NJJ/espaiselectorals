@@ -1015,6 +1015,11 @@ const xfOf = (t) => ((conf().xf || {})[t] || []).filter((d) => !d.h);
 const hcOf = (t) => ((conf().hc || {})[t] || []);
 const colsOf = (t) => COLS[t].filter((c) => hcOf(t).indexOf(c[0]) < 0).concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
 const fv = (r, k) => (k.indexOf('x_') === 0 ? (r.xv || {})[k.slice(2)] : r[k]);
+/* centros con letra en el Excel (A, B, C…): la letra va en el nombre («A. Centre Cívic…») y el número interno (100 + fila) solo sirve
+   para ordenarlos; nunca se enseña: en las listas, Nº muestra la letra y el nombre va sin ella; en el cuadrante, «A. Centre Cívic…» */
+const eCode = (it) => { const m = it && it.t === 'esp' && /^([A-Z]{1,3})\.\s+/.exec(it.nom || ''); return m && (it.ord == null || it.ord >= 100) ? m[1] : ''; };
+const shv = (it, k) => { const c = eCode(it); return c && k === 'ord' ? c : c && k === 'nom' ? it.nom.replace(/^[A-Z]{1,3}\.\s+/, '') : fv(it, k); };
+const eLabel = (it) => (eCode(it) ? it.nom : (it.ord != null ? it.ord + '. ' : '') + (it.nom || ''));
 function campDays() { const c = conf(), a = parseISO(c.d0), b = parseISO(c.d1), o = []; if (a == null || b == null || b < a) return o; for (let t = a; t <= b && o.length < 61; t += DAY) o.push(t); return o; }
 const cfgOf = (t) => idx().cfg[t] || { t, mode: 'cerrado', order: [], quota: 1, max: 0, cup: {}, auto: true, snake: false, msg: '', turn: 0, round: 1, used: 0, done: false };
 /* cuántos puede tener un partido: su cupo del reparto o, si no tiene, el máximo general (Infinity = sin límite) */
@@ -1273,7 +1278,7 @@ function viewCat(t) {
 }
 function passFilter(t, it, r) {
   const f = ST.ui.flt[t] || 'all', q = norm(ST.ui.q[t] || '');
-  if (q && norm(colsOf(t).map((c) => fv(it, c[0])).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
+  if (q && norm(colsOf(t).map((c) => shv(it, c[0])).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
   if (t === 'esp') return true;
   if (f === 'nd') return !!it.nd;
   if (f === 'free') return !r && !it.nd; if (f === 'taken') return !!r; if (f === 'mine') return !!r && r.g === myParty();
@@ -1285,7 +1290,7 @@ function listHTML(t, edit) {
   if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
   const adm = isAdmin() && !edit, sel = isAdmin(), S = selOf(t);
   return (sel ? selBar(t) : '') + '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + (sel ? selHead(t) : '') + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th>' + (adm ? '<th>¿Elegible?</th>' : '') + '<th></th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
-    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') +
+    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') +
       '<td' + (it.nd ? '' : ' class="nowrap"') + '>' + (it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : r ? pChip(r.g) : '<span class="free-l">Libre</span>') + '</td>' + (adm ? '<td>' + ndSelect(it, r) + '</td>' : '') + '<td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td>' + (adm ? '<td><button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Borrar esta línea">🗑</button></td>' : '') + '</tr>').join('') + '</tbody></table></div>';
 }
 /* ---------- marcar varias filas y borrarlas a la vez (por ejemplo, después de importar un Excel equivocado) ---------- */
@@ -1348,12 +1353,12 @@ function gridHTML(edit) {
     ? '<div class="cgset"><h3 class="cgh">Cuadrante de uso durante la campaña</h3><p>Aquí cada espacio se elige <b>por días y franjas</b> (mañana o tarde), no para toda la campaña: el mismo espacio puede ser de un partido un día y de otro el siguiente. Para que aparezca el cuadrante falta indicar la campaña: escribe el <b>día de la votación</b> y pulsa el botón; la campaña se calcula sola (art. 51 LOREG).</p><div class="btnrow"><label class="field" style="margin:0"><span>Día de la votación</span><input type="date" id="cgDv" value="' + esc(conf().dv || '') + '"></label><button class="btn primary" data-a="cg-dv">Calcular la campaña y mostrar el cuadrante</button><button class="lnk" data-a="tab" data-v="ajustes">o poner las fechas a mano en Ajustes</button></div></div>'
     : '<p class="hint warn">El Ayuntamiento todavía no ha indicado las fechas de la campaña. Cuando lo haga, aquí aparecerá el <b>cuadrante de uso durante la campaña</b>, donde cada partido elige por turnos los días y franjas (mañana o tarde) de cada espacio según su horario.</p>') +
     (edit ? '' : '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + colsOf('esp').map((c) => '<th>' + c[1] + '</th>').join('') + '</tr></thead><tbody>' +
-      E.map((it) => '<tr class="' + (it.nd ? 'ndr' : 'free') + '">' + colsOf('esp').map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (c[0] === 'nom' ? '<b>' + esc(it.nom || '') + '</b>' + (it.nd ? ' <span class="nd-l">No disponible</span>' : '') : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+      E.map((it) => '<tr class="' + (it.nd ? 'ndr' : 'free') + '">' + colsOf('esp').map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (c[0] === 'nom' ? '<b>' + esc(shv(it, 'nom') || '') + '</b>' + (it.nd ? ' <span class="nd-l">No disponible</span>' : '') : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
   h += '<h3 class="cgh">Cuadrante de uso durante la campaña</h3><p class="muted">Cada partido elige, en su turno, un espacio un día concreto por la mañana o por la tarde. Solo se pueden elegir los días y franjas que permite el horario de cada espacio; ningún espacio queda asignado a un partido para toda la campaña.</p>' +
     '<p class="muted small">Pulsa una casilla para ' + (isAdmin() ? 'asignarla, liberarla o marcar su disponibilidad; pulsa el nombre de un espacio para marcar su disponibilidad en bloque (varios días o franjas a la vez)' : isParty() ? 'reservarla o liberarla' : 'ver su detalle') + '. Mañana y tarde de cada día de campaña.</p>' +
     '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th title="Mañana">Mañana</th><th title="Tarde">Tarde</th>').join('') + '</tr></thead><tbody>';
   E.forEach((it) => {
-    const nm = esc((it.ord != null ? it.ord + '. ' : '') + (it.nom || ''));
+    const nm = esc(eLabel(it));
     h += '<tr><th class="gs" title="' + esc((it.dir || '') + (it.hor ? ' · ' + it.hor : '')) + '">' + (isAdmin() ? '<button class="lnk" data-a="blk-row" data-i="' + it.id + '" title="Disponibilidad de este espacio en bloque"><b>' + nm + '</b></button>' : '<b>' + nm + '</b>') + (it.ot ? '<small>' + esc(it.ot) + '</small>' : '') + (!it.nd && horTxt(it.hor) && horTxt(it.hor) !== 'Todos los días' ? '<small class="hzt">' + esc(horTxt(it.hor)) + '</small>' : '') + (it.nd ? '<small class="ndm">No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</small>' : '') + '</th>';
     days.forEach((d) => ['M', 'T'].forEach((m) => {
       const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s);
@@ -1849,7 +1854,7 @@ function gsRender() {
   const q = norm($('#gsq').value || ''); ST.ui.gsq = $('#gsq').value || '';
   if (q.length < 2) { box.innerHTML = '<p class="muted">Escribe al menos dos letras.</p>'; return; }
   const I = idx(), out = [];
-  CATS.forEach((t) => I.items[t].forEach((it) => { if (norm(CATN[t] + ' ' + colsOf(t).map((c) => fv(it, c[0])).join(' ')).indexOf(q) >= 0) out.push({ t, it }); }));
+  CATS.forEach((t) => I.items[t].forEach((it) => { if (norm(CATN[t] + ' ' + colsOf(t).map((c) => shv(it, c[0])).join(' ') + ' ' + (it.nom || '')).indexOf(q) >= 0) out.push({ t, it }); }));
   if (!out.length) { box.innerHTML = '<p class="muted">No hay nada que coincida con «' + esc($('#gsq').value) + '».</p>'; return; }
   const days = campDays();
   box.innerHTML = '<p class="muted small">' + out.length + (out.length === 1 ? ' resultado' : ' resultados') + (out.length > 60 ? '; se muestran los 60 primeros' : '') + '.</p><div class="tblwrap"><table class="tbl gstbl"><thead><tr><th>Categoría</th><th>Elemento</th><th>Estado</th><th></th></tr></thead><tbody>' +
@@ -2003,7 +2008,7 @@ const csvq = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
 const csvOut = (name, rows) => download(name, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(csvq).join(';')).join('\r\n'));
 function exportCat(t) {
   const I = idx();
-  if (t === 'esp') { const days = campDays(); const rows = [colsOf('esp').map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(colsOf('esp').map((c) => fv(it, c[0])).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return r ? pName(r.g) : STN[b] || ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
+  if (t === 'esp') { const days = campDays(); const rows = [colsOf('esp').map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(colsOf('esp').map((c) => shv(it, c[0])).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return r ? pName(r.g) : STN[b] || ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
   csvOut(t + '-' + CATN[t].toLowerCase().replace(/\s+/g, '-') + '.csv', [colsOf(t).map((c) => c[1]).concat(['Partido', 'Reservado el', 'Por'])].concat(I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => fv(it, c[0])).concat(r ? [pName(r.g), fStamp(r.ts), r.by] : it.nd ? ['No disponible' + (it.ndm ? ': ' + it.ndm : ''), '', ''] : ['', '', '']); })));
 }
 
@@ -2143,11 +2148,11 @@ function prCat(t) {
   const I = idx();
   if (t !== 'esp') return prDoc(CATN[t], prSummary(t) + prTable(colsOf(t).map((c) => c[1]).concat(['Partido']), I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => (c[0] === 'nom' || c[0] === 'lloc' ? '<b>' + esc(fv(it, c[0]) || '') + '</b>' : esc(fv(it, c[0]) == null ? '' : fv(it, c[0])))).concat(r ? '<b>' + esc(pName(r.g)) + '</b>' : it.nd ? 'No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') : ''); })), I.items[t].length + ' elementos · ' + takenOf(t) + ' reservados');
   const days = campDays(), CE = colsOf('esp').filter((c) => c[0] !== 'nota');
-  let h = prSummary('esp') + prTable(CE.map((c) => (c[0] === 'nom' ? 'Espacio' : c[1])), I.items.esp.map((it) => CE.map((c) => (c[0] === 'nom' ? '<b>' + esc(it.nom) + '</b>' + (it.nd ? '<br><i>No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</i>' : '') : esc(fv(it, c[0]) == null ? '' : fv(it, c[0]))))));
+  let h = prSummary('esp') + prTable(CE.map((c) => (c[0] === 'nom' ? 'Espacio' : c[1])), I.items.esp.map((it) => CE.map((c) => (c[0] === 'nom' ? '<b>' + esc(shv(it, 'nom')) + '</b>' + (it.nd ? '<br><i>No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</i>' : '') : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))))));
   for (let i = 0; i < days.length; i += 8) {
     const ch = days.slice(i, i + 8);
     h += '<h2 class="pr-h2 pr-break">Cuadrante · ' + esc(fShort(ch[0])) + ' – ' + esc(fShort(ch[ch.length - 1])) + '</h2><table class="pr-t pr-grid"><thead><tr><th rowspan="2">Espacio</th>' + ch.map((d) => '<th colspan="2">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + ch.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>' +
-      I.items.esp.map((it) => '<tr><td><b>' + esc((it.ord != null ? it.ord + '. ' : '') + it.nom) + '</b></td>' + ch.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return '<td class="' + (!r && (b === 'nd' || b === 'hz') ? 'nd' : !r && b === 'rs' ? 'rs' : '') + '">' + (r ? '<b>' + esc(pName(r.g)) + '</b>' : b === 'nd' ? 'N/D' : b === 'hz' ? '—' : b === 'rs' ? 'Restr.' : '') + '</td>'; }).join('')).join('') + '</tr>').join('') + '</tbody></table>';
+      I.items.esp.map((it) => '<tr><td><b>' + esc(eLabel(it)) + '</b></td>' + ch.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return '<td class="' + (!r && (b === 'nd' || b === 'hz') ? 'nd' : !r && b === 'rs' ? 'rs' : '') + '">' + (r ? '<b>' + esc(pName(r.g)) + '</b>' : b === 'nd' ? 'N/D' : b === 'hz' ? '—' : b === 'rs' ? 'Restr.' : '') + '</td>'; }).join('')).join('') + '</tr>').join('') + '</tbody></table>';
   }
   return prDoc('Espacios electorales', h, I.items.esp.length + ' espacios · ' + takenOf('esp') + ' franjas reservadas · N/D: no disponible · —: fuera del horario del espacio · Restr.: con restricciones');
 }
@@ -2300,7 +2305,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.9.2 · 22/10/2026';
+const APP_VERSION = '1.9.3 · 22/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
