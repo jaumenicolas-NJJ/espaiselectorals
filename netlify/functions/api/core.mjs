@@ -47,6 +47,34 @@ const activeAdmins = (auth) => Object.values(auth.users).filter((u) => !u.x && u
 
 /* ---------- reglas de turnos ---------- */
 const slotOK = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}[MT]$/.test(s);
+/* disponibilidad según (la misma función que en public/index.html; si se cambia, cambiarla en los dos sitios) el «Horario de uso» de cada espacio (castellano o catalán):
+   días de la semana (rangos «de lunes a viernes», listas, «excepto sábado»…) y franjas por las horas («de 17 a 20:30» → solo tarde).
+   Devuelve null si el texto no dice nada reconocible (todo disponible) o, por día (0 = domingo … 6 = sábado), si hay mañana (M) y tarde (T). */
+const HOR_D = [[/\b(domingos?|diumenges?|dg)\b/g, 0], [/\b(lunes|dilluns|dl)\b/g, 1], [/\b(martes|dimarts|dt)\b/g, 2], [/\b(miercoles|dimecres|dc)\b/g, 3], [/\b(jueves|dijous|dj)\b/g, 4], [/\b(viernes|divendres|dv)\b/g, 5], [/\b(sabados?|dissabtes?|ds)\b/g, 6]];
+function horDisp(txt) {
+  let s = String(txt || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`´]/g, "'").replace(/\s+/g, ' ');
+  if (!s.trim()) return null;
+  HOR_D.forEach(([re, n]) => { s = s.replace(re, ' #' + n + ' '); });
+  s = s.replace(/\b(dias |dies )?(laborables|feiners|entre setmana|entre semana)\b/g, ' #1 a #5 ').replace(/\b(fines? de semana|fins de setmana|caps? de setmana)\b/g, ' #6 #0 ').replace(/\b(todos los dias|cada dia|tots els dies|diari(ament)?|diario)\b/g, ' #1 a #0 ');
+  const cut = s.search(/\b(excepte|excepto|excepcio|excepcion|menys|menos|salvo|tret d|tret de|llevat d|no disponible|no es pot|no se puede|tancat|cerrado)/);
+  const pos = cut < 0 ? s : s.slice(0, cut), neg = cut < 0 ? '' : s.slice(cut);
+  const days = (p) => { const o = new Set(); p = p.replace(/#(\d)\s*(?:,\s*)?(?:a|al|fins a|fins al|fins|hasta el|hasta|-|–)\s*#(\d)/g, (_, a, b) => { for (let d = +a, k = 0; k < 7; d = (d + 1) % 7, k++) { o.add(d); if (d === +b) break; } return ' '; }); (p.match(/#\d/g) || []).forEach((m) => o.add(+m[1])); return o; };
+  const fr = (p) => { const o = new Set(); let m; const re = /(\d{1,2})(?:[:.h'](\d{2}))?\s*(?:h\b|hores|horas|hrs?)?\s*(?:a|al|fins a|fins les|fins|hasta las|hasta|-|–)\s*(?:les |las )?(\d{1,2})(?:[:.h'](\d{2}))?/g;
+    while ((m = re.exec(p))) { const a = +m[1] + (+m[2] || 0) / 60, b = +m[3] + (+m[4] || 0) / 60; if (a > 24 || b > 24 || b <= a) continue; if (a < 14) o.add('M'); if (b > 15) o.add('T'); }
+    if (/\b(manana|mananas|mati|matins)\b/.test(p)) o.add('M'); if (/\b(tarde|tardes|tarda|tardes|vespre|vespres|noche|nit)\b/.test(p)) o.add('T'); return o; };
+  const pd = days(pos), nd = days(neg), pf = fr(pos), nf = fr(neg);
+  if (!pd.size && !nd.size && !pf.size) return null;
+  const out = {};
+  for (let d = 0; d < 7; d++) {
+    const on = !pd.size || pd.has(d), ex = nd.has(d);
+    ['M', 'T'].forEach((m) => { out[d + m] = on && (!pf.size || pf.has(m)) && !(ex && (!nf.size || nf.has(m))); });
+  }
+  return out;
+}
+/* ¿se puede usar el espacio ese día (AAAA-MM-DD) y franja (M/T) según su horario? */
+const horOK = (txt, s) => { const h = horDisp(txt); return !h || h[new Date(s.slice(0, 10) + 'T12:00:00Z').getUTCDay() + s[10]] !== false; };
+/* franja cerrada: marcada como no disponible o fuera del horario del espacio (salvo que el Ayuntamiento la haya abierto con 'ok') */
+const slotOff = (e, s) => { const b = (e.blk || {})[s]; return b === 'nd' || (b !== 'ok' && b !== 'rs' && !horOK(e.hor, s)); };
 function effOrder(c) { const o = (c.order || []).slice(); return c.snake && (c.round || 1) % 2 === 0 ? o.reverse() : o; }
 const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.turn || 0] || null : null);
 /* cuántos elementos puede tener cada partido: su cupo del reparto (si lo hay) o el máximo general (0 = sin límite) */
@@ -87,7 +115,7 @@ function hcOK(hc) {
   return o;
 }
 /* enlace con Eleccions: una clave de solo lectura con la que Eleccions trae el reparto (GET /api/reparto) */
-const APP_VER = '1.8 · 20/10/2026';
+const APP_VER = '1.9 · 22/10/2026';
 const LINK_RE = /^Bearer (ee1_[\w-]{20,80})$/;
 const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
 /* el reparto tal como ha quedado, con todos los datos de cada punto y de las candidaturas (también su contacto, porque Eleccions es
@@ -111,6 +139,8 @@ function repartoOut(db, t) {
   const comun = (x, e) => ({ nota: e.nota || '', no_disponible: !!e.nd, no_disponible_motivo: e.nd ? e.ndm || '' : '', campos: campos(x, e) });
   const quien = (r) => ({ partido: r.g, adjudicado_el: iso(r.ts), adjudicado_por: r.by || '' });
   const owner = (e) => { const r = (R[e.id] || []).find((x) => !x.slot && live.has(x.g)); return r ? quien(r) : { partido: null, adjudicado_el: null, adjudicado_por: '' }; };
+  const cd = []; if (isISO(c.d0) && isISO(c.d1)) for (let d = Date.parse(c.d0 + 'T00:00:00Z'); d <= Date.parse(c.d1 + 'T00:00:00Z') && cd.length < 120; d += 86400000) cd.push(new Date(d).toISOString().slice(0, 10));
+  const fuera = (e) => { const o = []; for (const d of cd) for (const f of ['M', 'T']) { const b = (e.blk || {})[d + f]; if (b !== 'nd' && b !== 'ok' && b !== 'rs' && !horOK(e.hor, d + f)) o.push({ fecha: d, franja: f }); } return o; };
   const franjas = (e, v) => Object.keys(e.blk || {}).filter((s) => e.blk[s] === v).sort().map((s) => ({ fecha: s.slice(0, 10), franja: s[10] }));
   const reglas = {};
   CATS.forEach((x) => { const r = E['c:' + x] && !E['c:' + x].x ? E['c:' + x] : {}, rm = c.rmeth || {}; reglas[x] = { modo: r.mode || 'cerrado', metodo: rm[x] != null ? rm[x] : DEF_METH[x], orden: (r.order || []).filter((g) => live.has(g)), por_turno: r.quota || 1, maximo: r.max || 0, cupos: Object.fromEntries(Object.entries(r.cup || {}).filter(([g]) => live.has(g))), terminada: !!r.done }; });
@@ -121,7 +151,7 @@ function repartoOut(db, t) {
     partidos: P.map((p, i) => ({ id: p.id, siglas: p.sig || '', nombre: p.nom || '', color: p.col || PALETTE[i % PALETTE.length], orden: p.ord == null ? null : p.ord, representante: p.rep || '', telefono: p.tel || '', correo: p.mail || '', votos: p.vot == null ? null : p.vot, nota: p.nota || '', campos: campos('par', p) })),
     reglas,
     esp: I.esp.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, nombre: e.nom || '', tipo: e.ot || '', direccion: e.dir || '', horario: e.hor || '' }, comun('esp', e), {
-      franjas_no_disponibles: franjas(e, 'nd'), franjas_con_restricciones: franjas(e, 'rs'),
+      franjas_no_disponibles: franjas(e, 'nd'), franjas_con_restricciones: franjas(e, 'rs'), franjas_fuera_de_horario: fuera(e),
       reservas: (R[e.id] || []).filter((r) => r.slot && live.has(r.g)).sort((a, b) => (a.slot < b.slot ? -1 : 1)).map((r) => Object.assign({ fecha: r.slot.slice(0, 10), franja: r.slot[10] }, quien(r)))
     })),
     ban: I.ban.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, calle: e.nom || '', tramo: e.tram || '', banderolas: e.bf == null ? null : e.bf, plafones: e.pf == null ? null : e.pf }, comun('ban', e), owner(e))),
@@ -137,7 +167,7 @@ function freeLeft(db, t) {
   for (const k in db.E) {
     const e = db.E[k]; if (e.k !== 'i' || e.x || e.t !== t || e.nd) continue;
     if (t !== 'esp') { const r = db.E['r:' + k.slice(2)]; if (!r || r.x) return true; continue; }
-    for (const d of days) for (const f of ['M', 'T']) { const s = d + f; if ((e.blk || {})[s] === 'nd') continue; const r = db.E['r:' + k.slice(2) + ':' + s]; if (!r || r.x) return true; }
+    for (const d of days) for (const f of ['M', 'T']) { const s = d + f; if (slotOff(e, s)) continue; const r = db.E['r:' + k.slice(2) + ':' + s]; if (!r || r.x) return true; }
   }
   return false;
 }
@@ -364,7 +394,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
         if (tt === 'esp') {
           const b = ch.blk == null ? {} : ch.blk;
           if (typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length > 200) return 'Disponibilidad no válida.';
-          o.blk = {}; for (const s in b) { if (!slotOK(s) || !['nd', 'rs'].includes(b[s])) return 'Disponibilidad no válida.'; o.blk[s] = b[s]; }
+          o.blk = {}; for (const s in b) { if (!slotOK(s) || !['nd', 'rs', 'ok'].includes(b[s])) return 'Disponibilidad no válida.'; o.blk[s] = b[s]; }
           if (o.blk && cur) for (const s in o.blk) if (o.blk[s] === 'nd') { const r = db.E['r:' + key.slice(2) + ':' + s]; if (r && !r.x) return 'Esa franja está reservada por ' + pname(db, r.g) + ': libérala antes de marcarla como no disponible.'; }
         }
         e = o;
@@ -402,6 +432,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
       const conf = db.E['s:conf'] || {}, day = slot.slice(0, 10);
       if (!conf.d0 || !conf.d1 || day < conf.d0 || day > conf.d1) throw new HttpErr(400, 'Ese día no está dentro de la campaña.');
       if ((it.blk || {})[slot] === 'nd') throw new HttpErr(409, 'Ese espacio no está disponible en esa franja.');
+      if (slotOff(it, slot)) throw new HttpErr(409, 'Esa franja queda fuera del horario del espacio' + (it.hor ? ' (' + it.hor + ')' : '') + '.');
     } else if (slot) throw new HttpErr(400, 'Reserva no válida.');
     const key = 'r:' + body.i + (slot ? ':' + slot : ''), cur = db.E[key];
     if (cur && !cur.x) throw new HttpErr(409, (cur.g === g ? 'Ya lo tenéis reservado.' : 'Lo acaba de reservar ' + pname(db, cur.g) + '.'));

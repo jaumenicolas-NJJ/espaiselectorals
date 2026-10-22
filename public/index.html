@@ -609,6 +609,9 @@ table.cgrid{border-collapse:separate;border-spacing:0;font-size:12px}
 .cgrid td.cc.free button{background:#f3faf5;color:#2E7D32}.cgrid td.cc.free button:hover{background:#d9f0e0;outline:2px solid #7cc596}
 .cgrid td.cc.rs button{background:#fff4d4;color:#7a5600}
 .cgrid td.cc.nd button{background:#e3e4e8;color:#777;cursor:pointer}
+.cgrid td.cc.hz button{background:repeating-linear-gradient(135deg,#eceef1 0 5px,#e1e3e8 5px 10px);color:#999;font-weight:400}
+.legend .lgc.hz{background:repeating-linear-gradient(135deg,#eceef1 0 4px,#d9dce2 4px 8px);color:#888}
+.cgrid tbody th.gs small.hzt{color:#2b5a8a}
 .cgrid td.cc.taken button,.cgrid td.cc.mine button{background:var(--pc,#888);color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.3)}
 .cgrid td.cc.mine button{outline:3px solid #1d6b3c;outline-offset:-3px}
 .cgrid td.cc.dim button{opacity:.25}
@@ -1020,7 +1023,57 @@ const resKey = (i, slot) => i + (slot ? ':' + slot : '');
 const resOf = (i, slot) => idx().res[resKey(i, slot)];
 const activeRes = (i, slot) => { const r = resOf(i, slot); return r && !r.x ? r : null; };
 function myCount(t, g) { const R = idx().res; let n = 0; for (const k in R) { const r = R[k]; if (!r.x && r.t === t && r.g === g) n++; } return n; }
-function slotsOf(t) { /* número total de huecos reservables (sin lo que está marcado como no disponible) */ const L = idx().items[t].filter((it) => !it.nd); if (t !== 'esp') return L.length; const D = campDays().map(toISO), d = D.length * 2; return L.reduce((s, it) => s + d - Object.keys(it.blk || {}).filter((k) => it.blk[k] === 'nd' && D.indexOf(k.slice(0, 10)) >= 0).length, 0); }
+/* disponibilidad según el «Horario de uso» de cada espacio (castellano o catalán):
+   días de la semana (rangos «de lunes a viernes», listas, «excepto sábado»…) y franjas por las horas («de 17 a 20:30» → solo tarde).
+   Devuelve null si el texto no dice nada reconocible (todo disponible) o, por día (0 = domingo … 6 = sábado), si hay mañana (M) y tarde (T). */
+const HOR_D = [[/\b(domingos?|diumenges?|dg)\b/g, 0], [/\b(lunes|dilluns|dl)\b/g, 1], [/\b(martes|dimarts|dt)\b/g, 2], [/\b(miercoles|dimecres|dc)\b/g, 3], [/\b(jueves|dijous|dj)\b/g, 4], [/\b(viernes|divendres|dv)\b/g, 5], [/\b(sabados?|dissabtes?|ds)\b/g, 6]];
+function horDisp(txt) {
+  let s = String(txt || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`´]/g, "'").replace(/\s+/g, ' ');
+  if (!s.trim()) return null;
+  HOR_D.forEach(([re, n]) => { s = s.replace(re, ' #' + n + ' '); });
+  s = s.replace(/\b(dias |dies )?(laborables|feiners|entre setmana|entre semana)\b/g, ' #1 a #5 ').replace(/\b(fines? de semana|fins de setmana|caps? de setmana)\b/g, ' #6 #0 ').replace(/\b(todos los dias|cada dia|tots els dies|diari(ament)?|diario)\b/g, ' #1 a #0 ');
+  const cut = s.search(/\b(excepte|excepto|excepcio|excepcion|menys|menos|salvo|tret d|tret de|llevat d|no disponible|no es pot|no se puede|tancat|cerrado)/);
+  const pos = cut < 0 ? s : s.slice(0, cut), neg = cut < 0 ? '' : s.slice(cut);
+  const days = (p) => { const o = new Set(); p = p.replace(/#(\d)\s*(?:,\s*)?(?:a|al|fins a|fins al|fins|hasta el|hasta|-|–)\s*#(\d)/g, (_, a, b) => { for (let d = +a, k = 0; k < 7; d = (d + 1) % 7, k++) { o.add(d); if (d === +b) break; } return ' '; }); (p.match(/#\d/g) || []).forEach((m) => o.add(+m[1])); return o; };
+  const fr = (p) => { const o = new Set(); let m; const re = /(\d{1,2})(?:[:.h'](\d{2}))?\s*(?:h\b|hores|horas|hrs?)?\s*(?:a|al|fins a|fins les|fins|hasta las|hasta|-|–)\s*(?:les |las )?(\d{1,2})(?:[:.h'](\d{2}))?/g;
+    while ((m = re.exec(p))) { const a = +m[1] + (+m[2] || 0) / 60, b = +m[3] + (+m[4] || 0) / 60; if (a > 24 || b > 24 || b <= a) continue; if (a < 14) o.add('M'); if (b > 15) o.add('T'); }
+    if (/\b(manana|mananas|mati|matins)\b/.test(p)) o.add('M'); if (/\b(tarde|tardes|tarda|tardes|vespre|vespres|noche|nit)\b/.test(p)) o.add('T'); return o; };
+  const pd = days(pos), nd = days(neg), pf = fr(pos), nf = fr(neg);
+  if (!pd.size && !nd.size && !pf.size) return null;
+  const out = {};
+  for (let d = 0; d < 7; d++) {
+    const on = !pd.size || pd.has(d), ex = nd.has(d);
+    ['M', 'T'].forEach((m) => { out[d + m] = on && (!pf.size || pf.has(m)) && !(ex && (!nf.size || nf.has(m))); });
+  }
+  return out;
+}
+/* ¿se puede usar el espacio ese día (AAAA-MM-DD) y franja (M/T) según su horario? */
+const horOK = (txt, s) => { const h = horDisp(txt); return !h || h[new Date(s.slice(0, 10) + 'T12:00:00Z').getUTCDay() + s[10]] !== false; };
+/* resumen corto: «De lunes a viernes, tardes», «Todos los días salvo sábado»… */
+function horTxt(txt) {
+  const h = horDisp(txt); if (!h) return '';
+  const N = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'], ord = [1, 2, 3, 4, 5, 6, 0];
+  const y = (L) => (L.length < 2 ? L.join('') : L.slice(0, -1).join(', ') + ' y ' + L[L.length - 1]);
+  const span = (L) => {
+    if (L.length === 7) return 'todos los días';
+    const ix = L.map((d) => ord.indexOf(d)).sort((a, b) => a - b), D = ix.map((k) => ord[k]);
+    if (D.length > 2 && ix.every((v, k) => !k || v === ix[k - 1] + 1)) return 'de ' + N[D[0]] + ' a ' + N[D[D.length - 1]];
+    if (D.length >= 5) return 'todos los días salvo ' + y(ord.filter((d) => D.indexOf(d) < 0).map((d) => N[d]));
+    return y(D.map((d) => N[d]));
+  };
+  const M = ord.filter((d) => h[d + 'M']), T = ord.filter((d) => h[d + 'T']), up = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+  if (!M.length && !T.length) return 'Ningún día';
+  if (M.join() === T.join()) return up(span(M));
+  if (!M.length) return up(span(T)) + ', solo tardes';
+  if (!T.length) return up(span(M)) + ', solo mañanas';
+  return 'Mañanas: ' + span(M) + ' · Tardes: ' + span(T);
+}
+/* estado de una franja de un espacio: 'nd' no disponible (el espacio entero o marcada así), 'hz' fuera del horario del espacio,
+   'rs' con restricciones, '' libre. blk[s] = 'ok' abre a mano una franja que el horario deja fuera. */
+function slotSt(it, s) { if (it.nd) return 'nd'; const b = (it.blk || {})[s]; if (b === 'nd' || b === 'rs') return b; return b !== 'ok' && !horOK(it.hor, s) ? 'hz' : ''; }
+const slotOff = (it, s) => { const b = slotSt(it, s); return b === 'nd' || b === 'hz'; };
+const STN = { nd: 'No disponible', hz: 'Fuera de su horario', rs: 'Con restricciones' };
+function slotsOf(t) { /* número total de huecos reservables (sin lo no disponible ni lo que queda fuera del horario de cada espacio) */ const L = idx().items[t].filter((it) => !it.nd); if (t !== 'esp') return L.length; const D = campDays().map(toISO); return L.reduce((n, it) => n + D.reduce((m, d) => m + ['M', 'T'].filter((f) => !slotOff(it, d + f)).length, 0), 0); }
 function takenOf(t) { const R = idx().res; let n = 0; for (const k in R) if (!R[k].x && R[k].t === t && idx().imap[R[k].i]) n++; return n; }
 const pName = (g) => { const p = idx().pmap[g]; return p ? p.sig || p.nom : '—'; };
 const pChip = (g, small) => { const p = idx().pmap[g]; if (!p) return '<span class="pchip off">—</span>'; return '<span class="pchip' + (small ? ' sm' : '') + '" style="--pc:' + p.col + '" title="' + esc(p.nom || p.sig) + '">' + esc(p.sig || p.nom) + '</span>'; };
@@ -1295,40 +1348,41 @@ function gridHTML(edit) {
     '<div class="gscroll"><table class="tbl cgrid"><thead><tr><th class="gs" rowspan="2">Espacio</th>' + days.map((d) => '<th colspan="2" class="' + ([0, 6].includes(new Date(d).getUTCDay()) ? 'we' : '') + '">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + days.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>';
   E.forEach((it) => {
     const nm = esc((it.ord != null ? it.ord + '. ' : '') + (it.nom || ''));
-    h += '<tr><th class="gs" title="' + esc((it.dir || '') + (it.hor ? ' · ' + it.hor : '')) + '">' + (isAdmin() ? '<button class="lnk" data-a="blk-row" data-i="' + it.id + '" title="Disponibilidad de este espacio en bloque"><b>' + nm + '</b></button>' : '<b>' + nm + '</b>') + (it.ot ? '<small>' + esc(it.ot) + '</small>' : '') + (it.nd ? '<small class="ndm">No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</small>' : '') + '</th>';
+    h += '<tr><th class="gs" title="' + esc((it.dir || '') + (it.hor ? ' · ' + it.hor : '')) + '">' + (isAdmin() ? '<button class="lnk" data-a="blk-row" data-i="' + it.id + '" title="Disponibilidad de este espacio en bloque"><b>' + nm + '</b></button>' : '<b>' + nm + '</b>') + (it.ot ? '<small>' + esc(it.ot) + '</small>' : '') + (!it.nd && horTxt(it.hor) && horTxt(it.hor) !== 'Todos los días' ? '<small class="hzt">' + esc(horTxt(it.hor)) + '</small>' : '') + (it.nd ? '<small class="ndm">No disponible' + (it.ndm ? ': ' + esc(it.ndm) : '') + '</small>' : '') + '</th>';
     days.forEach((d) => ['M', 'T'].forEach((m) => {
-      const s = toISO(d) + m, r = activeRes(it.id, s), b = it.nd ? 'nd' : (it.blk || {})[s];
+      const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s);
       let cls = 'cc', txt = '';
       if (r) { cls += r.g === myParty() ? ' mine' : ' taken'; txt = pName(r.g); }
-      else if (b === 'nd') { cls += ' nd'; txt = 'N/D'; }
+      else if (b === 'nd' || b === 'hz') { cls += ' nd' + (b === 'hz' ? ' hz' : ''); txt = b === 'hz' ? '—' : 'N/D'; }
       else { cls += ' free' + (b === 'rs' ? ' rs' : ''); txt = b === 'rs' ? '⚠' : ''; }
       if (f.indexOf('p:') === 0 && (!r || r.g !== f.slice(2))) cls += ' dim';
       if (f === 'mine' && (!r || r.g !== myParty())) cls += ' dim';
-      if (f === 'free' && (r || b === 'nd')) cls += ' dim';
+      if (f === 'free' && (r || b === 'nd' || b === 'hz')) cls += ' dim';
       if (f === 'taken' && !r) cls += ' dim';
-      h += '<td class="' + cls + '"' + (r ? ' style="--pc:' + (idx().pmap[r.g] || {}).col + '"' : '') + '><button data-a="cell" data-i="' + it.id + '" data-s="' + s + '" title="' + esc(it.nom + ' · ' + slotTxt(s) + (r ? ' · ' + pName(r.g) : b === 'nd' ? ' · No disponible' + (it.nd && it.ndm ? ': ' + it.ndm : '') : b === 'rs' ? ' · Con restricciones' : ' · Libre')) + '">' + esc(txt) + '</button></td>';
+      h += '<td class="' + cls + '"' + (r ? ' style="--pc:' + (idx().pmap[r.g] || {}).col + '"' : '') + '><button data-a="cell" data-i="' + it.id + '" data-s="' + s + '" title="' + esc(it.nom + ' · ' + slotTxt(s) + (r ? ' · ' + pName(r.g) : b === 'nd' ? ' · No disponible' + (it.nd && it.ndm ? ': ' + it.ndm : '') : b === 'hz' ? ' · Fuera de su horario' + (it.hor ? ' (' + it.hor + ')' : '') : b === 'rs' ? ' · Con restricciones' : ' · Libre')) + '">' + esc(txt) + '</button></td>';
     }));
     h += '</tr>';
   });
-  return h + '</tbody></table></div><p class="legend small"><span class="lgc free"></span> Libre <span class="lgc rs">⚠</span> Con restricciones <span class="lgc nd">N/D</span> No disponible <span class="lgc taken"></span> Reservado' + (isParty() ? ' <span class="lgc mine"></span> Vuestro' : '') + '</p>';
+  return h + '</tbody></table></div><p class="legend small"><span class="lgc free"></span> Libre <span class="lgc rs">⚠</span> Con restricciones <span class="lgc nd">N/D</span> No disponible <span class="lgc nd hz">—</span> Fuera del horario del espacio <span class="lgc taken"></span> Reservado' + (isParty() ? ' <span class="lgc mine"></span> Vuestro' : '') + '</p>';
 }
 function modalCell(i, s) {
   const it = idx().imap[i]; if (!it) return;
-  const r = activeRes(i, s), b = it.nd ? 'nd' : (it.blk || {})[s], pick = canPick('esp');
+  const r = activeRes(i, s), b = slotSt(it, s), pick = canPick('esp');
   let h = '<h2>' + esc(it.nom) + '</h2><p><b>' + esc(slotTxt(s)) + '</b>' + (it.dir ? ' · ' + esc(it.dir) : '') + (it.hor ? '<br><span class="muted">Horario: ' + esc(it.hor) + '</span>' : '') + xfOf('esp').filter((d) => (it.xv || {})[d.id]).map((d) => '<br><span class="muted">' + esc(d.n) + ': ' + esc(it.xv[d.id]) + '</span>').join('') + (it.nota ? '<br><span class="muted">Notas: ' + esc(it.nota) + '</span>' : '') + '</p>';
   if (r) h += '<p>Reservado por ' + pChip(r.g) + ' <span class="muted">(' + fStamp(r.ts) + ' · ' + esc(r.by) + ')</span></p>';
   else if (it.nd) h += '<p class="hint warn"><b>Este espacio no está disponible</b>' + (it.ndm ? ': ' + esc(it.ndm) : '') + '.</p>';
   else if (b === 'nd') h += '<p class="hint warn">No disponible en esta franja.</p>';
+  else if (b === 'hz') h += '<p class="hint warn">Fuera del horario de este espacio' + (horTxt(it.hor) ? ' (' + esc(horTxt(it.hor)) + ')' : '') + ': no se puede reservar esta franja.' + (isAdmin() ? ' Si el horario no es correcto, corrígelo con «✎ Editar lista» o abre solo esta franja con «Disponible».' : '') + '</p>';
   else h += '<p>' + (b === 'rs' ? '<span class="hint warn">⚠ Con restricciones: consulta las condiciones de uso antes de reservar.</span>' : '<span class="free-l">Libre</span>') + '</p>';
   let acts = '';
   if (r && canRelease(r)) acts += '<button class="btn danger" data-a="rel" data-i="' + i + '" data-s="' + s + '">Liberar esta franja</button>';
   if (r && isAdmin()) acts += reSelect(i, s, r.g);
-  if (!r && b !== 'nd') {
+  if (!r && b !== 'nd' && b !== 'hz') {
     if (isAdmin()) acts += '<select id="cellParty">' + partyOpts('', 'Elige el partido…') + '</select><button class="btn primary" data-a="cell-asg" data-i="' + i + '" data-s="' + s + '">Asignar</button>';
     else if (isParty()) acts += pick.ok ? '<button class="btn primary" data-a="res" data-i="' + i + '" data-s="' + s + '">Reservar para ' + esc(pName(myParty())) + '</button>' : '<p class="hint">' + esc(pick.why) + '</p>';
   }
   if (isAdmin() && it.nd) acts += '<button class="btn" data-a="nd-off" data-i="' + i + '">Volver a habilitar el espacio</button>';
-  if (isAdmin() && !r && !it.nd) h += '<div class="field"><span>Disponibilidad de esta franja</span><div class="seg">' + [['', 'Disponible'], ['rs', 'Con restricciones'], ['nd', 'No disponible']].map(([k, l]) => '<button data-a="blk" data-i="' + i + '" data-s="' + s + '" data-v="' + k + '" class="' + ((b || '') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
+  if (isAdmin() && !r && !it.nd) h += '<div class="field"><span>Disponibilidad de esta franja</span><div class="seg">' + [['', 'Disponible'], ['rs', 'Con restricciones'], ['nd', 'No disponible']].map(([k, l]) => '<button data-a="blk" data-i="' + i + '" data-s="' + s + '" data-v="' + k + '" class="' + ((b === 'hz' ? 'nd' : b || '') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
   openModal(h + '<div class="acts">' + acts + '<button class="btn" data-a="m-no">Cerrar</button></div>');
 }
 
@@ -1352,7 +1406,7 @@ function applyBlkRow(i) {
   if (d1 < d0) return toast('La fecha final es anterior a la inicial.', 'err');
   if (!fr.length || !wd.length) return toast('Elige al menos una franja y un día de la semana.', 'err');
   const blk = Object.assign({}, e.blk || {}); let n = 0, skipped = 0;
-  campDays().forEach((d) => { const iso = toISO(d); if (iso < d0 || iso > d1 || wd.indexOf(new Date(d).getUTCDay()) < 0) return; fr.forEach((m) => { const s = iso + m; if (activeRes(i, s)) { skipped++; return; } if ((blk[s] || '') === v) return; if (v) blk[s] = v; else delete blk[s]; n++; }); });
+  campDays().forEach((d) => { const iso = toISO(d); if (iso < d0 || iso > d1 || wd.indexOf(new Date(d).getUTCDay()) < 0) return; fr.forEach((m) => { const s = iso + m; if (activeRes(i, s)) { skipped++; return; } const w = !v && !horOK(e.hor, s) ? 'ok' : v === 'nd' && !horOK(e.hor, s) ? '' : v; if ((blk[s] || '') === w) return; if (w) blk[s] = w; else delete blk[s]; n++; }); });
   closeModal(true);
   if (!n) return toast(skipped ? 'No se ha cambiado nada: esas franjas ya estaban así o están reservadas.' : 'No se ha cambiado nada: esas franjas ya estaban así.');
   put(k, Object.assign({}, e, { blk }));
@@ -1796,7 +1850,7 @@ function gsRender() {
     out.slice(0, 60).map(({ t, it }) => {
       let st = '', btn = '';
       if (t === 'esp') {
-        const tot = it.nd ? 0 : days.length * 2 - Object.keys(it.blk || {}).filter((k) => it.blk[k] === 'nd').length, used = Object.keys(I.res).filter((k) => !I.res[k].x && I.res[k].i === it.id).length;
+        const tot = it.nd ? 0 : days.reduce((m, d) => m + ['M', 'T'].filter((f) => !slotOff(it, toISO(d) + f)).length, 0), used = Object.keys(I.res).filter((k) => !I.res[k].x && I.res[k].i === it.id).length;
         st = it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : '<span class="free-l">' + Math.max(tot - used, 0) + ' franjas libres</span> <span class="muted small">de ' + tot + '</span>';
         btn = '<button class="btn sm" data-a="gs-go" data-t="esp" data-q="' + esc(gsKey(t, it)) + '">Ver en el cuadrante</button>';
       } else {
@@ -1889,7 +1943,7 @@ function helpCand() {
     hsec(2, 'Entrar', '<p>Abrid <b>' + esc(appUrl()) + '</b> con Edge o Chrome (también funciona en el móvil) y entrad con el usuario y la contraseña provisional que os ha dado el Ayuntamiento. La primera vez el programa os pedirá que elijáis vuestra propia contraseña. Cada candidatura tiene su usuario, vinculado a ella: así el programa sabe cuándo os toca y lo que elegís queda a vuestro nombre. Si al entrar aparece el aviso rojo «Tu usuario no está vinculado a ninguna candidatura», avisad al Ayuntamiento antes de la sesión. No compartáis el usuario, porque todo lo que se hace queda registrado con el nombre de quien lo hace. Si olvidáis la contraseña, el Ayuntamiento os da una nueva.</p>') +
     hsec(3, 'Cómo se reparte según la ley', legalHTML(), 'h-ley') +
     hsec(4, 'Turnos, rondas y cupos: cómo se elige', TURNOS_HTML(), 'h-turnos') +
-    hsec(5, 'Cómo elegir y cómo liberar', '<p><b>Banderolas, pancartas y prismas:</b> cuando sea vuestro turno, pulsad <b>«Reservar»</b> en la fila que queráis. Con el filtro podéis ver solo lo libre y con el buscador encontrar una calle o un lugar. <b>Espacios electorales:</b> hay un cuadrante con una fila por espacio y la mañana (M) y la tarde (T) de cada día de campaña; pulsad una casilla libre y confirmad. Las casillas con ⚠ tienen restricciones de uso; las grises (N/D) no están disponibles. Lo que el Ayuntamiento ha marcado como <b>no disponible</b> aparece en gris con el motivo y no se puede elegir.</p>' +
+    hsec(5, 'Cómo elegir y cómo liberar', '<p><b>Banderolas, pancartas y prismas:</b> cuando sea vuestro turno, pulsad <b>«Reservar»</b> en la fila que queráis. Con el filtro podéis ver solo lo libre y con el buscador encontrar una calle o un lugar. <b>Espacios electorales:</b> hay un cuadrante con una fila por espacio y la mañana (M) y la tarde (T) de cada día de campaña; pulsad una casilla libre y confirmad. Las casillas con ⚠ tienen restricciones de uso; las grises (N/D) no están disponibles. Las rayadas (—) quedan fuera del horario de ese espacio según la lista de espacios (por ejemplo, un centro cívico que solo abre de lunes a viernes por la tarde): no se pueden reservar. Cada candidatura elige día a día y espacio a espacio; ningún espacio queda asignado a una candidatura para toda la campaña. Lo que el Ayuntamiento ha marcado como <b>no disponible</b> aparece en gris con el motivo y no se puede elegir.</p>' +
       '<p><b>Buscar.</b> Si no encontráis un espacio, una calle o un lugar, el botón <b>«🔍 Buscar»</b> de la barra de pestañas busca a la vez en las cuatro categorías y dice si cada cosa está libre, de quién es o si no está disponible. Desde ahí se puede reservar directamente cuando es vuestro turno, o ir a ese elemento en su lista o en el cuadrante. Cada pestaña tiene también su propio buscador.</p>' +
       '<p>Antes de reservar, el programa pide confirmación. En cuanto confirmáis, queda reservado y aparece ocupado para las demás candidaturas. Mientras la selección esté abierta podéis <b>liberar</b> lo vuestro (botón «Liberar» en la fila, en la casilla o en «Vuestras reservas» del Panel); si lo hacéis durante vuestro turno, recuperáis esa elección. Con la selección cerrada, pedídselo al Ayuntamiento.</p>') +
     hsec(6, 'Dónde ver lo que ha elegido cada candidatura', '<p>La pestaña <b>● En directo</b> (la del punto rojo, que late mientras la selección está abierta) lo reúne todo en una sola pantalla: arriba, de quién es el turno en cada categoría y las últimas elecciones a medida que se hacen; debajo, todo lo que tiene cada candidatura en las cuatro categorías, con filtros por candidatura y por categoría. En el <b>Panel</b> se ve el estado de cada categoría, el orden con lo que lleva cada candidatura y su cupo (por ejemplo, «3/14») y vuestras reservas. En cada pestaña (Espacios, Banderolas, Pancartas y Prismas) lo elegido aparece con las siglas de quien lo tiene. Todo se actualiza solo cada pocos segundos, sin recargar la página.</p>') +
@@ -1912,7 +1966,7 @@ function helpAdmin() {
     hsec(3, 'Turnos y reglas', '<p>Cada categoría puede estar <b>cerrada</b> (solo asigna el Ayuntamiento), <b>por turnos</b> o <b>libre</b> (cada candidatura elige cuando quiere, hasta su cupo o el máximo). En modo por turnos se fija el <b>orden</b>, las <b>elecciones por turno</b> y, si no hay cupos del reparto, un <b>máximo por candidatura</b>. El turno pasa solo al completar las elecciones del turno, cuando la candidatura completa su cupo o cuando pulsa «Terminar mi turno»; las que ya lo tienen completo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a una candidatura o reiniciar, y escribir un aviso que verán todas. Existe la opción de invertir el orden en cada ronda, pero no se recomienda: el art. 56 LOREG habla de orden decreciente de votos.</p>') +
     hsec(4, 'Ensayo antes de la sesión', '<p>En la tarjeta <b>Sesión de selección</b> (arriba del Panel y de Turnos y reglas) marca qué categorías se abren y cómo, y pulsa <b>«Empezar un ensayo»</b>: las candidaturas practican con sus usuarios y eligen por turnos como el día de verdad. Todos ven el aviso naranja <b>MODO ENSAYO</b>. Antes de empezar se guarda una copia de seguridad y los turnos empiezan desde la ronda 1. Al pulsar <b>«Terminar el ensayo y borrar lo elegido»</b> se borran todas las elecciones hechas durante el ensayo, los turnos vuelven a la ronda 1 y <b>todo queda cerrado</b> hasta que pulses «Empezar la selección»; las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Los movimientos del ensayo quedan en el Registro marcados como «ensayo» (ocultos salvo que se marque «Mostrar») y no salen en el acta.</p><p><b>Borrar datos de prueba.</b> En Ajustes (y en el recuadro del ensayo), «Borrar datos…» pregunta qué borrar: <b>todas las selecciones</b> o, además, <b>las candidaturas con sus usuarios</b>. Pide escribir BORRAR y guarda antes una copia de seguridad, a la que se puede volver con «Restaurar». Nunca borra los espacios, las banderolas, las pancartas, los prismas, las reglas, los usuarios de la administración ni el registro.</p>') +
     hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, en la tarjeta <b>Sesión de selección</b> del Panel revisa la lista «¿Está todo listo?», marca qué categorías se abren (por turnos o libre) y pulsa <b>«▶ Empezar la selección»</b>: se abren todas a la vez, el turno es de la primera candidatura del orden y los avisos y los saltos de turno van solos. Si hace falta parar (una duda, un problema en la sala), <b>«⏸ Pausar»</b> cierra todo sin perder los turnos y <b>«▶ Reanudar»</b> sigue donde se quedó. Al acabar, <b>«⏹ Terminar la selección»</b>. (También se puede abrir o cerrar cada categoría por separado en «Turnos y reglas».) Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p>') +
-    hsec(6, 'Inhabilitar y disponibilidad', '<p>Si una banderola, pancarta, prisma o un espacio entero no se puede usar (obras, un mercado, un acto institucional…), el desplegable <b>«Elegible / No elegible»</b> de su fila (en los espacios, en la ventana que se abre al pulsar su nombre en el cuadrante) lo marca como <b>no elegible con un motivo</b>. Queda en gris con el motivo a la vista de todos, nadie lo puede elegir y deja de contar en el reparto. Volviendo a «Elegible» vuelve a estar disponible. Un elemento reservado no se puede inhabilitar hasta liberarlo. El botón <b>🗑</b> de cada fila (o «🗑 Borrar este espacio») borra esa línea, con confirmación; lo reservado no se puede borrar hasta liberarlo.</p><p>En los espacios, además, cada franja se marca como disponible, con restricciones o no disponible pulsando la casilla, y en bloque (un rango de días, solo mañanas o tardes, ciertos días de la semana) pulsando el nombre del espacio. Las franjas ya reservadas no se tocan.</p>') +
+    hsec(6, 'Inhabilitar y disponibilidad', '<p><b>El horario manda.</b> El cuadrante solo deja reservar los días y franjas que permite el «Horario de uso» de cada espacio en la lista (por ejemplo «De dilluns a divendres de 17 a 20:30 hores» abre solo las tardes de lunes a viernes, y «Excepte dissabte» cierra los sábados). Entiende castellano y catalán, rangos de días, listas, «excepto» y las horas (antes de las 14 h cuenta como mañana y después de las 15 h como tarde). Las franjas cerradas por el horario salen rayadas (—). Si el horario está mal, se corrige con «✎ Editar lista»; para abrir solo una franja concreta, pulsa la casilla y elige «Disponible». Nada de esto toca las reservas ya hechas.</p><p>Si una banderola, pancarta, prisma o un espacio entero no se puede usar (obras, un mercado, un acto institucional…), el desplegable <b>«Elegible / No elegible»</b> de su fila (en los espacios, en la ventana que se abre al pulsar su nombre en el cuadrante) lo marca como <b>no elegible con un motivo</b>. Queda en gris con el motivo a la vista de todos, nadie lo puede elegir y deja de contar en el reparto. Volviendo a «Elegible» vuelve a estar disponible. Un elemento reservado no se puede inhabilitar hasta liberarlo. El botón <b>🗑</b> de cada fila (o «🗑 Borrar este espacio») borra esa línea, con confirmación; lo reservado no se puede borrar hasta liberarlo.</p><p>En los espacios, además, cada franja se marca como disponible, con restricciones o no disponible pulsando la casilla, y en bloque (un rango de días, solo mañanas o tardes, ciertos días de la semana) pulsando el nombre del espacio. Las franjas ya reservadas no se tocan.</p>') +
     hsec(7, 'Partidos y usuarios', '<p>En <b>Partidos</b> se dan de alta las candidaturas con su orden, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. Cada usuario de partido está <b>vinculado a su candidatura</b>: con ella entra, ve cuándo le toca y elige lo suyo; un usuario sin candidatura no puede elegir. El botón «+ Usuario» de cada fila crea el usuario de esa candidatura con una contraseña provisional, que la candidatura cambia al entrar. Más rápido: <b>«Crear los usuarios que faltan»</b> (en Partidos, en Ajustes o en el aviso rojo del Panel) crea de una vez un usuario para cada candidatura que no tiene, ya vinculado a ella, y permite imprimir una hoja con el usuario y la contraseña provisional de cada una para entregarla en mano. Mientras falte algún usuario o haya un usuario de partido sin candidatura, el Panel lo avisa en rojo. En Ajustes se gestionan todos los usuarios: cambiar la candidatura o el rol, restablecer la contraseña o dar de baja (se queda fuera al momento). Una candidatura con reservas no se puede eliminar hasta liberarlas o reasignarlas. Hay tres roles: <b>Administración</b>, <b>Partido</b> (elige lo suyo cuando le toca) y <b>Consulta</b> (solo lectura, por ejemplo para la Junta Electoral de Zona).</p>') +
     hsec(8, 'Importar desde Excel', '<p>Un solo Excel con todo: el programa reconoce cada hoja por su nombre y coloca cada cosa en su sitio: <b>ESPAIS</b> en Espacios, <b>BANDEROLES</b> en Banderolas, <b>PANCARTES</b> en Pancartas, <b>PRISMES</b> en Prismas y <b>PARTITS</b> (siglas, nombre, orden y votos) en Partidos; también lee la lista de partidos que hay junto al cuadrante de la hoja GRAELLA. En Ajustes se puede descargar una <b>plantilla</b> con todas las hojas preparadas. Antes de importar muestra cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada. Si una hoja trae una columna que el programa no conoce y tiene datos (por ejemplo el <b>responsable</b> de cada espacio), ofrece añadirla como <b>campo propio</b>; al volver a importar se rellena sola.</p>') +
     hsec(9, 'Editar y campos propios', '<p>Después de importar el Excel, todo se puede corregir. Con «✎ Editar lista» se modifican todos los campos de cada elemento y se añaden o eliminan elementos (uno con reservas no se puede eliminar hasta liberarlas). Con <b>«☰ Columnas…»</b> (en cada lista o en Ajustes → «Columnas de las listas») se <b>quitan las columnas que no hagan falta</b> y se añaden <b>campos propios</b> (por ejemplo «Aforo» o «Metros»), también en las candidaturas. Quitar una columna o un campo pide confirmación y solo lo oculta en las listas, la impresión y el CSV: <b>los datos no se borran</b> y vuelven al ponerlo otra vez. Para borrar <b>varias filas</b> a la vez se marcan en la primera columna; el programa pide escribir <b>BORRAR</b> para que no se haga por accidente, y antes guarda una copia de seguridad.</p>') +
@@ -1943,7 +1997,7 @@ const csvq = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
 const csvOut = (name, rows) => download(name, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(csvq).join(';')).join('\r\n'));
 function exportCat(t) {
   const I = idx();
-  if (t === 'esp') { const days = campDays(); const rows = [colsOf('esp').map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(colsOf('esp').map((c) => fv(it, c[0])).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = it.nd ? 'nd' : (it.blk || {})[s]; return r ? pName(r.g) : b === 'nd' ? 'No disponible' : b === 'rs' ? 'Con restricciones' : ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
+  if (t === 'esp') { const days = campDays(); const rows = [colsOf('esp').map((c) => c[1]).concat(...days.map((d) => [fDMY(d) + ' mañana', fDMY(d) + ' tarde']))]; I.items.esp.forEach((it) => rows.push(colsOf('esp').map((c) => fv(it, c[0])).concat(...days.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return r ? pName(r.g) : STN[b] || ''; }))))); csvOut('espacios-electorales.csv', rows); return; }
   csvOut(t + '-' + CATN[t].toLowerCase().replace(/\s+/g, '-') + '.csv', [colsOf(t).map((c) => c[1]).concat(['Partido', 'Reservado el', 'Por'])].concat(I.items[t].map((it) => { const r = activeRes(it.id); return colsOf(t).map((c) => fv(it, c[0])).concat(r ? [pName(r.g), fStamp(r.ts), r.by] : it.nd ? ['No disponible' + (it.ndm ? ': ' + it.ndm : ''), '', ''] : ['', '', '']); })));
 }
 
@@ -2087,9 +2141,9 @@ function prCat(t) {
   for (let i = 0; i < days.length; i += 8) {
     const ch = days.slice(i, i + 8);
     h += '<h2 class="pr-h2 pr-break">Cuadrante · ' + esc(fShort(ch[0])) + ' – ' + esc(fShort(ch[ch.length - 1])) + '</h2><table class="pr-t pr-grid"><thead><tr><th rowspan="2">Espacio</th>' + ch.map((d) => '<th colspan="2">' + esc(fShort(d)) + '</th>').join('') + '</tr><tr>' + ch.map(() => '<th>M</th><th>T</th>').join('') + '</tr></thead><tbody>' +
-      I.items.esp.map((it) => '<tr><td><b>' + esc((it.ord != null ? it.ord + '. ' : '') + it.nom) + '</b></td>' + ch.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = it.nd ? 'nd' : (it.blk || {})[s]; return '<td class="' + (!r && b === 'nd' ? 'nd' : !r && b === 'rs' ? 'rs' : '') + '">' + (r ? '<b>' + esc(pName(r.g)) + '</b>' : b === 'nd' ? 'N/D' : b === 'rs' ? 'Restr.' : '') + '</td>'; }).join('')).join('') + '</tr>').join('') + '</tbody></table>';
+      I.items.esp.map((it) => '<tr><td><b>' + esc((it.ord != null ? it.ord + '. ' : '') + it.nom) + '</b></td>' + ch.map((d) => ['M', 'T'].map((m) => { const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s); return '<td class="' + (!r && (b === 'nd' || b === 'hz') ? 'nd' : !r && b === 'rs' ? 'rs' : '') + '">' + (r ? '<b>' + esc(pName(r.g)) + '</b>' : b === 'nd' ? 'N/D' : b === 'hz' ? '—' : b === 'rs' ? 'Restr.' : '') + '</td>'; }).join('')).join('') + '</tr>').join('') + '</tbody></table>';
   }
-  return prDoc('Espacios electorales', h, I.items.esp.length + ' espacios · ' + takenOf('esp') + ' franjas reservadas · N/D: no disponible · Restr.: con restricciones');
+  return prDoc('Espacios electorales', h, I.items.esp.length + ' espacios · ' + takenOf('esp') + ' franjas reservadas · N/D: no disponible · —: fuera del horario del espacio · Restr.: con restricciones');
 }
 function prParty(g) {
   const I = idx(), p = I.pmap[g]; if (!p) return '';
@@ -2240,11 +2294,12 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.8 · 20/10/2026';
+const APP_VERSION = '1.9 · 22/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
   const forParty = g || myParty(), what = '«' + iName(it) + '»' + (slot ? ' · ' + slotTxt(slot) : '');
+  if (slot && slotSt(it, slot) === 'hz') return toast('Esa franja queda fuera del horario de «' + iName(it) + '».', 'err');
   if (!(await confirmBox({ title: isAdmin() ? 'Asignar' : 'Reservar', text: (isAdmin() ? 'Asignar ' : 'Reservar ') + esc(what) + ' para <b>' + esc(pName(forParty)) + '</b>.' + ((it.blk || {})[slot] === 'rs' ? '<br><br>⚠ Esta franja tiene restricciones de uso.' : ''), ok: isAdmin() ? 'Asignar' : 'Reservar' }))) return;
   closeModal();
   const ok = await act('reserve', { i, slot: slot || '', g: isAdmin() ? forParty : undefined });
@@ -2272,7 +2327,7 @@ const ACT = {
   'blk-row': (el) => { if (adminOnly()) modalBlkRow(el.dataset.i); },
   'bk-v': (el) => { $$('#bkV button').forEach((b) => b.classList.toggle('on', b === el)); },
   'blkr-ok': (el) => { if (adminOnly()) applyBlkRow(el.dataset.i); },
-  blk: (el) => { if (!adminOnly()) return; const k = 'i:' + el.dataset.i, e = ST.db.E[k]; if (!e) return; const blk = Object.assign({}, e.blk || {}); if (el.dataset.v) blk[el.dataset.s] = el.dataset.v; else delete blk[el.dataset.s]; put(k, Object.assign({}, e, { blk })); closeModal(); toast('Disponibilidad actualizada.'); },
+  blk: (el) => { if (!adminOnly()) return; const k = 'i:' + el.dataset.i, e = ST.db.E[k]; if (!e) return; const blk = Object.assign({}, e.blk || {}), s = el.dataset.s; if (el.dataset.v) blk[s] = el.dataset.v; else if (!horOK(e.hor, s)) blk[s] = 'ok'; else delete blk[s]; if (el.dataset.v === 'nd' && !horOK(e.hor, s)) delete blk[s]; put(k, Object.assign({}, e, { blk })); closeModal(); toast('Disponibilidad actualizada.'); },
   pass: async (el) => { const t = el.dataset.t; if (!(await confirmBox({ title: isAdmin() ? 'Pasar el turno' : 'Terminar vuestro turno', text: isAdmin() ? 'El turno de ' + esc(pName(curParty(cfgOf(t)))) + ' en ' + CATN[t].toLowerCase() + ' pasará al siguiente partido.' : 'Daréis por terminado vuestro turno en ' + CATN[t].toLowerCase() + ' y elegirá el siguiente partido. Las elecciones que no hayáis hecho en este turno se pierden para esta ronda.', ok: isAdmin() ? 'Pasar el turno' : 'Terminar mi turno' }))) return; if (await act('turn', { t, op: 'pass' })) toast('Turno pasado. Ahora elige ' + pName(curParty(cfgOf(t))) + '.'); },
   turn: async (el) => { if (!adminOnly()) return; const t = el.dataset.t, op = el.dataset.op; if (op === 'reset' && !(await confirmBox({ title: 'Reiniciar turnos', text: 'Los turnos de ' + CATN[t].toLowerCase() + ' volverán a la ronda 1 con el primer partido. Las reservas hechas se mantienen.', ok: 'Reiniciar' }))) return; await flush(); if (await act('turn', { t, op })) toast('Turno: ' + (curParty(cfgOf(t)) ? pName(curParty(cfgOf(t))) : 'selección terminada') + '.'); },
   edit: (el) => { if (!adminOnly()) return; ST.ui.edit[el.dataset.t] = !ST.ui.edit[el.dataset.t]; renderView(); },
