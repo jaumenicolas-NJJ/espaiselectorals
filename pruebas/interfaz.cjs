@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.8/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1.9/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -230,7 +230,7 @@ const pdfInfo = (f) => {
   ok('…guardado en el servidor', JSON.stringify(d.E['i:' + e1].blk) === JSON.stringify({ '2023-07-08M': 'nd', '2023-07-09M': 'nd', '2023-07-15M': 'nd', '2023-07-16M': 'nd' }) && d.E['i:' + e0].blk['2023-07-08M'] === 'rs', JSON.stringify(d.E['i:' + e1].blk));
   await tab(PV, 'esp'); await tab(PP, 'esp');
   await PV.waitForFunction((i) => document.querySelector('.cc button[data-i="' + i + '"][data-s="2023-07-08M"]').parentNode.classList.contains('nd'), e1, { timeout: 9000 }).catch(() => {});
-  ok('Los partidos ven N/D y ⚠ en el cuadrante', (await PV.locator('.cc.nd').count()) === 4 && (await PV.locator('.cc.rs').count()) === 1);
+  ok('Los partidos ven N/D y ⚠ en el cuadrante', (await PV.locator('.cc.nd:not(.hz)').count()) === 4 && (await PV.locator('.cc.rs').count()) === 1);
   await PV.click('.cc button[data-i="' + e1 + '"][data-s="2023-07-08M"]'); await PV.waitForSelector('#modal h2');
   ok('Franja N/D: sin botón de reservar', /No disponible/.test(await txt(PV, '#modal')) && !(await PV.locator('#modal [data-a=res]').count())); await PV.click('#modal [data-a=m-no]');
   // dos partidos pulsan la misma casilla a la vez
@@ -609,7 +609,7 @@ const pdfInfo = (f) => {
   await tab(PP, 'reparto'); await PP.screenshot({ path: S + '/shots_esp/partido-reparto.png', fullPage: true });
   await tab(A, 'ajustes'); await A.screenshot({ path: S + '/shots_esp/admin-ajustes.png', fullPage: true });
   await tab(PP, 'ban'); await PP.screenshot({ path: S + '/shots_esp/partido-banderolas.png' });
-  await tab(PP, 'esp'); await PP.screenshot({ path: S + '/shots_esp/partido-espacios.png' });
+  await tab(PP, 'esp'); await PP.screenshot({ path: S + '/shots_esp/partido-espacios.png', fullPage: true });
   await tab(PC, 'panel'); await PC.screenshot({ path: S + '/shots_esp/partido-panel.png', fullPage: true });
   const M = await open('movil'); await M.setViewportSize({ width: 390, height: 800 }); await M.waitForSelector('#lkName'); await M.screenshot({ path: S + '/shots_esp/movil-login.png' });
   await M.fill('#lkName', 'PSC-CP'); await M.fill('#lkPass', 'Partido-123'); await M.click('[data-a=lk-login]'); await M.waitForSelector('#tabs'); await M.screenshot({ path: S + '/shots_esp/movil-panel.png' });

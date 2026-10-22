@@ -8,6 +8,7 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   ['PSC', 'PP', 'VOX', 'ERC'].forEach((s, i) => { ch['g:p' + i] = { k: 'g', sig: s, nom: s + ' nombre', ord: i + 1, col: '#11223' + i, rep: 'Rep ' + s, tel: '93000000' + i, mail: s.toLowerCase() + '@x.es' }; });
   for (let i = 0; i < 6; i++) ch['i:b' + i] = { k: 'i', t: 'ban', ord: i + 1, nom: 'Calle ' + i, tram: 'A/B', bf: 3, pf: 2 };
   ch['i:e0'] = { k: 'i', t: 'esp', ord: 1, nom: 'Plaça Catalunya', blk: { '2027-07-08M': 'nd', '2027-07-08T': 'rs' } };
+  ch['i:e1'] = { k: 'i', t: 'esp', ord: 2, nom: 'Centre Cívic Raval', hor: 'De dilluns a divendres de 17 a 20:30 hores.', blk: { '2027-07-12M': 'ok' } };
   ch['i:p0'] = { k: 'i', t: 'pan', ord: 1, lloc: 'Av X', lim: 'de A a B' };
   for (let i = 0; i < 5; i++) ch['i:r' + i] = { k: 'i', t: 'pri', ord: i + 1, lloc: 'Prisma ' + i, num: String(i) };
   ch['c:ban'] = { k: 'c', mode: 'turnos', order: ['p0', 'p1', 'p2', 'p3'], quota: 2, max: 3, auto: true, snake: false, msg: 'Hola' };
@@ -51,6 +52,15 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   r = await api('reserve', { i: 'e0', slot: '2027-07-08T' }, T.PSC); ok('Franja con restricciones: se puede', r.status === 200);
   r = await api('reserve', { i: 'e0', slot: '2027-07-08T' }, T.PP); ok('Misma franja otro partido: rechazo', r.status === 409);
   r = await api('reserve', { i: 'e0', slot: '2027-07-09T' }, T.PP); ok('Otra franja, otro partido', r.status === 200);
+  // disponibilidad según el horario de la lista de espacios
+  r = await api('reserve', { i: 'e1', slot: '2027-07-10T' }, T.VOX); ok('Horario de lunes a viernes: el sábado no se puede', r.status === 409 && /horario/.test(r.j.error), r.j && r.j.error);
+  r = await api('reserve', { i: 'e1', slot: '2027-07-09M' }, T.VOX); ok('Horario de tarde: la mañana no se puede', r.status === 409 && /horario/.test(r.j.error));
+  r = await api('reserve', { i: 'e1', slot: '2027-07-09T' }, T.VOX); ok('Dentro del horario: se puede', r.status === 200);
+  r = await api('reserve', { i: 'e1', slot: '2027-07-12M' }, T.ERC); ok('Franja abierta a mano por el Ayuntamiento: se puede', r.status === 200);
+  r = await api('reserve', { i: 'e1', slot: '2027-07-09T' }, T.ERC); ok('Mismo espacio, mismo día y franja: no hay doble reserva', r.status === 409);
+  r = await api('reserve', { i: 'e1', slot: '2027-07-13T' }, T.ERC); ok('La misma candidatura puede elegir otro día del mismo centro', r.status === 200);
+  r = await api('reserve', { i: 'e0', slot: '2027-07-13T' }, T.VOX); ok('…y otra candidatura otro centro ese mismo día', r.status === 200);
+  r = await api('reparto', null, A); { const e1 = (r.j.esp || []).find((e) => e.id === 'e1') || {}, F = (e1.franjas_fuera_de_horario || []).map((f) => f.fecha + f.franja); ok('El reparto para Eleccions lleva las franjas fuera de horario', F.includes('2027-07-10T') && F.includes('2027-07-09M') && !F.includes('2027-07-09T') && !F.includes('2027-07-12M'), F.length); }
   r = await api('sync', { changes: { 'i:e0': { k: 'i', t: 'esp', ord: 1, nom: 'Plaça Catalunya', blk: { '2027-07-09T': 'nd' } } }, since: 0 }, A); ok('No se puede marcar N/D una franja reservada', r.j.rejected.length === 1);
   r = await api('sync', { changes: { 'i:b0': { x: true } }, since: 0 }, A); ok('No se elimina un elemento con reservas', r.j.rejected.length === 1);
   r = await api('sync', { changes: { 'g:p0': { x: true } }, since: 0 }, A); ok('No se elimina un partido con reservas', r.j.rejected.length === 1);
