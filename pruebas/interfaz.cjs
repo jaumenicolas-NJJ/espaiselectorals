@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.3/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.4/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -671,6 +671,18 @@ const pdfInfo = (f) => {
   ok('…y en el buscador tampoco sale el número', /Centre Cívic Prova/.test(await txt(A, '#gsres')) && !/140/.test(await txt(A, '#gsres')), await txt(A, '#gsres'));
   await A.click('#modal [data-a=m-no]').catch(() => A.keyboard.press('Escape'));
   await A.evaluate(async () => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { 'i:zletA': { x: true } }, since: 0 }) }); });
+
+  /* ================= REDIBUJAR MIENTRAS SE ESCRIBE (v1.9.4) ================= */
+  // llega una actualización del servidor (se redibuja la pantalla) mientras la administración escribe en Ajustes, sin haber salido de la casilla
+  await tab(A, 'ajustes'); await settled(A); const nota0 = await A.inputValue('[data-conf=nota]'), eAntes = errs.length;
+  await A.fill('[data-conf=nota]', 'Nota a medio escribir'); await A.evaluate(() => document.querySelector('#view').firstElementChild.setAttribute('data-antes', '1'));
+  const syncAs = (pg, ch) => pg.evaluate(async (c) => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: c, since: 0 }) }); }, ch);
+  await syncAs(A, { 'i:zredib': { k: 'i', t: 'pan', nom: 'Pancarta de prueba (redibujar)' } });
+  const redib = await A.waitForFunction(() => !document.querySelector('#view [data-antes]'), null, { timeout: 20000 }).then(() => true, () => false);
+  ok('Llega un cambio del servidor a media escritura: se redibuja sin error ni «Sin conexión» y el cursor sigue en la casilla', redib && errs.length === eAntes && !/Sin conexión/.test(await txt(A, '#banner')) && (await A.evaluate(() => (document.activeElement.dataset || {}).conf)) === 'nota', (redib ? '' : 'no se ha redibujado ') + errs.slice(eAntes).join(' | ') + ' ' + (await txt(A, '#banner')));
+  await A.keyboard.type(' y terminada'); await A.keyboard.press('Tab'); await settled(A); d = await apiAs(A, 'data');
+  ok('…y se guarda todo lo escrito, antes y después de redibujar', d.E['s:conf'].nota === 'Nota a medio escribir y terminada', d.E['s:conf'].nota);
+  await A.fill('[data-conf=nota]', nota0); await A.press('[data-conf=nota]', 'Tab'); await settled(A); await syncAs(A, { 'i:zredib': { x: true } });
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;

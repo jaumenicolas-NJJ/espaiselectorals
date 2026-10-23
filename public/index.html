@@ -791,7 +791,7 @@ const SS = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { retu
 const ST = {
   db: null, seq: 0, urev: 0, users: [], me: null, user: '', tok: null, pend: {},
   sync: 'idle', lastSaved: 0, saving: false, again: false, online: true, failN: 0, pollN: 0, rev: 0,
-  view: 'panel', ui: { flt: {}, q: {}, edit: {}, lflt: '', lq: '' }, timers: [], modalRes: null, modalLocked: false, hist: null, drafts: {}, busy: false, lastAct: Date.now()
+  view: 'panel', ui: { flt: {}, q: {}, edit: {}, lflt: '', lq: '' }, timers: [], modalRes: null, modalLocked: false, hist: null, drafts: {}, busy: false, painting: false, repaint: false, lastAct: Date.now()
 };
 const myRole = () => (ST.me && ST.me.role) || 'consulta';
 const isAdmin = () => myRole() === 'admin';
@@ -1173,16 +1173,29 @@ function paintBanner() {
   $('#banner').innerHTML = b.join('');
 }
 function renderAll() { if (!ST.db) return; ST.cache = null; paintTop(); paintTabs(); paintBanner(); paintSync(); renderView(); }
+function viewHTML() {
+  const v = ST.view;
+  if (v === 'panel') return viewPanel(); if (v === 'asig') return viewAsig(); if (CATS.includes(v)) return viewCat(v); if (v === 'partidos') return viewPartidos(); if (v === 'reparto') return viewReparto(); if (v === 'turnos' && isAdmin()) return viewTurnos();
+  if (v === 'registro') return viewRegistro(); if (v === 'ajustes') return viewAjustes(); if (v === 'ayuda') return viewAyuda(); ST.view = 'panel'; return viewPanel();
+}
+/* la casilla en la que se está escribiendo, para volver a ella después de redibujar: por su id o, si no tiene (las de Ajustes), por sus data-… */
+function focusSel(n) {
+  if (n.id) return '#' + CSS.escape(n.id);
+  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(n.tagName)) return null;
+  const d = Array.from(n.attributes).filter((a) => a.name.indexOf('data-') === 0).map((a) => '[' + a.name + '="' + CSS.escape(a.value) + '"]').join('');
+  return d ? n.tagName.toLowerCase() + d : null;
+}
 function renderView() {
+  /* al quitar una casilla a medio escribir, Chrome la guarda («change») y ese guardado pide redibujar otra vez: se hace al terminar
+     este redibujado, no dentro de él (eso rompía el innerHTML y salía «Sin conexión con el servidor») */
+  if (ST.painting) { ST.repaint = true; return; }
   const el = $('#view'); if (!el) return;
-  const v = ST.view, sy = window.scrollY, ae = document.activeElement, fid = ae && ae.id && el.contains(ae) ? ae.id : null;
+  const sy = window.scrollY, ae = document.activeElement, fq = ae && ae !== el && el.contains(ae) ? focusSel(ae) : null;
   const gs = $('.gscroll'), gl = gs ? gs.scrollLeft : 0;
-  let s0 = null, s1 = null; try { if (fid) { s0 = ae.selectionStart; s1 = ae.selectionEnd; } } catch (e) { /* nada */ }
-  let h = '';
-  if (v === 'panel') h = viewPanel(); else if (v === 'asig') h = viewAsig(); else if (CATS.includes(v)) h = viewCat(v); else if (v === 'partidos') h = viewPartidos(); else if (v === 'reparto') h = viewReparto(); else if (v === 'turnos' && isAdmin()) h = viewTurnos();
-  else if (v === 'registro') h = viewRegistro(); else if (v === 'ajustes') h = viewAjustes(); else if (v === 'ayuda') h = viewAyuda(); else { ST.view = 'panel'; h = viewPanel(); }
-  el.innerHTML = h;
-  if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { if (s0 != null) n.setSelectionRange(s0, s1); } catch (e) { /* nada */ } } }
+  let s0 = null, s1 = null; try { if (fq) { s0 = ae.selectionStart; s1 = ae.selectionEnd; } } catch (e) { /* nada */ }
+  ST.painting = true;
+  try { do { ST.repaint = false; el.innerHTML = viewHTML(); } while (ST.repaint); } finally { ST.painting = false; }
+  if (fq) { const n = el.querySelector(fq); if (n) { n.focus(); try { if (s0 != null) n.setSelectionRange(s0, s1); } catch (e) { /* nada */ } } }
   window.scrollTo(0, sy); const g2 = $('.gscroll'); if (g2) g2.scrollLeft = gl;
 }
 function gotoView(v) { if (v === 'ajustes') ST.enl = null; ST.view = v; LS.set('espais.view', v); renderAll(); window.scrollTo(0, 0); }
@@ -1983,7 +1996,7 @@ function helpAdmin() {
     hsec(9, 'Editar y campos propios', '<p>Después de importar el Excel, todo se puede corregir. Con «✎ Editar lista» se modifican todos los campos de cada elemento y se añaden o eliminan elementos (uno con reservas no se puede eliminar hasta liberarlas). Con <b>«☰ Columnas…»</b> (en cada lista o en Ajustes → «Columnas de las listas») se <b>quitan las columnas que no hagan falta</b> y se añaden <b>campos propios</b> (por ejemplo «Aforo» o «Metros»), también en las candidaturas. Quitar una columna o un campo pide confirmación y solo lo oculta en las listas, la impresión y el CSV: <b>los datos no se borran</b> y vuelven al ponerlo otra vez. Para borrar <b>varias filas</b> a la vez se marcan en la primera columna; el programa pide escribir <b>BORRAR</b> para que no se haga por accidente, y antes guarda una copia de seguridad.</p>') +
     hsec(10, 'Registro, impresión y exportación', '<p>Cada reserva, liberación, asignación, reasignación y cambio de turno queda en el <b>Registro</b> con la fecha y la hora, el usuario, la candidatura y el elemento (con el día y la franja en los espacios). El registro <b>no se puede borrar ni modificar</b>: ni desde el programa, ni al restaurar, ni importando una copia. Los botones «🖨 Imprimir» preparan documentos A4: la hoja de asignaciones de una candidatura («🖨 Imprimir lo elegido por…» en el Panel y en En directo, el menú de impresión o el 🖨 de su fila en Partidos), las de todas, la relación completa de asignaciones, el resultado de cada categoría, el cuadrante de espacios, el reparto con la hoja de conformidad, la ayuda para las candidaturas y el registro. Cada lista tiene también «Exportar (.csv)» para Excel.</p>') +
     hsec(11, 'Copias de seguridad', '<p><b>Todo se guarda solo:</b> cada modificación se guarda al instante y se copia una a una en un almacén de copias separado; el servidor hace una copia completa (datos y usuarios) cada 10 minutos de actividad y antes de eliminar, importar o restaurar, y una copia diaria que no se borra nunca; el navegador de la administración guarda otra copia cada 5 minutos.</p><p><b>Para descargar una copia</b> en el ordenador: botón <b>«💾 Copia»</b> de la cabecera, en cualquier pantalla; también en el Panel y en Ajustes → Copias de seguridad. Al terminar la selección conviene pulsar <b>«Guardar copia permanente…»</b> y ponerle nombre (por ejemplo, «Generales · resultado final»): queda guardada en el servidor para siempre y se descarga a la vez. Desde Ajustes se ven todas las copias y se puede volver a cualquiera sin perder el registro.</p>') +
-    hsec(12, 'Seguridad y trabajo simultáneo', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Tras 5 intentos fallidos el usuario se bloquea 10 minutos y la sesión se cierra tras 30 minutos sin actividad. Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor, no el navegador. Está probado con más de 20 usuarios conectados y eligiendo a la vez. Los datos viven en el servidor: cambiar de ordenador no borra nada, y las actualizaciones del programa no tocan los datos.</p>') +
+    hsec(12, 'Seguridad y trabajo simultáneo', '<p>La conexión va cifrada y el servidor solo guarda una huella irreversible de cada contraseña. Tras 5 intentos fallidos el usuario se bloquea 10 minutos y la sesión se cierra tras 1 hora sin actividad. Todas las reglas (turnos, cupos, exclusividad) las comprueba el servidor, no el navegador. Está probado con más de 20 usuarios conectados y eligiendo a la vez. Los datos viven en el servidor: cambiar de ordenador no borra nada, y las actualizaciones del programa no tocan los datos.</p>') +
     hsec(13, 'Enlace con Eleccions', '<p>El programa <b>Eleccions</b> (planificación electoral del Ayuntamiento) puede traer de aquí todo lo adjudicado, en su menú <b>«Adjudicaciones»</b>: los datos completos de cada espacio, banderola, pancarta y prisma, la candidatura que tiene cada uno (y en los espacios, el día y la franja), las candidaturas con sus datos, las reglas de cada categoría y quién adjudicó cada cosa y cuándo. Lo elegido en un ensayo no se envía.</p><ol><li>En <b>Ajustes → Enlace con Eleccions</b>, pulsa «Crear la clave de enlace…». La clave se muestra <b>una sola vez</b>: cópiala.</li><li>En Eleccions → Adjudicaciones, pega la dirección de este programa y la clave. Desde entonces, un botón trae el reparto actualizado cuando se quiera.</li><li>La clave solo sirve para leer: no permite cambiar nada ni entrar aquí. Trátala como una contraseña; si se pierde o se ha visto, crea una nueva (la anterior deja de valer) o revócala.</li></ol><p>Sin clave también se puede: «Descargar reparto para Eleccions (.json)» y, en Eleccions, importar ese archivo.</p>');
 }
 function viewAyuda() {
@@ -2226,7 +2239,7 @@ function startTimers() {
   /* os toca y estáis en otra pestaña o programa: el título de la pestaña parpadea hasta que volváis */
   ST.timers.push(setInterval(() => { if (!ST.db) return; if (document.hidden && myTurnCats().length) { ST.blink = !ST.blink; document.title = ST.blink ? '🟢🟢 ¡OS TOCA ELEGIR! 🟢🟢' : baseTitle(); } else if (ST.blink) { ST.blink = false; document.title = baseTitle(); } }, 1000));
   ST.timers.push(setInterval(saveLocalCopy, 5 * 60000)); ST.timers.push(setTimeout(saveLocalCopy, 3000));
-  ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 30 * 60000 && !CATS.some((t) => cfgOf(t).mode !== 'cerrado') && !ensayo()) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
+  ST.timers.push(setInterval(() => { if (ST.db && Date.now() - ST.lastAct > 60 * 60000 && !CATS.some((t) => cfgOf(t).mode !== 'cerrado') && !ensayo()) { endSession(); showLock('login', 'Sesión cerrada por inactividad. Los datos están guardados.'); } }, 30000));
 }
 /* copia local en el navegador de la administración (tercera copia, además del servidor y del almacén de copias) */
 const LOCAL_KEY = 'espais.copia.local';
@@ -2305,7 +2318,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.9.3 · 22/10/2026';
+const APP_VERSION = '1.9.4 · 23/10/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
