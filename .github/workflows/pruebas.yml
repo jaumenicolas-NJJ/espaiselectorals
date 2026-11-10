@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 jobs:
   pruebas:
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 fijo: desde noviembre de 2026 «ubuntu-latest» es la 26.04 y Playwright 1.56.1 no instala Chromium en ella
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
