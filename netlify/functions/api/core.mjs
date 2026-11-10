@@ -24,7 +24,7 @@ const MAX_HIST = 300;
 /* memoria de la función entre peticiones: Netlify reutiliza la misma instancia mientras hay actividad,
    así que el secreto, los usuarios y la última versión de los datos no se vuelven a pedir al almacén
    (que está en Frankfurt) si no han cambiado. Solo se usa para leer: las escrituras siempre van al almacén. */
-const MEM = { secret: null, auth: null, authAt: 0, db: null };
+const MEM = { secret: null, auth: null, authAt: 0, db: null, meta: null };
 const AUTH_TTL = 60000, DB_TTL = 30000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -115,7 +115,7 @@ function hcOK(hc) {
   return o;
 }
 /* enlace con Eleccions: una clave de solo lectura con la que Eleccions trae el reparto (GET /api/reparto) */
-const APP_VER = '1.9.4 · 23/10/2026';
+const APP_VER = '1.10 · 10/11/2026';
 const LINK_RE = /^Bearer (ee1_[\w-]{20,80})$/;
 const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
 /* el reparto tal como ha quedado, con todos los datos de cada punto y de las candidaturas (también su contacto, porque Eleccions es
@@ -224,12 +224,25 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     }
     return (await read('db')).data;
   }
+  /* modificar los datos: se lee la última versión, se aplica el cambio y se guarda como versión nueva solo si nadie ha guardado
+     otra mientras tanto (si no, se repite). Atajo (v1.10): si esta instancia acaba de leer o guardar los datos, se parte de esa
+     copia en memoria tras comprobar con una consulta mínima (sin descargar los datos) que sigue siendo la última. Es seguro: si
+     entretanto otra instancia guarda, la escritura condicional falla y se repite con los datos leídos del almacén; y si con la
+     copia de memoria el cambio se rechaza o no cambia nada, se comprueba otra vez con los datos del almacén antes de contestar. */
+  async function memLatest() {
+    const C = mem.db;
+    if (!C || now() - C.at >= DB_TTL) return null;
+    try { const [cur, nx] = await Promise.all([store.getMetadata('db@' + pad(C.v)), store.getMetadata('db@' + pad(C.v + 1))]); return cur && !nx ? C : null; } catch (e) { return null; }
+  }
   async function update(name, init, fn) {
+    const M0 = name === 'db' ? await memLatest() : null;
+    let fast = !!M0;
     for (let i = 0; i < 40; i++) {
-      const head = await vread(name);
+      const head = fast ? { v: M0.v, data: structuredClone(M0.data) } : await vread(name);
       const cur = head.data || init();
-      const out = await fn(cur);
-      if (out && out.noWrite) return { cur, out };
+      let out;
+      try { out = await fn(cur); } catch (e) { if (fast) { fast = false; i--; continue; } throw e; }
+      if (out && out.noWrite) { if (fast) { fast = false; i--; continue; } return { cur, out }; }
       const rec = { v: head.v + 1, at: now(), data: cur };
       const r = await store.setJSON(name + '@' + pad(rec.v), rec, { onlyIfNew: true });
       if (r && r.modified) {
@@ -239,6 +252,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
         if (rec.v % 50 === 0) prune(name, rec.v);
         return { cur, out };
       }
+      if (fast) { fast = false; continue; }
       await sleep(10 + Math.random() * Math.min(400, 30 * (i + 1)));
     }
     throw new HttpErr(503, 'El servidor está muy ocupado. Inténtalo de nuevo.');
@@ -252,12 +266,15 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
      (si retrocediera, los demás no verían el último cambio hasta la siguiente consulta completa) */
   async function bumpMeta(seq, urev) {
     for (let i = 0; i < 12; i++) {
-      const got = await store.getWithMetadata('meta', { type: 'json' });
+      /* atajo (v1.10): el primer intento usa el contador que esta instancia escribió la última vez (sin leerlo); si otra lo ha
+         cambiado, la escritura condicional falla y se lee del almacén */
+      const got = i === 0 && mem.meta && now() - mem.meta.at < DB_TTL ? mem.meta.got : await store.getWithMetadata('meta', { type: 'json' });
       const m = (got && got.data) || { seq: 0, urev: 0 };
-      if (!((seq != null && seq > (m.seq || 0)) || (urev != null && urev > (m.urev || 0)))) return;
+      if (!((seq != null && seq > (m.seq || 0)) || (urev != null && urev > (m.urev || 0)))) return; /* el contador solo crece: si ya llega, no hay nada que hacer */
       const nx = { seq: Math.max(m.seq || 0, seq || 0), urev: Math.max(m.urev || 0, urev || 0) };
       const w = got && got.etag ? await store.setJSON('meta', nx, { onlyIfMatch: got.etag }) : await store.setJSON('meta', nx, got ? {} : { onlyIfNew: true });
-      if (w && w.modified) return;
+      if (w && w.modified) { mem.meta = w.etag ? { at: now(), got: { data: nx, etag: w.etag } } : null; return; }
+      mem.meta = null;
       await sleep(5 + Math.random() * 40 * (i + 1));
     }
   }
@@ -592,6 +609,28 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
 
     'POST reserve': async (req, body) => {
       const who = await authed(req); need(who, ['admin', 'partido']);
+      /* varias asignaciones de la administración en un solo guardado (v1.10): cada una se comprueba por separado y se
+         contesta una por una (las que no se pueden hacer no impiden las demás) */
+      if (body.items != null) {
+        need(who, ['admin']);
+        const L = body.items;
+        if (!Array.isArray(L) || !L.length || L.length > 500) throw new HttpErr(400, 'Lista de asignaciones no válida.');
+        for (const x of L) if (!x || !/^[\w-]{1,60}$/.test(String(x.i || '')) || !(x.slot == null || x.slot === '' || slotOK(x.slot)) || typeof x.g !== 'string') throw new HttpErr(400, 'Lista de asignaciones no válida.');
+        let s0 = 0, results = [];
+        const { cur: db } = await update('db', initDB, (d) => {
+          s0 = d.seq; results = []; const t = now();
+          for (const x of L) {
+            /* si ya es de ese partido (por ejemplo, se reenvía porque la respuesta anterior no llegó), cuenta como hecha */
+            const k = 'r:' + x.i + (x.slot ? ':' + x.slot : ''), c = d.E[k];
+            if (c && !c.x && c.g === x.g) { results.push({ i: String(x.i), slot: x.slot || '', ok: true, ya: true }); continue; }
+            try { reserve(d, { i: String(x.i), slot: x.slot || '', g: x.g }, who, t); results.push({ i: String(x.i), slot: x.slot || '', ok: true }); }
+            catch (e) { if (!(e instanceof HttpErr)) throw e; results.push({ i: String(x.i), slot: x.slot || '', ok: false, error: e.message }); }
+          }
+          return results.some((r) => r.ok && !r.ya) ? null : { noWrite: true }; /* si no cambia nada, no se guarda */
+        });
+        if (results.some((r) => r.ok && !r.ya)) await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'asignaciones'), autoSnap(db)]);
+        return json({ seq: db.seq, E: since(db, +body.since || 0), results });
+      }
       if (!/^[\w-]{1,60}$/.test(String(body.i || ''))) throw new HttpErr(400, 'Reserva no válida.');
       let s0 = 0;
       const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; reserve(d, body, who, now()); return null; });

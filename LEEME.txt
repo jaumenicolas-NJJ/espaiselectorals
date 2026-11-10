@@ -90,6 +90,23 @@ El Panel muestra una lista de «Puesta en marcha». En resumen:
      muestra en grande quién elige ahora y quién va después.
   9. Al acabar la sesión: «Guardar copia permanente…» (Panel) y el «Acta de la selección».
 
+ASIGNAR MUCHAS COSAS DEPRISA (versión 1.10)
+-------------------------------------------
+Pensado para cuando la administración asigna por los partidos (por ejemplo, cientos de
+banderolas). Antes cada asignación pedía tres clics y esperar al servidor (unos 15 s por
+banderola: 295 banderolas llevaron 1 h 46 min el 4/11/2026). Ahora:
+  - La fila cambia al momento y se sigue sin esperar. Lo asignado se envía por detrás,
+    varias de una vez (40 asignaciones se guardan en unos 2 segundos).
+  - No se pierde nada: si se va la conexión o se cierra la pestaña, lo pendiente queda
+    en el navegador y se envía solo al volver. Mientras pone «guardando…» se puede
+    «Anular». Si algo no se puede guardar, la fila vuelve atrás y sale un aviso.
+  - «⚡ Asignación rápida a:» (arriba de cada lista y del cuadrante): se elige el
+    partido una vez y cada fila libre se asigna con un solo clic.
+  - «Asignar los marcados a…»: se marcan varias filas y se asignan todas de una vez.
+  - Arreglado: una segunda pulsación mientras se guardaba la anterior se perdía sin
+    avisar; ahora se avisa (partidos) o va a la cola (administración).
+Funciona igual con el plan gratuito de Netlify. Los datos no cambian de formato.
+
 Si te equivocas al importar el Excel: en cada lista (y en Espacios con «✎ Editar lista»)
 marca varias filas en la primera columna, o «Marcar todos», y pulsa «🗑 Borrar las filas
 marcadas». Para que no se haga por accidente, hay que escribir BORRAR. Antes de borrar se

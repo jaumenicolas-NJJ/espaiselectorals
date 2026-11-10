@@ -593,6 +593,13 @@ textarea.inote{min-height:64px;overflow:hidden;line-height:1.5}
 .ltbl tr.taken td{background:#fafbfc}.ltbl tr.mine td{background:#eef8f1}
 .ltbl td.num{text-align:right}
 .free-l{color:#2E7D32;font-weight:700;font-size:12.5px}
+.qabar{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border:1px dashed #cdd5e1;border-radius:8px;font-size:13px;color:var(--ink2)}
+.qabar.on{border-style:solid;border-color:#9cc8a9;background:#eef8f1;color:#1d5a2f}
+.qabar select{max-width:260px}
+.pendl{display:block;color:#8a6d00;font-size:11px;font-style:italic}
+tr.pendr td{background:#fffbe6}
+.cc.pend button{outline:2px dashed #b38f00;outline-offset:-3px;font-style:italic}
+.qab{margin-right:4px}
 .two3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .olist{border:1px solid var(--line);border-radius:8px;padding:4px 8px;max-width:620px}
 .orow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line2)}.orow:last-child{border-bottom:0}
@@ -700,6 +707,7 @@ body.waiting,body.waiting *{cursor:progress!important}
 /* selección de varias filas para borrarlas a la vez */
 .selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;border:1px dashed #cdd5e1;border-radius:8px;font-size:13px;color:var(--ink2)}
 .selbar.on{border-style:solid;border-color:#efc4c6;background:var(--bad-bg);color:#7e1a1f}
+.selbar .selt{display:inline-block;min-width:19em}.selbar select.asgsel{max-width:230px}.selbar.fixed.on{border-color:#9cc8a9;background:#eef8f1;color:#1d5a2f}
 .tbl th.selc,.tbl td.selc{width:34px;text-align:center;padding-left:6px;padding-right:6px}
 .tbl td.selc input,.tbl th.selc input{width:16px;height:16px;cursor:pointer}
 .tbl tr.selr td{background:#fff3f3}
@@ -791,7 +799,8 @@ const SS = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { retu
 const ST = {
   db: null, seq: 0, urev: 0, users: [], me: null, user: '', tok: null, pend: {},
   sync: 'idle', lastSaved: 0, saving: false, again: false, online: true, failN: 0, pollN: 0, rev: 0,
-  view: 'panel', ui: { flt: {}, q: {}, edit: {}, lflt: '', lq: '' }, timers: [], modalRes: null, modalLocked: false, hist: null, drafts: {}, busy: false, painting: false, repaint: false, lastAct: Date.now()
+  view: 'panel', ui: { flt: {}, q: {}, edit: {}, lflt: '', lq: '', qa: {} }, timers: [], modalRes: null, modalLocked: false, hist: null, drafts: {}, busy: false, painting: false, repaint: false, lastAct: Date.now(),
+  aq: [], aqSaving: false, aqBatch: null, aqT: null, qaLast: 0
 };
 const myRole = () => (ST.me && ST.me.role) || 'consulta';
 const isAdmin = () => myRole() === 'admin';
@@ -815,12 +824,15 @@ const pendKey = () => 'espais.pend.' + (ST.me ? ST.me.id : '');
 function savePend() { const ks = Object.keys(ST.pend); if (ks.length) LS.set(pendKey(), JSON.stringify(ST.pend)); else LS.del(pendKey()); }
 function loadPend() { try { return JSON.parse(LS.get(pendKey())) || {}; } catch (e) { return {}; } }
 const pendCount = () => Object.keys(ST.pend).length;
+const aqCount = () => (ST.aq ? ST.aq.length : 0);
 function put(key, obj) { obj.u = Date.now(); obj.b = ST.user; ST.db.E[key] = obj; ST.pend[key] = obj; markDirty(); return obj; }
 function putQuiet(key, obj) { obj.u = Date.now(); obj.b = ST.user; ST.db.E[key] = obj; ST.pend[key] = obj; }
 function markDirty() { savePend(); ST.rev++; ST.sync = 'pending'; paintSync(); clearTimeout(ST.saveT); ST.saveT = setTimeout(flush, 350); if (ST.db) renderAll(); }
 function applyServer(r) {
   let ch = false;
-  if (r.E) for (const k in r.E) { if (ST.pend[k]) continue; ST.db.E[k] = r.E[k]; ch = true; }
+  /* lo que está en la cola de asignaciones (v1.10) se sigue viendo como provisional hasta que el servidor conteste a su envío */
+  const aqk = aqKeys();
+  if (r.E) for (const k in r.E) { if (ST.pend[k] || (aqk && aqk.has(k))) continue; ST.db.E[k] = r.E[k]; ch = true; }
   if (r.rejected) r.rejected.forEach((x) => { if ((!r.E || !r.E[x.key]) && !ST.pend[x.key]) { delete ST.db.E[x.key]; ch = true; } });
   if (typeof r.seq === 'number' && r.seq > ST.seq) ST.seq = r.seq;
   if (r.users) { ST.users = r.users; ch = true; }
@@ -853,19 +865,19 @@ function handleNetErr(e) {
   if (e.status === 403 && /ya no tiene acceso/.test(e.message)) { kickOut(e.message); return; }
   if (e.net || !e.status || e.status >= 500 || e.status === 429) {
     const was = ST.online; ST.online = false; ST.failN++; ST.sync = 'offline';
-    clearTimeout(ST.retryT); ST.retryT = setTimeout(() => { if (pendCount()) flush(); else poll(true); }, Math.min(60000, 3000 * Math.pow(2, Math.min(ST.failN, 5) - 1)));
+    clearTimeout(ST.retryT); ST.retryT = setTimeout(() => { if (aqCount()) aflush(); if (pendCount()) flush(); else poll(true); }, Math.min(60000, 3000 * Math.pow(2, Math.min(ST.failN, 5) - 1)));
     if (was) { paintBanner(); paintSync(); }
     return;
   }
   toast(e.message, 'err'); ST.pend = {}; savePend(); loadAll().then(renderAll).catch(() => {});
 }
 async function poll(force) {
-  if (!ST.db || !ST.tok || ST.saving || ST.busy) return;
+  if (!ST.db || !ST.tok || ST.saving || ST.busy || ST.aqSaving) return;
   try {
     ST.pollN++;
     const r = await api('changes?since=' + ST.seq + '&urev=' + ST.urev + (force || ST.pollN % 10 === 0 ? '&force=1' : ''));
     applyServer(r);
-    if (!ST.online) { ST.online = true; ST.failN = 0; paintBanner(); if (pendCount()) flush(); }
+    if (!ST.online) { ST.online = true; ST.failN = 0; paintBanner(); if (pendCount()) flush(); if (aqCount()) aflush(); }
     ST.sync = pendCount() ? 'pending' : 'saved'; ST.lastSaved = ST.lastSaved || Date.now(); paintSync();
   } catch (e) { handleNetErr(e); }
 }
@@ -876,10 +888,12 @@ async function loadAll() {
   const pend = loadPend(); for (const k in pend) { ST.db.E[k] = pend[k]; ST.pend[k] = pend[k]; }
   ST.rev++; ST.cache = null; ST.online = true; ST.failN = 0; ST.sync = pendCount() ? 'pending' : 'saved'; ST.lastSaved = Date.now();
   if (pendCount()) flush();
+  aqRestore();
 }
 /* reservas, liberaciones y turnos: van directas al servidor, que decide (exclusividad y turnos) */
 async function act(path, body, okMsg) {
-  if (ST.busy) return false;
+  /* antes (hasta la 1.9.4) una segunda pulsación mientras se guardaba la anterior se perdía sin avisar */
+  if (ST.busy) { toast('Espera un momento: todavía se está guardando lo anterior. Vuelve a pulsar en un segundo.', 'err'); return false; }
   ST.busy = true; document.body.classList.add('waiting');
   try {
     let r;
@@ -892,6 +906,79 @@ async function act(path, body, okMsg) {
     else toast(e.message, 'err');
     poll(true); return false;
   } finally { ST.busy = false; document.body.classList.remove('waiting'); }
+}
+
+/* ---------- asignaciones de la administración (v1.10): se ven al momento y se envían en lotes ----------
+   Cada asignación queda en una cola, guardada también en este navegador (si se cierra la pestaña o se va la conexión, se envía
+   al volver). Lo que haya en la cola se manda al servidor en un solo envío; el servidor comprueba cada una y contesta una por
+   una: si alguna no se puede (por ejemplo, un partido la ha cogido justo antes), la fila vuelve a su estado y se avisa. */
+const aqKey = () => 'espais.aq.' + (ST.me ? ST.me.id : '');
+const aqSame = (a, b) => a.i === b.i && (a.slot || '') === (b.slot || '') && a.g === b.g;
+function saveAQ() { if (ST.aq.length) LS.set(aqKey(), JSON.stringify(ST.aq.map((q) => ({ i: q.i, slot: q.slot, g: q.g })))); else LS.del(aqKey()); }
+function loadAQ() { try { const a = JSON.parse(LS.get(aqKey())); return Array.isArray(a) ? a.filter((x) => x && typeof x.i === 'string' && typeof x.g === 'string') : []; } catch (e) { return []; } }
+/* la reserva provisional que se ve mientras se guarda (pend: true) */
+function aqShow(q) {
+  const it = ST.db.E['i:' + q.i]; q.slot = q.slot || ''; q.key = 'r:' + q.i + (q.slot ? ':' + q.slot : '');
+  const cur = ST.db.E[q.key]; if (!cur || !cur.pend) q.prev = cur;
+  q.opt = { k: 'r', t: it ? it.t : '', i: q.i, slot: q.slot, g: q.g, by: ST.user, ts: Date.now(), rk: '', pend: true };
+  ST.db.E[q.key] = q.opt;
+}
+function aqUnshow(q) { const cur = ST.db.E[q.key]; if (cur && cur.pend && !ST.aq.some((o) => o.key === q.key)) { if (q.prev && !q.prev.pend) ST.db.E[q.key] = q.prev; else delete ST.db.E[q.key]; } }
+const aqKeys = () => (ST.aq.length ? new Set(ST.aq.map((q) => q.key)) : null);
+function queueAssign(list) {
+  list.forEach((x) => { const q = { i: x.i, slot: x.slot || '', g: x.g }; aqShow(q); ST.aq.push(q); });
+  saveAQ(); ST.rev++; renderAll();
+  clearTimeout(ST.aqT); ST.aqT = setTimeout(aflush, 120);
+}
+/* al cargar (o recargar) los datos, lo que estaba en la cola se vuelve a ver y se envía */
+function aqRestore() {
+  const L = ST.aq.length ? ST.aq.map((q) => ({ i: q.i, slot: q.slot, g: q.g })) : loadAQ();
+  ST.aq = []; if (!isAdmin()) { if (L.length) LS.del(aqKey()); return; }
+  L.forEach((x) => { if (!ST.db.E['i:' + x.i]) return; const q = { i: x.i, slot: x.slot || '', g: x.g }; aqShow(q); ST.aq.push(q); });
+  saveAQ(); if (ST.aq.length) { clearTimeout(ST.aqT); ST.aqT = setTimeout(aflush, 50); }
+}
+async function aflush() {
+  clearTimeout(ST.aqT);
+  if (!ST.db || !ST.tok || ST.aqSaving || !ST.aq.length) return;
+  const batch = ST.aq.slice(0, 200);
+  ST.aqSaving = true; ST.aqBatch = batch; paintSync();
+  let again = 120;
+  try {
+    const r = await api('reserve', { items: batch.map((q) => ({ i: q.i, slot: q.slot, g: q.g })), since: ST.seq });
+    if (!ST.db || ST.aqBatch !== batch) return; /* se ha cerrado la sesión mientras tanto: la cola sigue en este navegador */
+    batch.forEach((b) => { const n = ST.aq.findIndex((q) => aqSame(q, b)); if (n >= 0) ST.aq.splice(n, 1); });
+    saveAQ();
+    const bad = [];
+    (r.results || []).forEach((x, n) => { const b = batch[n]; if (b && !x.ok) { bad.push([b, x.error]); aqUnshow(b); } });
+    ST.aqSaving = false; ST.aqBatch = null;
+    applyServer(r);
+    /* si ya era suyo de antes (reenvío tras un corte), queda la reserva del servidor, que este navegador ya tenía */
+    batch.forEach((b) => { const cur = ST.db.E[b.key]; if (cur && cur.pend && !ST.aq.some((q) => q.key === b.key)) { if (b.prev && !b.prev.x && b.prev.g === b.g) ST.db.E[b.key] = b.prev; else { const c = Object.assign({}, cur); delete c.pend; ST.db.E[b.key] = c; } } });
+    ST.rev++; renderAll();
+    const wasOff = !ST.online; ST.online = true; ST.failN = 0; ST.lastSaved = Date.now(); if (wasOff) paintBanner();
+    if (bad.length) { const [b, why] = bad[0], it = idx().imap[b.i]; toast('No se ha podido asignar «' + (it ? iName(it) : '?') + (b.slot ? ' · ' + slotTxt(b.slot) : '') + '» a ' + pName(b.g) + ': ' + why + (bad.length > 1 ? ' (y ' + (bad.length - 1) + ' más; mira el Registro)' : ''), 'err'); }
+  } catch (e) {
+    ST.aqSaving = false; ST.aqBatch = null;
+    if (e.status === 401) { sessionExpired(e.message); return; }
+    if (e.net || !e.status || e.status >= 500 || e.status === 429) {
+      /* sin conexión o servidor ocupado: la cola se conserva (también en este navegador) y se reintenta sola */
+      const was = ST.online; ST.online = false; ST.failN++; again = Math.min(30000, 2000 * Math.pow(2, Math.min(ST.failN, 4) - 1));
+      if (was) paintBanner();
+    } else {
+      /* el servidor no acepta el envío entero (por ejemplo, el usuario ya no es administrador): se anula y se avisa */
+      batch.forEach((b) => { const n = ST.aq.findIndex((q) => aqSame(q, b)); if (n >= 0) ST.aq.splice(n, 1); aqUnshow(b); });
+      saveAQ(); ST.rev++; renderAll(); toast('No se han podido guardar ' + batch.length + (batch.length === 1 ? ' asignación: ' : ' asignaciones: ') + e.message, 'err');
+    }
+  } finally {
+    ST.aqSaving = false; ST.aqBatch = null; paintSync();
+    if (ST.aq.length && ST.tok) { clearTimeout(ST.aqT); ST.aqT = setTimeout(aflush, again); }
+  }
+}
+/* anular una asignación que todavía no ha llegado al servidor */
+function aqCancel(key) {
+  if (ST.aqBatch && ST.aqBatch.some((q) => q.key === key)) { toast('Se está guardando en este momento. Cuando acabe, pulsa «Liberar».', 'err'); return false; }
+  const L = ST.aq.filter((q) => q.key === key); if (!L.length) return false;
+  ST.aq = ST.aq.filter((q) => q.key !== key); L.forEach(aqUnshow); saveAQ(); ST.rev++; renderAll(); return true;
 }
 
 /* ---------- lector de Excel propio (xlsx/xlsm y csv), sin librerías externas ----------
@@ -1115,10 +1202,10 @@ function TABS() {
   return t.concat([['registro', 'Registro'], ['ajustes', 'Ajustes'], ['ayuda', 'Ayuda']]);
 }
 function paintSync() {
-  const el = $('#sync'); if (!el) return; const n = pendCount();
+  const el = $('#sync'); if (!el) return; const n = pendCount() + aqCount();
   let cls = 'ok', txt = 'Al día' + (ST.lastSaved ? ' · ' + hhmm(Date.now()).slice(0, 5) : ''), tip = 'Datos al día con el servidor (se actualizan solos cada pocos segundos).';
   if (!ST.online) { cls = 'err'; txt = 'Sin conexión' + (n ? ' · ' + n + ' pendientes' : ''); tip = 'Se reintentará automáticamente.'; }
-  else if (ST.sync === 'saving') { cls = 'pend'; txt = 'Guardando…'; }
+  else if (ST.sync === 'saving' || ST.aqSaving) { cls = 'pend'; txt = 'Guardando' + (aqCount() ? ' ' + aqCount() + (aqCount() === 1 ? ' asignación' : ' asignaciones') : '') + '…'; }
   else if (n) { cls = 'pend'; txt = n + (n === 1 ? ' cambio pendiente' : ' cambios pendientes'); }
   el.className = 'pill ' + cls; el.innerHTML = '<i></i>' + esc(txt); el.title = tip;
 }
@@ -1287,6 +1374,7 @@ function viewCat(t) {
   if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), isAdmin() ? 'Impórtalos desde el Excel o añádelos con «Editar lista».' : 'El Ayuntamiento los cargará en breve.') + '</div>';
   h += '<div class="filters"><select id="flt-' + t + '" data-flt="' + t + '" aria-label="Mostrar"><option value="all">Todos</option><option value="free"' + (f === 'free' ? ' selected' : '') + '>Solo libres</option><option value="taken"' + (f === 'taken' ? ' selected' : '') + '>Solo reservados</option>' + (t !== 'esp' ? '<option value="nd"' + (f === 'nd' ? ' selected' : '') + '>No disponibles</option>' : '') + (isParty() ? '<option value="mine"' + (f === 'mine' ? ' selected' : '') + '>Solo los nuestros</option>' : '') + '<optgroup label="Por partido">' + I.parties.map((p) => '<option value="p:' + p.id + '"' + (f === 'p:' + p.id ? ' selected' : '') + '>' + esc(p.sig || p.nom) + '</option>').join('') + '</optgroup></select>' +
     '<input type="search" id="q-' + t + '" data-q="' + t + '" value="' + esc(q) + '" placeholder="🔍 Buscar ' + ({ esp: 'un espacio', ban: 'una calle o un tramo', pan: 'un lugar o unos límites', pri: 'un lugar o un número' }[t]) + '…" style="max-width:340px"></div>';
+  if (isAdmin() && !edit && (t !== 'esp' || campDays().length)) h += qaBar(t);
   return h + (t === 'esp' ? gridHTML(edit) : listHTML(t, edit)) + '</div>';
 }
 function passFilter(t, it, r) {
@@ -1303,8 +1391,8 @@ function listHTML(t, edit) {
   if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
   const adm = isAdmin() && !edit, sel = isAdmin(), S = selOf(t);
   return (sel ? selBar(t) : '') + '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + (sel ? selHead(t) : '') + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th>' + (adm ? '<th>¿Elegible?</th>' : '') + '<th></th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
-    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') +
-      '<td' + (it.nd ? '' : ' class="nowrap"') + '>' + (it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : r ? pChip(r.g) : '<span class="free-l">Libre</span>') + '</td>' + (adm ? '<td>' + ndSelect(it, r) + '</td>' : '') + '<td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td>' + (adm ? '<td><button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Borrar esta línea">🗑</button></td>' : '') + '</tr>').join('') + '</tbody></table></div>';
+    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + (r && r.pend ? ' pendr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') +
+      '<td' + (it.nd ? '' : ' class="nowrap"') + '>' + (it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : r ? pChip(r.g) + (r.pend ? '<small class="pendl" title="Se está guardando">guardando…</small>' : '') : adm && qaParty(t) ? qaBtn(t, it) : '<span class="free-l">Libre</span>') + '</td>' + (adm ? '<td>' + ndSelect(it, r) + '</td>' : '') + '<td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td>' + (adm ? '<td><button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Borrar esta línea">🗑</button></td>' : '') + '</tr>').join('') + '</tbody></table></div>';
 }
 /* ---------- marcar varias filas y borrarlas a la vez (por ejemplo, después de importar un Excel equivocado) ---------- */
 const SELN = { esp: ['espacio', 'espacios', 'm'], ban: ['tramo de banderolas', 'tramos de banderolas', 'm'], pan: ['pancarta', 'pancartas', 'f'], pri: ['prisma', 'prismas', 'm'], par: ['candidatura', 'candidaturas', 'f'] };
@@ -1321,8 +1409,16 @@ function selBar(t) {
   const S = selOf(t); [...S].forEach((id) => { if (!selExists(t, id)) S.delete(id); });
   const n = S.size, N = SELN[t], vis = selVisible(t), all = t === 'par' ? idx().parties.length : idx().items[t].length, m = (k) => (N[2] === 'f' ? (k === 1 ? 'marcada' : 'marcadas') : k === 1 ? 'marcado' : 'marcados');
   if (!vis.length) return '';
-  return '<div class="selbar' + (n ? ' on' : '') + '">' + (n ? '<b>' + n + ' ' + (n === 1 ? N[0] : N[1]) + ' ' + m(n) + '</b>' : '<span>Para borrar varias filas a la vez, márcalas en la primera columna.</span>') +
-    '<button class="btn sm" data-a="sel-vis" data-t="' + t + '">' + (vis.length === all ? 'Marcar ' + (N[2] === 'f' ? 'todas' : 'todos') + ' (' + all + ')' : 'Marcar las ' + vis.length + ' filas que se ven') + '</button>' +
+  const vbtn = '<button class="btn sm" data-a="sel-vis" data-t="' + t + '">' + (vis.length === all ? 'Marcar ' + (N[2] === 'f' ? 'todas' : 'todos') + ' (' + all + ')' : 'Marcar las ' + vis.length + ' filas que se ven') + '</button>';
+  /* v1.10, banderolas, pancartas y prismas (administración): la barra tiene siempre los mismos botones y el mismo tamaño, para que
+     al marcar una fila la tabla no se mueva y el siguiente clic no caiga en otra fila */
+  if (isAdmin() && CATS.includes(t) && t !== 'esp' && !ST.ui.edit[t]) {
+    const off = n ? '' : ' disabled';
+    return '<div class="selbar fixed' + (n ? ' on' : '') + '"><span class="selt">' + (n ? '<b>' + n + ' ' + (n === 1 ? N[0] : N[1]) + ' ' + m(n) + '</b>' : 'Marca filas para asignarlas o borrarlas de una vez.') + '</span>' + vbtn +
+      '<select class="asgsel" data-t="' + t + '" aria-label="Asignar los marcados a un partido"' + off + '>' + partyOpts('', 'Asignar los marcados a…') + '</select>' +
+      '<button class="btn sm" data-a="sel-none" data-t="' + t + '"' + off + '>Desmarcar</button><button class="btn sm danger solid" data-a="sel-del" data-t="' + t + '"' + off + '>🗑 Borrar las marcadas</button></div>';
+  }
+  return '<div class="selbar' + (n ? ' on' : '') + '">' + (n ? '<b>' + n + ' ' + (n === 1 ? N[0] : N[1]) + ' ' + m(n) + '</b>' : '<span>Para borrar varias filas a la vez, márcalas en la primera columna.</span>') + vbtn +
     (n ? '<button class="btn sm" data-a="sel-none" data-t="' + t + '">Desmarcar</button><button class="btn sm danger solid" data-a="sel-del" data-t="' + t + '">🗑 Borrar ' + (n === 1 ? 'la fila marcada' : 'las ' + n + ' filas marcadas') + '</button>' : '') + '</div>';
 }
 function selHead(t) { const S = selOf(t), vis = selVisible(t), on = vis.length && vis.every((id) => S.has(id)); return '<th class="selc"><input type="checkbox" data-a="sel-all" data-t="' + t + '"' + (on ? ' checked' : '') + ' aria-label="Marcar o desmarcar todas las filas que se ven" title="Marcar o desmarcar todas las filas que se ven"></th>'; }
@@ -1344,12 +1440,33 @@ async function selDel(t) {
   ok.forEach((id) => { const e = ST.db.E[pre + id]; if (e) putQuiet(pre + id, Object.assign({}, e, { x: true })); S.delete(id); });
   markDirty(); toast('Borrad' + (N[2] === 'f' ? 'as ' : 'os ') + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]) + (kept ? ' (' + kept + ' con reservas no se han borrado)' : '') + '.');
 }
+/* ---------- asignación rápida (v1.10, administración): se elige el partido una vez y cada fila libre se asigna con un clic ---------- */
+const qaParty = (t) => { const g = (ST.ui.qa || {})[t]; return g && idx().pmap[g] ? g : ''; };
+function qaBar(t) {
+  const g = qaParty(t);
+  return '<div class="qabar' + (g ? ' on' : '') + '"><label><b>⚡ Asignación rápida a:</b> <select data-qa="' + t + '" aria-label="Partido para la asignación rápida">' + partyOpts(g, '— desactivada —') + '</select></label>' +
+    '<span class="small">' + (g ? (t === 'esp' ? 'Pulsa una casilla libre del cuadrante y queda asignada a <b>' + esc(pName(g)) + '</b> al momento.' : 'Pulsa «Asignar a ' + esc(pName(g)) + '» en la columna Estado de cada fila libre: queda asignada al momento.') + ' Se guarda solo, sin esperas; si te equivocas, «Anular» o «Liberar».' + (t !== 'esp' ? ' Para muchas a la vez: márcalas en la primera columna y «Asignar los marcados a…».' : '') : 'Elige un partido para asignar con un solo clic, sin ventanas de confirmación ni esperas.') + '</span>' +
+    (g ? '<button class="btn sm" data-a="qa-off" data-t="' + t + '">Desactivar</button>' : '') + '</div>';
+}
+function qaBtn(t, it) { const g = qaParty(t); return g ? '<button class="btn sm primary qab" data-a="qa" data-t="' + t + '" data-i="' + it.id + '">Asignar a ' + esc(pName(g)) + '</button> ' : ''; }
+/* una pulsación doble no debe asignar también la fila que sube a ocupar el sitio de la anterior */
+function qaClick(t, i) { const now = Date.now(); if (now - ST.qaLast < 350) return; ST.qaLast = now; const g = qaParty(t); if (!g) return; doReserve(i, '', g); }
+async function assignMarked(t, g) {
+  const S = selOf(t), I = idx(), ids = [...S].filter((id) => I.imap[id]);
+  const ok = ids.filter((id) => !I.imap[id].nd && !activeRes(id)), skip = ids.length - ok.length;
+  if (!ok.length) { renderView(); return toast('Ninguna de las filas marcadas está libre.', 'err'); }
+  const N = SELN[t];
+  if (!(await confirmBox({ title: 'Asignar los marcados', text: 'Se asignarán <b>' + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]) + '</b> a <b>' + esc(pName(g)) + '</b>.' + (skip ? '<br>' + skip + ' de las marcadas ya tienen dueño o no están disponibles: se quedan como están.' : '') + '<br><br>Queda anotado en el registro, una por una.', ok: 'Asignar ' + ok.length }))) return renderView();
+  closeModal(); S.clear(); queueAssign(ok.map((id) => ({ i: id, slot: '', g })));
+  toast('Asignados a ' + pName(g) + ': ' + ok.length + ' ' + (ok.length === 1 ? N[0] : N[1]) + '. Se están guardando.');
+}
 /* desplegable «Elegible / No elegible» de cada elemento (administración) */
 function ndSelect(it, r) { return '<select class="ndsel' + (it.nd ? ' off' : '') + '" data-i="' + it.id + '" aria-label="¿Se puede elegir?"' + (r ? ' disabled title="Está reservado: libéralo antes de cambiarlo"' : '') + '><option value="1"' + (!it.nd ? ' selected' : '') + '>Elegible</option><option value="0"' + (it.nd ? ' selected' : '') + '>No elegible</option></select>'; }
 /* reasignar lo reservado a otra candidatura en un solo paso (administración) */
 function reSelect(i, s, g) { return '<select class="rsg" data-i="' + i + '" data-s="' + (s || '') + '" aria-label="Reasignar a otra candidatura"><option value="">Reasignar a…</option>' + idx().parties.filter((p) => p.id !== g).map((p) => '<option value="' + p.id + '">' + esc(p.sig || p.nom) + '</option>').join('') + '</select>'; }
 function rowAction(t, it, r, pick, edit) {
   if (edit) return '<button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Eliminar">✕</button>';
+  if (r && r.pend) return '<button class="btn sm" data-a="rel" data-i="' + it.id + '" data-s="" title="Todavía no ha llegado al servidor: se puede anular">Anular</button>';
   if (r) return (canRelease(r) ? '<button class="btn sm danger" data-a="rel" data-i="' + it.id + '" data-s="">Liberar</button>' : '') + (isAdmin() ? ' ' + reSelect(it.id, '', r.g) : '');
   if (it.nd) return '';
   if (isAdmin()) return '<select class="asg" data-i="' + it.id + '" aria-label="Asignar a un partido"><option value="">Asignar a…</option>' + partyOpts('') + '</select>';
@@ -1376,7 +1493,7 @@ function gridHTML(edit) {
     days.forEach((d) => ['M', 'T'].forEach((m) => {
       const s = toISO(d) + m, r = activeRes(it.id, s), b = slotSt(it, s);
       let cls = 'cc', txt = '';
-      if (r) { cls += r.g === myParty() ? ' mine' : ' taken'; txt = pName(r.g); }
+      if (r) { cls += (r.g === myParty() ? ' mine' : ' taken') + (r.pend ? ' pend' : ''); txt = pName(r.g); }
       else if (b === 'nd' || b === 'hz') { cls += ' nd' + (b === 'hz' ? ' hz' : ''); txt = b === 'hz' ? '—' : 'N/D'; }
       else { cls += ' free' + (b === 'rs' ? ' rs' : ''); txt = b === 'rs' ? '⚠' : ''; }
       if (f.indexOf('p:') === 0 && (!r || r.g !== f.slice(2))) cls += ' dim';
@@ -1393,14 +1510,16 @@ function modalCell(i, s) {
   const it = idx().imap[i]; if (!it) return;
   const r = activeRes(i, s), b = slotSt(it, s), pick = canPick('esp');
   let h = '<h2>' + esc(it.nom) + '</h2><p><b>' + esc(slotTxt(s)) + '</b>' + (it.dir ? ' · ' + esc(it.dir) : '') + (it.hor ? '<br><span class="muted">Horario: ' + esc(it.hor) + '</span>' : '') + xfOf('esp').filter((d) => (it.xv || {})[d.id]).map((d) => '<br><span class="muted">' + esc(d.n) + ': ' + esc(it.xv[d.id]) + '</span>').join('') + (it.nota ? '<br><span class="muted">Notas: ' + esc(it.nota) + '</span>' : '') + '</p>';
-  if (r) h += '<p>Reservado por ' + pChip(r.g) + ' <span class="muted">(' + fStamp(r.ts) + ' · ' + esc(r.by) + ')</span></p>';
+  if (r && r.pend) h += '<p>Asignado a ' + pChip(r.g) + ' <span class="muted">(guardándose…)</span></p>';
+  else if (r) h += '<p>Reservado por ' + pChip(r.g) + ' <span class="muted">(' + fStamp(r.ts) + ' · ' + esc(r.by) + ')</span></p>';
   else if (it.nd) h += '<p class="hint warn"><b>Este espacio no está disponible</b>' + (it.ndm ? ': ' + esc(it.ndm) : '') + '.</p>';
   else if (b === 'nd') h += '<p class="hint warn">No disponible en esta franja.</p>';
   else if (b === 'hz') h += '<p class="hint warn">Fuera del horario de este espacio' + (horTxt(it.hor) ? ' (' + esc(horTxt(it.hor)) + ')' : '') + ': no se puede reservar esta franja.' + (isAdmin() ? ' Si el horario no es correcto, corrígelo con «✎ Editar lista» o abre solo esta franja con «Disponible».' : '') + '</p>';
   else h += '<p>' + (b === 'rs' ? '<span class="hint warn">⚠ Con restricciones: consulta las condiciones de uso antes de reservar.</span>' : '<span class="free-l">Libre</span>') + '</p>';
   let acts = '';
-  if (r && canRelease(r)) acts += '<button class="btn danger" data-a="rel" data-i="' + i + '" data-s="' + s + '">Liberar esta franja</button>';
-  if (r && isAdmin()) acts += reSelect(i, s, r.g);
+  if (r && r.pend) acts += '<button class="btn" data-a="rel" data-i="' + i + '" data-s="' + s + '">Anular</button>';
+  else if (r && canRelease(r)) acts += '<button class="btn danger" data-a="rel" data-i="' + i + '" data-s="' + s + '">Liberar esta franja</button>';
+  if (r && !r.pend && isAdmin()) acts += reSelect(i, s, r.g);
   if (!r && b !== 'nd' && b !== 'hz') {
     if (isAdmin()) acts += '<select id="cellParty">' + partyOpts('', 'Elige el partido…') + '</select><button class="btn primary" data-a="cell-asg" data-i="' + i + '" data-s="' + s + '">Asignar</button>';
     else if (isParty()) acts += pick.ok ? '<button class="btn primary" data-a="res" data-i="' + i + '" data-s="' + s + '">Reservar para ' + esc(pName(myParty())) + '</button>' : '<p class="hint">' + esc(pick.why) + '</p>';
@@ -1889,6 +2008,7 @@ document.addEventListener('input', (e) => { if (e.target.id === 'gsq') gsRender(
 /* reasignar y borrar datos de prueba (administración) */
 async function doReassign(i, s, g) {
   const it = idx().imap[i], r = activeRes(i, s); if (!it || !r || !g) return renderView();
+  if (r.pend) { renderView(); return toast('Todavía se está guardando la asignación. Espera un segundo y vuelve a probar.', 'err'); }
   if (!(await confirmBox({ title: 'Reasignar', text: '«' + esc(iName(it)) + '»' + (s ? ' · ' + esc(slotTxt(s)) : '') + ' pasará de <b>' + esc(pName(r.g)) + '</b> a <b>' + esc(pName(g)) + '</b>. Queda anotado en el registro.', ok: 'Reasignar' }))) return renderView();
   closeModal(); if (await act('reassign', { i, slot: s || '', g })) toast('Reasignado a ' + pName(g) + ': ' + iName(it) + (s ? ' · ' + slotTxt(s) : '') + '.');
 }
@@ -1989,7 +2109,7 @@ function helpAdmin() {
       '<div class="hint"><b>Ejemplo.</b> 30 tramos de banderolas y 4 candidaturas con 12.000, 8.000, 4.000 y 1.000 votos, con un mínimo de 1. Primero cada una recibe 1 (quedan 26). Los 26 se reparten en proporción a los votos: 12,48 · 8,32 · 4,16 · 1,04. Las partes enteras suman 25 y el tramo que sobra va al resto más alto (0,48). Cupos: <b>14, 9, 5 y 2</b>. El desarrollo ronda a ronda está en la ayuda para las candidaturas.</div>') +
     hsec(3, 'Turnos y reglas', '<p>Cada categoría puede estar <b>cerrada</b> (solo asigna el Ayuntamiento), <b>por turnos</b> o <b>libre</b> (cada candidatura elige cuando quiere, hasta su cupo o el máximo). En modo por turnos se fija el <b>orden</b>, las <b>elecciones por turno</b> y, si no hay cupos del reparto, un <b>máximo por candidatura</b>. El turno pasa solo al completar las elecciones del turno, cuando la candidatura completa su cupo o cuando pulsa «Terminar mi turno»; las que ya lo tienen completo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a una candidatura o reiniciar, y escribir un aviso que verán todas. Existe la opción de invertir el orden en cada ronda, pero no se recomienda: el art. 56 LOREG habla de orden decreciente de votos.</p>') +
     hsec(4, 'Ensayo antes de la sesión', '<p>En la tarjeta <b>Sesión de selección</b> (arriba del Panel y de Turnos y reglas) marca qué categorías se abren y cómo, y pulsa <b>«Empezar un ensayo»</b>: las candidaturas practican con sus usuarios y eligen por turnos como el día de verdad. Todos ven el aviso naranja <b>MODO ENSAYO</b>. Antes de empezar se guarda una copia de seguridad y los turnos empiezan desde la ronda 1. Al pulsar <b>«Terminar el ensayo y borrar lo elegido»</b> se borran todas las elecciones hechas durante el ensayo, los turnos vuelven a la ronda 1 y <b>todo queda cerrado</b> hasta que pulses «Empezar la selección»; las candidaturas, los usuarios, los espacios, los cupos y las reglas no se tocan. Los movimientos del ensayo quedan en el Registro marcados como «ensayo» (ocultos salvo que se marque «Mostrar») y no salen en el acta.</p><p><b>Borrar datos de prueba.</b> En Ajustes (y en el recuadro del ensayo), «Borrar datos…» pregunta qué borrar: <b>todas las selecciones</b> o, además, <b>las candidaturas con sus usuarios</b>. Pide escribir BORRAR y guarda antes una copia de seguridad, a la que se puede volver con «Restaurar». Nunca borra los espacios, las banderolas, las pancartas, los prismas, las reglas, los usuarios de la administración ni el registro.</p>') +
-    hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, en la tarjeta <b>Sesión de selección</b> del Panel revisa la lista «¿Está todo listo?», marca qué categorías se abren (por turnos o libre) y pulsa <b>«▶ Empezar la selección»</b>: se abren todas a la vez, el turno es de la primera candidatura del orden y los avisos y los saltos de turno van solos. Si hace falta parar (una duda, un problema en la sala), <b>«⏸ Pausar»</b> cierra todo sin perder los turnos y <b>«▶ Reanudar»</b> sigue donde se quedó. Al acabar, <b>«⏹ Terminar la selección»</b>. (También se puede abrir o cerrar cada categoría por separado en «Turnos y reglas».) Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p>') +
+    hsec(5, 'Durante la selección', '<p><b>Cómo llevar la sesión.</b> Cada candidatura entra desde su propio ordenador o móvil. Conviene proyectar en la sala la pestaña <b>● En directo</b> desde el ordenador de la administración, para que todos vean de quién es el turno y lo que se va eligiendo. Cuando todo esté preparado, en la tarjeta <b>Sesión de selección</b> del Panel revisa la lista «¿Está todo listo?», marca qué categorías se abren (por turnos o libre) y pulsa <b>«▶ Empezar la selección»</b>: se abren todas a la vez, el turno es de la primera candidatura del orden y los avisos y los saltos de turno van solos. Si hace falta parar (una duda, un problema en la sala), <b>«⏸ Pausar»</b> cierra todo sin perder los turnos y <b>«▶ Reanudar»</b> sigue donde se quedó. Al acabar, <b>«⏹ Terminar la selección»</b>. (También se puede abrir o cerrar cada categoría por separado en «Turnos y reglas».) Si una candidatura no responde, «Pasar al siguiente»; si alguien lo pide por teléfono, «Asignar a…». Al terminar, imprime el acta y guarda una copia permanente.</p><p>El botón <b>«🔍 Buscar»</b> de la barra de pestañas encuentra cualquier espacio, calle o lugar en las cuatro categorías a la vez, con su estado. La pestaña <b>● En directo</b> (con el punto rojo) muestra al momento de quién es el turno en cada categoría, las últimas elecciones y todo lo que tiene cada candidatura; se puede proyectar en una pantalla durante la sesión. El Ayuntamiento puede asignar cualquier elemento a una candidatura (por ejemplo, si lo pide por teléfono o lo acuerda la Junta) con el desplegable «Asignar a…» o pulsando la casilla del cuadrante, liberar cualquier reserva y, en un solo paso, <b>reasignar</b> lo que ya tiene una candidatura a otra con «Reasignar a…» (en la fila o en la casilla). Todo queda anotado en el registro. Estas asignaciones no están limitadas por los turnos ni por los cupos.</p><p><b>Asignar muchas cosas deprisa (versión 1.10).</b> Cuando la administración asigna, la fila cambia al momento y se puede seguir sin esperar: el programa guarda lo asignado por detrás, varias de una vez, y el indicador de arriba pasa de «Guardando… asignaciones» a «Al día». No se pierde nada: si se va la conexión o se cierra la pestaña, lo pendiente queda guardado en el navegador y se envía solo al volver. Mientras una fila pone «guardando…» se puede <b>«Anular»</b>; después, «Liberar». Si alguna no se puede guardar (por ejemplo, una candidatura la ha elegido justo antes), la fila vuelve a su estado y sale un aviso.</p><ul><li><b>⚡ Asignación rápida a:</b> en Banderolas, Pancartas, Prismas y en el cuadrante de Espacios, elige un partido arriba de la lista y cada fila libre tiene el botón «Asignar a…» (en el cuadrante, basta con pulsar la casilla libre): un clic y queda asignada, sin ventana de confirmación.</li><li><b>Varias a la vez:</b> marca las filas en la primera columna (o «Marcar todos» con un filtro o una búsqueda) y elige el partido en <b>«Asignar los marcados a…»</b>. Se confirma una sola vez y cada una queda anotada en el registro.</li></ul>') +
     hsec(6, 'Inhabilitar y disponibilidad', '<p><b>El horario manda.</b> El cuadrante solo deja reservar los días y franjas que permite el «Horario de uso» de cada espacio en la lista (por ejemplo «De dilluns a divendres de 17 a 20:30 hores» abre solo las tardes de lunes a viernes, y «Excepte dissabte» cierra los sábados). Entiende castellano y catalán, rangos de días, listas, «excepto» y las horas (antes de las 14 h cuenta como mañana y después de las 15 h como tarde). Las franjas cerradas por el horario salen rayadas (—). Si el horario está mal, se corrige con «✎ Editar lista»; para abrir solo una franja concreta, pulsa la casilla y elige «Disponible». Nada de esto toca las reservas ya hechas.</p><p>Si una banderola, pancarta, prisma o un espacio entero no se puede usar (obras, un mercado, un acto institucional…), el desplegable <b>«Elegible / No elegible»</b> de su fila (en los espacios, en la ventana que se abre al pulsar su nombre en el cuadrante) lo marca como <b>no elegible con un motivo</b>. Queda en gris con el motivo a la vista de todos, nadie lo puede elegir y deja de contar en el reparto. Volviendo a «Elegible» vuelve a estar disponible. Un elemento reservado no se puede inhabilitar hasta liberarlo. El botón <b>🗑</b> de cada fila (o «🗑 Borrar este espacio») borra esa línea, con confirmación; lo reservado no se puede borrar hasta liberarlo.</p><p>En los espacios, además, cada franja se marca como disponible, con restricciones o no disponible pulsando la casilla, y en bloque (un rango de días, solo mañanas o tardes, ciertos días de la semana) pulsando el nombre del espacio. Las franjas ya reservadas no se tocan.</p>') +
     hsec(7, 'Partidos y usuarios', '<p>En <b>Partidos</b> se dan de alta las candidaturas con su orden, color, representante y contacto (los datos de contacto solo los ve el Ayuntamiento). Se pueden pegar desde Excel. Cada usuario de partido está <b>vinculado a su candidatura</b>: con ella entra, ve cuándo le toca y elige lo suyo; un usuario sin candidatura no puede elegir. El botón «+ Usuario» de cada fila crea el usuario de esa candidatura con una contraseña provisional, que la candidatura cambia al entrar. Más rápido: <b>«Crear los usuarios que faltan»</b> (en Partidos, en Ajustes o en el aviso rojo del Panel) crea de una vez un usuario para cada candidatura que no tiene, ya vinculado a ella, y permite imprimir una hoja con el usuario y la contraseña provisional de cada una para entregarla en mano. Mientras falte algún usuario o haya un usuario de partido sin candidatura, el Panel lo avisa en rojo. En Ajustes se gestionan todos los usuarios: cambiar la candidatura o el rol, restablecer la contraseña o dar de baja (se queda fuera al momento). Una candidatura con reservas no se puede eliminar hasta liberarlas o reasignarlas. Hay tres roles: <b>Administración</b>, <b>Partido</b> (elige lo suyo cuando le toca) y <b>Consulta</b> (solo lectura, por ejemplo para la Junta Electoral de Zona).</p>') +
     hsec(8, 'Importar desde Excel', '<p>Un solo Excel con todo: el programa reconoce cada hoja por su nombre y coloca cada cosa en su sitio: <b>ESPAIS</b> en Espacios, <b>BANDEROLES</b> en Banderolas, <b>PANCARTES</b> en Pancartas, <b>PRISMES</b> en Prismas y <b>PARTITS</b> (siglas, nombre, orden y votos) en Partidos; también lee la lista de partidos que hay junto al cuadrante de la hoja GRAELLA. En Ajustes se puede descargar una <b>plantilla</b> con todas las hojas preparadas. Antes de importar muestra cuántos elementos son nuevos, cuántos se completarán y cuántos ya estaban. <b>Nunca borra ni cambia</b> lo que ya hay ni toca las reservas: solo añade y rellena campos vacíos, así que se puede repetir sin duplicar nada. Si una hoja trae una columna que el programa no conoce y tiene datos (por ejemplo el <b>responsable</b> de cada espacio), ofrece añadirla como <b>campo propio</b>; al volver a importar se rellena sola.</p>') +
@@ -2246,10 +2366,11 @@ const LOCAL_KEY = 'espais.copia.local';
 function localCopy() { try { return JSON.parse(LS.get(LOCAL_KEY) || 'null'); } catch (e) { return null; } }
 function saveLocalCopy() { if (!isAdmin() || !ST.db) return; LS.set(LOCAL_KEY, JSON.stringify({ app: 'espais', kind: 'copia-local', at: Date.now(), by: ST.user, E: ST.db.E })); }
 function stopTimers() { ST.timers.forEach(clearInterval); ST.timers = []; clearTimeout(ST.saveT); clearTimeout(ST.retryT); }
-function endSession() { ST.wasTurn = undefined; ST.enl = null; stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
+function endSession() { ST.aq = []; clearTimeout(ST.aqT); ST.wasTurn = undefined; ST.enl = null; stopTimers(); ST.modalLocked = false; closeModal(false); ST.tok = null; SS.del('espais.tok'); SS.del('espais.me'); ST.db = null; ST.cache = null; ST.pend = {}; $('#view').innerHTML = ''; $('#banner').innerHTML = ''; }
 async function logout() {
   if (pendCount()) await flush();
-  if (pendCount() && !(await confirmBox({ title: 'Hay cambios sin enviar', text: 'Hay ' + pendCount() + ' cambios que todavía no han llegado al servidor. Se enviarán la próxima vez que entres desde aquí. ¿Salir igualmente?', ok: 'Salir' }))) return;
+  for (let k = 0; k < 20 && aqCount() && ST.online; k++) { await aflush(); if (aqCount()) await new Promise((ok) => setTimeout(ok, 300)); }
+  if ((pendCount() + aqCount()) && !(await confirmBox({ title: 'Hay cambios sin enviar', text: 'Hay ' + (pendCount() + aqCount()) + ' cambios que todavía no han llegado al servidor. Se enviarán la próxima vez que entres desde aquí. ¿Salir igualmente?', ok: 'Salir' }))) return;
   endSession(); showLock('login');
 }
 function sessionExpired(msg) { endSession(); showLock('login', msg || 'La sesión ha caducado.'); }
@@ -2318,12 +2439,21 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '1.9.4 · 23/10/2026';
+const APP_VERSION = '1.10 · 10/11/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
   const forParty = g || myParty(), what = '«' + iName(it) + '»' + (slot ? ' · ' + slotTxt(slot) : '');
   if (slot && slotSt(it, slot) === 'hz') return toast('Esa franja queda fuera del horario de «' + iName(it) + '».', 'err');
+  if (isAdmin()) {
+    /* v1.10: la administración asigna al momento, sin ventana de confirmación ni esperas (se guarda en lotes); si se equivoca, «Anular» o «Liberar» */
+    if (!forParty || !idx().pmap[forParty]) return toast('Elige el partido.', 'err');
+    if (activeRes(i, slot)) return toast('«' + iName(it) + '» ya está asignado a ' + pName(activeRes(i, slot).g) + '.', 'err');
+    if (it.nd) return toast('«' + iName(it) + '» no está disponible.', 'err');
+    closeModal(); queueAssign([{ i, slot: slot || '', g: forParty }]);
+    toast('Asignado a ' + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + slotTxt(slot) : '') + ((it.blk || {})[slot] === 'rs' ? ' (⚠ franja con restricciones)' : '') + '.');
+    return;
+  }
   if (!(await confirmBox({ title: isAdmin() ? 'Asignar' : 'Reservar', text: (isAdmin() ? 'Asignar ' : 'Reservar ') + esc(what) + ' para <b>' + esc(pName(forParty)) + '</b>.' + ((it.blk || {})[slot] === 'rs' ? '<br><br>⚠ Esta franja tiene restricciones de uso.' : ''), ok: isAdmin() ? 'Asignar' : 'Reservar' }))) return;
   closeModal();
   const ok = await act('reserve', { i, slot: slot || '', g: isAdmin() ? forParty : undefined });
@@ -2331,6 +2461,7 @@ async function doReserve(i, slot, g) {
 }
 async function doRelease(i, slot) {
   const r = activeRes(i, slot), it = idx().imap[i]; if (!r || !it) return;
+  if (r.pend) { if (aqCancel('r:' + resKey(i, slot))) { closeModal(); toast('Anulado: «' + iName(it) + '» vuelve a estar libre.'); } return; }
   if (!(await confirmBox({ title: 'Liberar', text: 'Se liberará «' + esc(iName(it)) + '»' + (slot ? ' · ' + esc(slotTxt(slot)) : '') + ', ahora de <b>' + esc(pName(r.g)) + '</b>, y quedará libre para cualquier partido.', ok: 'Liberar', danger: true }))) return;
   closeModal();
   if (await act('release', { i, slot: slot || '' })) toast('Liberado.');
@@ -2346,7 +2477,9 @@ const ACT = {
   mypw: () => openModal('<h2>Cambiar mi contraseña</h2>' + pwFields(true) + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="pw-save">Cambiar</button></div>'),
   res: (el) => doReserve(el.dataset.i, el.dataset.s || ''),
   rel: (el) => doRelease(el.dataset.i, el.dataset.s || ''),
-  cell: (el) => modalCell(el.dataset.i, el.dataset.s),
+  cell: (el) => { const i = el.dataset.i, s = el.dataset.s, g = isAdmin() ? qaParty('esp') : '', it = idx().imap[i]; if (g && it && !it.nd && !activeRes(i, s) && !['nd', 'hz'].includes(slotSt(it, s))) { const now = Date.now(); if (now - ST.qaLast < 350) return; ST.qaLast = now; return doReserve(i, s, g); } modalCell(i, s); },
+  qa: (el) => qaClick(el.dataset.t, el.dataset.i),
+  'qa-off': (el) => { ST.ui.qa[el.dataset.t] = ''; renderView(); },
   'cell-asg': (el) => { const g = $('#cellParty').value; if (!g) return toast('Elige el partido.', 'err'); doReserve(el.dataset.i, el.dataset.s, g); },
   'blk-row': (el) => { if (adminOnly()) modalBlkRow(el.dataset.i); },
   'bk-v': (el) => { $$('#bkV button').forEach((b) => b.classList.toggle('on', b === el)); },
@@ -2473,6 +2606,8 @@ document.addEventListener('change', async (e) => {
   else if (d.oadd && t.value) { const o = cfgOf(d.oadd).order.slice(); o.push(t.value); cfgPut(d.oadd, { order: o }); }
   else if (d.goto && t.value) { const g = t.value; t.value = ''; await flush(); if (await act('turn', { t: d.goto, op: 'goto', g })) toast('Turno para ' + pName(g) + '.'); }
   else if (t.classList.contains('asg') && t.value) { const g = t.value; t.value = ''; doReserve(d.i, '', g); }
+  else if (d.qa !== undefined && t.hasAttribute('data-qa')) { ST.ui.qa[d.qa] = t.value; renderView(); if (t.value) toast('Asignación rápida a ' + pName(t.value) + ': ' + (d.qa === 'esp' ? 'pulsa las casillas libres.' : 'pulsa «Asignar a…» en cada fila.')); }
+  else if (t.classList.contains('asgsel') && t.value) { const g = t.value; t.value = ''; assignMarked(d.t, g); }
   else if (d.urole) { const u = ST.users.find((x) => x.id === d.urole) || {}; if (t.value === 'partido' && !idx().pmap[u.party]) { renderView(); if (!idx().parties.length) return toast('Primero da de alta las candidaturas.', 'err'); modalUserParty(d.urole); return; } await flush(); usersOp({ op: 'role', id: d.urole, role: t.value, party: t.value === 'partido' ? u.party : '' }, 'Rol cambiado.'); }
   else if (d.uparty && t.value) { usersOp({ op: 'role', id: d.uparty, role: 'partido', party: t.value }, 'Usuario vinculado a ' + pName(t.value) + '.'); }
 });
@@ -2490,7 +2625,7 @@ document.addEventListener('keydown', (e) => {
 ['click', 'keydown', 'pointermove', 'touchstart', 'wheel'].forEach((ev) => document.addEventListener(ev, () => { ST.lastAct = Date.now(); }, { passive: true }));
 document.addEventListener('visibilitychange', () => { if (ST.db && document.visibilityState === 'visible') poll(true); });
 window.addEventListener('online', () => { if (ST.db) { ST.failN = 0; if (pendCount()) flush(); else poll(true); } });
-window.addEventListener('beforeunload', (e) => { if (ST.db && pendCount()) { flush(); e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', (e) => { if (ST.db && (pendCount() || aqCount())) { flush(); aflush(); e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- arranque ---------- */
 async function boot() {

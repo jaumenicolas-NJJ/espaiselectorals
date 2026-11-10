@@ -60,6 +60,28 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   r = await api('reserve', { i: 'e1', slot: '2027-07-09T' }, T.ERC); ok('Mismo espacio, mismo día y franja: no hay doble reserva', r.status === 409);
   r = await api('reserve', { i: 'e1', slot: '2027-07-13T' }, T.ERC); ok('La misma candidatura puede elegir otro día del mismo centro', r.status === 200);
   r = await api('reserve', { i: 'e0', slot: '2027-07-13T' }, T.VOX); ok('…y otra candidatura otro centro ese mismo día', r.status === 200);
+  /* v1.10: la administración asigna varias de una vez, en un solo guardado, con respuesta una por una */
+  const lt = {}; for (let i = 0; i < 5; i++) lt['i:lt' + i] = { k: 'i', t: 'pan', ord: 50 + i, lloc: 'Lote ' + i, lim: 'x' }; lt['i:lt5'] = { k: 'i', t: 'pan', ord: 55, lloc: 'Lote 5', lim: 'x', nd: true, ndm: 'obras' };
+  await api('sync', { changes: lt, since: 0 }, A);
+  let s0 = (await api('data', null, A)).j.seq;
+  r = await api('reserve', { items: [{ i: 'lt0', g: 'p1' }, { i: 'lt1', g: 'p1' }, { i: 'lt2', g: 'p2' }, { i: 'lt5', g: 'p1' }, { i: 'nada', g: 'p1' }, { i: 'e0', slot: '2027-07-14M', g: 'p3' }], since: s0 }, A);
+  d = (await api('data', null, A)).j;
+  ok('Varias asignaciones de una vez: se guardan las posibles', r.status === 200 && r.j.results.filter((x) => x.ok).length === 4 && d.E['r:lt0'].g === 'p1' && d.E['r:lt2'].g === 'p2' && d.E['r:e0:2027-07-14M'].g === 'p3', JSON.stringify(r.j && r.j.results));
+  ok('…y las imposibles se contestan una por una con el motivo', !r.j.results[3].ok && /no está disponible/i.test(r.j.results[3].error) && !r.j.results[4].ok && /ya no existe/.test(r.j.results[4].error) && !d.E['r:lt5'], JSON.stringify([r.j.results[3], r.j.results[4]]));
+  ok('…cada una queda en el registro', Object.values(d.E).filter((e) => e.k === 'h' && e.ts && /asignó a (PP|VOX) «Lote [012]/.test(e.a)).length === 3);
+  ok('…y la respuesta trae lo cambiado', !!(r.j.E['r:lt0'] && r.j.E['r:lt1'] && r.j.E['r:e0:2027-07-14M']));
+  s0 = d.seq;
+  r = await api('reserve', { items: [{ i: 'lt0', g: 'p1' }], since: s0 }, A); d = (await api('data', null, A)).j;
+  ok('Reenviar lo mismo (por ejemplo, tras un corte) no duplica ni da error', r.status === 200 && r.j.results[0].ok && r.j.results[0].ya && d.seq === s0, JSON.stringify(r.j.results));
+  r = await api('reserve', { items: [{ i: 'lt0', g: 'p2' }, { i: 'lt5', g: 'p2' }], since: s0 }, A); d = (await api('data', null, A)).j;
+  ok('Si ninguna se puede: no se guarda nada y se dice por qué', r.status === 200 && r.j.results.every((x) => !x.ok) && /PP/.test(r.j.results[0].error) && d.seq === s0, JSON.stringify(r.j.results));
+  r = await api('reserve', { items: [{ i: 'lt3', g: 'p0' }] }, T.PSC); ok('Un partido no puede asignar varias de una vez', r.status === 403);
+  r = await api('reserve', { items: [] }, A); ok('Lista vacía: rechazo', r.status === 400);
+  r = await api('reserve', { items: Array.from({ length: 501 }, () => ({ i: 'lt3', g: 'p0' })) }, A); ok('Más de 500 de una vez: rechazo', r.status === 400);
+  r = await api('reserve', { items: [{ i: 'lt3', slot: 'mal', g: 'p0' }] }, A); ok('Asignación mal formada: rechazo', r.status === 400);
+  const [y1, y2] = await Promise.all([api('reserve', { items: [{ i: 'lt3', g: 'p0' }, { i: 'lt4', g: 'p0' }] }, A), api('reserve', { i: 'lt3', g: 'p3' }, A)]);
+  d = (await api('data', null, A)).j;
+  ok('Lote y reserva suelta a la vez sobre lo mismo: un solo dueño y nadie pierde lo demás', y1.status === 200 && d.E['r:lt4'].g === 'p0' && (d.E['r:lt3'].g === 'p0') === y1.j.results[0].ok && (y2.status === 200) === (d.E['r:lt3'].g === 'p3'), JSON.stringify({ y1: y1.j.results, y2: y2.status, g: d.E['r:lt3'].g }));
   r = await api('reparto', null, A); { const e1 = (r.j.esp || []).find((e) => e.id === 'e1') || {}, F = (e1.franjas_fuera_de_horario || []).map((f) => f.fecha + f.franja); ok('El reparto para Eleccions lleva las franjas fuera de horario', F.includes('2027-07-10T') && F.includes('2027-07-09M') && !F.includes('2027-07-09T') && !F.includes('2027-07-12M'), F.length); }
   r = await api('sync', { changes: { 'i:e0': { k: 'i', t: 'esp', ord: 1, nom: 'Plaça Catalunya', blk: { '2027-07-09T': 'nd' } } }, since: 0 }, A); ok('No se puede marcar N/D una franja reservada', r.j.rejected.length === 1);
   r = await api('sync', { changes: { 'i:b0': { x: true } }, since: 0 }, A); ok('No se elimina un elemento con reservas', r.j.rejected.length === 1);

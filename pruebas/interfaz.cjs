@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.9\.4/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.10\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -258,13 +258,13 @@ const pdfInfo = (f) => {
   await A.click('.cc button[data-i="' + e0 + '"][data-s="2023-07-08M"]'); await A.waitForSelector('#modal h2');
   ok('Administradora: en una franja reservada solo puede liberar', (await A.locator('#modal [data-a=rel]').count()) === 1 && !(await A.locator('#modal [data-a=blk]').count())); await A.click('#modal [data-a=m-no]');
   // asignación por la administradora desde la casilla
-  await A.click('.cc button[data-i="' + e0 + '"][data-s="2023-07-12M"]'); await A.waitForSelector('#cellParty'); await A.selectOption('#cellParty', CU); await A.click('#modal [data-a=cell-asg]'); await yes(A);
+  await A.click('.cc button[data-i="' + e0 + '"][data-s="2023-07-12M"]'); await A.waitForSelector('#cellParty'); await A.selectOption('#cellParty', CU); await A.click("#modal [data-a=cell-asg]");
   ok('La administradora asigna una franja a CUP', await toastIs(A, /Asignado a CUP-GG-AMUNT/));
 
   /* ================= PANCARTAS: CERRADA, SOLO ASIGNA EL AYUNTAMIENTO ================= */
   await tab(PV, 'pan'); ok('Pancartas cerrada: el partido no puede reservar', (await PV.locator('[data-a=res]').count()) === 0 && /no está abierta/.test(await txt(PV, '#view')));
   await tab(A, 'pan'); const p0 = await A.locator('select.asg').first().getAttribute('data-i');
-  await A.selectOption('select.asg[data-i="' + p0 + '"]', V); await yes(A); ok('Asignar pancarta a VALENTS', await toastIs(A, /Asignado a VALENTS/));
+  await A.selectOption('select.asg[data-i="' + p0 + '"]', V); ok('Asignar pancarta a VALENTS, sin ventana de confirmación (v1.10)', await toastIs(A, /Asignado a VALENTS/));
   await tab(PV, 'panel'); await PV.waitForFunction(() => /Pancartas/.test(document.querySelector('#view').innerText) && document.querySelectorAll('#view .card').length > 4);
   await PV.waitForFunction(() => /Vuestras reservas\s*\d/.test(document.querySelector('#view').innerText));
   await wait(4500);
@@ -401,7 +401,7 @@ const pdfInfo = (f) => {
   await PP.selectOption('#ap', 'mine'); ok('Filtro «Solo la nuestra»', (await PP.locator('.asg-p').count()) === 1 && /PSC-CP/.test(await txt(PP, '.asg-p')));
   await PP.selectOption('#ap', ''); await PP.selectOption('#ac', 'esp'); ok('Filtro por categoría', !/Banderolas: /.test(await txt(PP, '.asg-p')) && /Espacios electorales: /.test(await txt(PP, '.asg-p'))); await PP.selectOption('#ac', '');
   await tab(A, 'pri'); const pfree = await A.locator('select.asg').first().getAttribute('data-i');
-  await A.selectOption('select.asg[data-i="' + pfree + '"]', V); await yes(A); await toastIs(A, /Asignado a VALENTS/);
+  await A.selectOption('select.asg[data-i="' + pfree + '"]', V); await toastIs(A, /Asignado a VALENTS/);
   await PP.waitForFunction(() => /VALENTS/.test((document.querySelector('.lastres tr') || {}).innerText || ''), null, { timeout: 12000 }).catch(() => {});
   ok('Una elección nueva aparece arriba, en directo, para las demás candidaturas', /VALENTS/.test(await txt(PP, '.lastres tr')) && /Prismas/.test(await txt(PP, '.lastres tr')));
 
@@ -683,6 +683,59 @@ const pdfInfo = (f) => {
   await A.keyboard.type(' y terminada'); await A.keyboard.press('Tab'); await settled(A); d = await apiAs(A, 'data');
   ok('…y se guarda todo lo escrito, antes y después de redibujar', d.E['s:conf'].nota === 'Nota a medio escribir y terminada', d.E['s:conf'].nota);
   await A.fill('[data-conf=nota]', nota0); await A.press('[data-conf=nota]', 'Tab'); await settled(A); await syncAs(A, { 'i:zredib': { x: true } });
+
+  /* ================= ASIGNAR RÁPIDO, SIN ESPERAS Y SIN PERDER NADA (v1.10) ================= */
+  await tab(PP, 'ban'); ok('La barra de asignación rápida solo la ve la administración', !(await PP.locator('.qabar').count()));
+  await tab(A, 'ban'); await A.selectOption('#flt-ban', 'all'); await A.fill('#q-ban', ''); await settled(A);
+  ok('Banderolas: barra «Asignación rápida a…»', (await A.locator('#view .qabar select[data-qa=ban]').count()) === 1 && !(await A.locator('#view [data-a=qa]').count()));
+  await A.selectOption('#view .qabar select[data-qa=ban]', CU);
+  const qIds = await A.evaluate(() => [...document.querySelectorAll('#view tbody [data-a=qa]')].map((b) => b.dataset.i));
+  ok('Con un partido elegido, cada fila libre tiene «Asignar a…» de un clic', qIds.length >= 8 && /Asignar a CUP-GG-AMUNT/.test(await txt(A, '#view tbody [data-a=qa]')), qIds.length + ' filas libres');
+  /* estado de la fila: «libre», «guardando» o las siglas del partido que la tiene */
+  const rowTxt = (pg, i) => pg.evaluate((x) => { const b = document.querySelector('#view tbody [data-i="' + x + '"]'); if (!b) return ''; const tr = b.closest('tr'); return tr.querySelector('.free-l, [data-a=qa]') ? 'libre' : (tr.querySelector('.pendl') ? 'guardando ' : '') + [...tr.querySelectorAll('td')].map((td) => td.innerText).join(' | '); }, i);
+  await A.click('#view tbody [data-a=qa][data-i="' + qIds[0] + '"]');
+  ok('Un clic: queda asignada al momento, sin ventana de confirmación ni espera', /CUP-GG-AMUNT/.test(await rowTxt(A, qIds[0])) && (await A.locator('#modal:not([hidden])').count()) === 0);
+  await wait(1000); await A.evaluate((ids) => { document.querySelector('#view tbody [data-a=qa][data-i="' + ids[0] + '"]').click(); document.querySelector('#view tbody [data-a=qa][data-i="' + ids[1] + '"]').click(); }, [qIds[1], qIds[2]]);
+  ok('Una pulsación doble no asigna también la fila de al lado', /CUP-GG-AMUNT/.test(await rowTxt(A, qIds[1])) && (await rowTxt(A, qIds[2])) === 'libre', (await rowTxt(A, qIds[1])) + ' // ' + (await rowTxt(A, qIds[2])));
+  await settled(A); d = await apiAs(A, 'data');
+  ok('…y llegan al servidor, con su anotación en el registro', d.E['r:' + qIds[0]].g === CU && d.E['r:' + qIds[1]].g === CU && !d.E['r:' + qIds[2]] && Object.values(d.E).filter((e) => e.k === 'h' && /asignó a CUP-GG-AMUNT/.test(e.a) && e.t === 'ban').length >= 2);
+  // sin conexión: se ve al momento, se puede anular y, al volver la conexión, se envía sola
+  const nc0 = cons.length, aqLS = () => A.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('espais.aq.')).map((k) => JSON.parse(localStorage.getItem(k)).length).reduce((a, b) => a + b, 0));
+  await A.context().setOffline(true);
+  await wait(400); await A.click('#view tbody [data-a=qa][data-i="' + qIds[3] + '"]'); await wait(300);
+  ok('Sin conexión: la fila sale como «guardando…» y queda guardada en el navegador', /guardando/.test(await rowTxt(A, qIds[3])) && (await aqLS()) === 1);
+  await A.waitForFunction((x) => !document.querySelector('#view tbody [data-i="' + x + '"][data-a=qa]') && !!document.querySelector('#view tbody [data-i="' + x + '"][data-a=rel]'), qIds[3]);
+  await A.click('#view tbody [data-a=rel][data-i="' + qIds[3] + '"]');
+  ok('«Anular» la deja libre otra vez, sin preguntar ni ir al servidor', (await rowTxt(A, qIds[3])) === 'libre' && (await aqLS()) === 0 && await toastIs(A, /Anulado/), (await rowTxt(A, qIds[3])) + ' · cola ' + (await aqLS()));
+  await wait(400); await A.click('#view tbody [data-a=qa][data-i="' + qIds[4] + '"]');
+  await A.context().setOffline(false); await settled(A); d = await apiAs(A, 'data');
+  ok('Al volver la conexión se envía sola', d.E['r:' + qIds[4]] && d.E['r:' + qIds[4]].g === CU && !d.E['r:' + qIds[3]] && (await aqLS()) === 0);
+  // se cierra o recarga la página antes de que llegue al servidor: al volver a abrirla, se envía
+  await A.route('**/api/reserve', (rt) => rt.abort());
+  await wait(400); await A.click('#view tbody [data-a=qa][data-i="' + qIds[5] + '"]'); await wait(500);
+  ok('…si no puede enviarse, sigue guardada en el navegador', (await aqLS()) === 1);
+  await A.unroute('**/api/reserve'); A.once('dialog', (dg) => dg.accept().catch(() => {}));
+  await A.reload(); await A.waitForSelector('#tabs [data-v=ban]'); await settled(A); d = await apiAs(A, 'data');
+  ok('Recargar la página no pierde la asignación pendiente: se envía al volver', d.E['r:' + qIds[5]] && d.E['r:' + qIds[5]].g === CU && (await aqLS()) === 0);
+  for (let k = cons.length - 1; k >= nc0; k--) if (/ERR_INTERNET_DISCONNECTED|ERR_FAILED|Failed to load resource|net::/.test(cons[k])) cons.splice(k, 1);
+  // varias de una vez: marcarlas y «Asignar los marcados a…»
+  await tab(A, 'ban'); await A.selectOption('#flt-ban', 'free');
+  const mIds = await A.evaluate(() => [...document.querySelectorAll('#view tbody input[data-a=sel]')].slice(0, 3).map((b) => b.dataset.id));
+  for (const id of mIds) await A.click('#view input[data-a=sel][data-id="' + id + '"]');
+  ok('Al marcar filas aparece «Asignar los marcados a…»', (await A.locator('#view .selbar select.asgsel').count()) === 1);
+  await A.selectOption('#view .selbar select.asgsel', PS); await A.waitForSelector('#cfYes');
+  ok('…pide una sola confirmación para todas', /3 tramos de banderolas/.test(await txt(A, '#modal')) && /PSC-CP/.test(await txt(A, '#modal'))); await yes(A);
+  ok('…y quedan asignadas', await toastIs(A, /Asignados a PSC-CP: 3/)); await settled(A); d = await apiAs(A, 'data');
+  ok('…en el servidor, en un solo envío', mIds.length === 3 && mIds.every((id) => d.E['r:' + id] && d.E['r:' + id].g === PS));
+  await A.selectOption('#flt-ban', 'all'); await A.selectOption('#view .qabar select[data-qa=ban]', CU); ok('La asignación rápida se puede volver a activar…', (await A.locator('#view [data-a=qa]').count()) > 0);
+  await A.click('#view [data-a=qa-off]'); ok('…y desactivar', !(await A.locator('#view [data-a=qa]').count()));
+  // el cuadrante: con la asignación rápida, una casilla libre se asigna con un clic
+  await tab(A, 'esp'); await A.selectOption('#view .qabar select[data-qa=esp]', V);
+  const cfree = await A.evaluate(() => { const b = document.querySelector('#view .cc.free:not(.rs) button'); return b ? [b.dataset.i, b.dataset.s] : null; });
+  await A.click('#view .cc button[data-i="' + cfree[0] + '"][data-s="' + cfree[1] + '"]');
+  ok('Cuadrante: un clic en una casilla libre la asigna, sin ventanas', (await A.locator('#modal:not([hidden])').count()) === 0 && /VALENTS/.test(await A.evaluate((c) => document.querySelector('#view .cc button[data-i="' + c[0] + '"][data-s="' + c[1] + '"]').innerText, cfree)));
+  await settled(A); d = await apiAs(A, 'data'); ok('…y llega al servidor', (d.E['r:' + cfree[0] + ':' + cfree[1]] || {}).g === V);
+  await A.click('#view [data-a=qa-off]');
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;
