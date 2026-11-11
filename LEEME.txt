@@ -12,8 +12,14 @@ de las anteriores elecciones equivalentes, orden de elección y cupo de cada can
 supervisa todo. Lo asignado a una candidatura queda reservado al instante y nadie más
 puede tenerlo.
 
-Desde la versión 2.0 la selección la hace la administración: en «✍ Asignar por número»
-elige la categoría (banderolas, pancartas o prismas) y la candidatura, y escribe los
+Desde la versión 2.0 la selección la hace la administración, en cualquier momento (no
+hace falta abrir la selección ni «En directo»). Desde la 2.4 todo está en la pestaña
+«✍ Asignar», sin cambiar de pestaña. Primero los ESPACIOS: se elige la candidatura y se
+pulsa en el cuadrante el día y la franja que pide (queda asignada al momento: el día
+entero, mañana y tarde, salvo que el espacio esté cerrado o fuera de horario). Si quedan
+días asignados con una sola franja (de antes de la 2.2), el aviso «Completar mañana y
+tarde» pasa la otra franja a la misma candidatura (antes guarda una copia permanente). En
+banderolas, pancartas y prismas se elige la candidatura y se escriben los
 números que dicta su representante (el Nº de las listas): 12, varios a la vez (12 15 18)
 o seguidos (20-25); con «x» delante (x12) se quitan. Cada número se asigna y se guarda al
 momento; si se va la conexión o se cierra la pestaña, queda guardado en ese ordenador y

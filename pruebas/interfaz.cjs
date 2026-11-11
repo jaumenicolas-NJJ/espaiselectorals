@@ -34,13 +34,13 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.3\b/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.4\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
   ok('Administradora creada y dentro', /Rosana · Administración/.test(await txt(A, '#who')));
   ok('Panel con la puesta en marcha guiada', /Puesta en marcha/.test(await txt(A, '#view')));
-  ok('Pestañas de administración', (await A.locator('#tabs button[data-a=tab]').allInnerTexts()).join('|') === 'Panel|✍ Asignar por número|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
+  ok('Pestañas de administración', (await A.locator('#tabs button[data-a=tab]').allInnerTexts()).join('|') === 'Panel|✍ Asignar|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
 
   /* ================= AJUSTES ================= */
   await tab(A, 'ajustes');
@@ -555,7 +555,7 @@ const pdfInfo = (f) => {
   const hc = await txt(PP, '#view');
   ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
   await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
-  ok('Manual del programa separado (14 apartados): asignar por número, reparto, ensayo, inhabilitar, Excel, copias, enlace con Eleccions', (await PP.locator('#view .help h3').count()) === 14 && /Asignar por número/.test(await txt(PP, '#view')) && /Enlace con Eleccions/.test(hm) && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
+  ok('Manual del programa separado (14 apartados): asignar por número, reparto, ensayo, inhabilitar, Excel, copias, enlace con Eleccions', (await PP.locator('#view .help h3').count()) === 14 && /«✍ Asignar»/.test(await txt(PP, '#view')) && /Enlace con Eleccions/.test(hm) && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
   await tab(A, 'ayuda'); ok('La administración abre por defecto el manual', /Manual de Espais electorals/.test(await txt(A, '#view h2')));
   await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await A.click('#view [data-a=pr-help]'); await A.waitForTimeout(300);
@@ -744,10 +744,32 @@ const pdfInfo = (f) => {
 
   /* ================= ASIGNAR POR NÚMERO: LA SELECCIÓN LA HACE LA ADMINISTRACIÓN (v2.0) ================= */
   await tab(A, 'panel');
-  ok('v2.0 · Panel: «La selección la hace la administración», con un botón por categoría, y la sesión de las candidaturas como opcional', (await A.locator('#view .adsel [data-a=d-open]').count()) === 3 && /opcional/.test(await txt(A, '#view .livec h3')));
-  ok('…los partidos no ven la pestaña «Asignar por número»', !(await PP.locator('#tabs [data-v=dict]').count()) && !(await PV.locator('#tabs [data-v=dict]').count()));
+  ok('v2.0 · Panel: «La selección la hace la administración», con un botón por categoría, y la sesión de las candidaturas como opcional', (await A.locator('#view .adsel [data-a=d-open]').count()) === 4 && (await A.locator('#view .adsel [data-a=d-open]').first().getAttribute('data-t')) === 'esp' && /opcional/.test(await txt(A, '#view .livec h3')));
+  ok('…los partidos no ven la pestaña «✍ Asignar»', !(await PP.locator('#tabs [data-v=dict]').count()) && !(await PV.locator('#tabs [data-v=dict]').count()));
+  /* v2.4: «✍ Asignar» empieza por los espacios: con la candidatura elegida, una casilla libre del cuadrante se asigna con un clic */
+  await A.click('#view .adsel [data-a=d-open][data-t=esp]'); await A.waitForSelector('#tabs [data-v=dict].on');
+  ok('v2.4 · «✍ Asignar»: Espacios es la primera categoría y muestra el cuadrante', (await A.locator('#view .dseg [data-a=d-t]').first().getAttribute('data-v')) === 'esp' && /Espacios/.test(await txt(A, '#view .dseg button.on')) && (await A.locator('#view .desp table.cgrid').count()) === 1);
+  const ce = await A.evaluate(() => { const b = document.querySelector('#view .desp .cc.free:not(.rs) button'); return b ? [b.dataset.i, b.dataset.s] : null; });
+  await A.click('#view .desp .cc button[data-i="' + ce[0] + '"][data-s="' + ce[1] + '"]');
+  ok('…sin candidatura elegida, una casilla libre no se asigna y avisa', (await toastIs(A, /Elige antes la candidatura/)) && (await A.locator('#modal:not([hidden])').count()) === 0);
+  await A.click('#view .dparties [data-a=d-g]'); const gE = await A.getAttribute('#view .dparties [data-a=d-g].on', 'data-g');
+  await A.click('#view .desp .cc button[data-i="' + ce[0] + '"][data-s="' + ce[1] + '"]');
+  ok('…con la candidatura elegida, un clic en la casilla la asigna al momento, sin ventanas', (await A.locator('#modal:not([hidden])').count()) === 0 && (await A.evaluate((c) => document.querySelector('#view .desp .cc button[data-i="' + c[0] + '"][data-s="' + c[1] + '"]').parentNode.classList.contains('taken'), ce)));
+  await settled(A); d = await apiAs(A, 'data');
+  ok('…y llega al servidor', (d.E['r:' + ce[0] + ':' + ce[1]] || {}).g === gE, JSON.stringify(d.E['r:' + ce[0] + ':' + ce[1]] || null));
+  // v2.4: lo asignado antes de la 2.2 con una sola franja se completa con un botón (mañana y tarde de la misma candidatura)
+  const one = await A.evaluate(() => { for (const b of document.querySelectorAll('#view .desp .cc.free:not(.rs) button[data-s$="M"]')) { const t = document.querySelector('#view .desp .cc button[data-i="' + b.dataset.i + '"][data-s="' + b.dataset.s.slice(0, 10) + 'T"]'); if (t && t.parentNode.classList.contains('free') && !t.parentNode.classList.contains('rs')) return [b.dataset.i, b.dataset.s]; } return null; });
+  await A.evaluate(async ([i, s, g]) => { await fetch('/api/import', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ E: { ['r:' + i + ':' + s]: { k: 'r', t: 'esp', i, slot: s, g, by: 'Antes de la 2.2', ts: Date.now(), rk: '', u: Date.now() } } }) }); }, [one[0], one[1], gE]);
+  await A.reload(); await A.waitForSelector('#view .fillh [data-a=esp-fill]', { timeout: 20000 }).catch(() => {});
+  ok('v2.4 · Un día asignado solo por la mañana (de antes de la 2.2): aviso con «Completar mañana y tarde»', /solo por la mañana o solo por la tarde/.test(await txt(A, '#view .fillh')) && (await A.locator('#view [data-a=esp-fill]').count()) === 1, await txt(A, '#view .fillh'));
+  await A.click('#view [data-a=esp-fill]'); await A.waitForSelector('#cfYes');
+  ok('…pide confirmación y avisa de la copia permanente', /copia permanente/.test(await txt(A, '#modal'))); await yes(A);
+  await A.waitForFunction(() => !document.querySelector('#view [data-a=esp-fill]'), null, { timeout: 30000 }).catch(() => {}); await settled(A); d = await apiAs(A, 'data');
+  ok('…la tarde pasa a la misma candidatura que tenía la mañana', (d.E['r:' + one[0] + ':' + one[1].slice(0, 10) + 'T'] || {}).g === gE && (d.E['r:' + one[0] + ':' + one[1]] || {}).g === gE);
+  ok('…y antes se guardó una copia permanente en el servidor', ((await apiAs(A, 'history')).keep || []).some((k) => /Antes de completar mañana y tarde/.test(k.label)));
+  await tab(A, 'panel');
   await A.click('#view .adsel [data-a=d-open][data-t=pan]'); await A.waitForSelector('#tabs [data-v=dict].on');
-  ok('…el botón lleva a «✍ Asignar por número» con Pancartas elegida', /Pancartas/.test(await txt(A, '#view .dseg button.on')));
+  ok('…el botón lleva a «✍ Asignar» con Pancartas elegida', /Pancartas/.test(await txt(A, '#view .dseg button.on')));
   d = await apiAs(A, 'data');
   const limG = (c, g) => (c && c.cup && c.cup[g] != null ? c.cup[g] : c && c.max > 0 ? c.max : Infinity);
   const cntG = (E, g) => Object.values(E).filter((e) => e.k === 'r' && !e.x && e.t === 'pan' && e.g === g).length;
@@ -786,7 +808,7 @@ const pdfInfo = (f) => {
     await A.fill('#q-pan', spare[1] + ', ' + spare[2] + ', 999'); await wait(300);
     ok('Buscar números en la lista: Nº exacto, varios a la vez, y avisa de los que no existen', (await A.locator('#view table.ltbl tbody tr').count()) === 2 && /2 encontrados/.test(await txt(A, '#view .numhit')) && /No existe el 999/.test(await txt(A, '#view .numhit')), await txt(A, '#view .numhit'));
     await A.click('#view .numhit [data-a=d-open]'); await A.waitForSelector('#tabs [data-v=dict].on'); await A.waitForSelector('#dIn');
-    ok('«Asignarlos a una candidatura…» lleva a Asignar por número con esos números ya escritos y marcados', (await A.inputValue('#dIn')) === spare[1] + ' ' + spare[2] && (await A.locator('#dMap .dm.typ').count()) === 2, await A.inputValue('#dIn'));
+    ok('«Asignarlos a una candidatura…» lleva a «✍ Asignar» con esos números ya escritos y marcados', (await A.inputValue('#dIn')) === spare[1] + ' ' + spare[2] && (await A.locator('#dMap .dm.typ').count()) === 2, await A.inputValue('#dIn'));
     await A.fill('#dIn', ''); await tab(A, 'pan'); await A.fill('#q-pan', ''); await setHc(hc0); await tab(A, 'dict'); await A.waitForSelector('#dIn'); }
   { d = await apiAs(A, 'data'); const k0 = 'i:' + panId[spare[3]], e0 = Object.assign({}, d.E[k0]); ['u', 'b', 's'].forEach((f) => delete e0[f]); const ord0 = e0.ord; e0.ord = null;
     const maxO = Math.max(...Object.values(d.E).filter((e) => e.k === 'i' && e.t === 'pan' && !e.x && e.ord != null).map((e) => e.ord));

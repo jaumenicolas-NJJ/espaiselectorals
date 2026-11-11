@@ -597,6 +597,7 @@ textarea.inote{min-height:64px;overflow:hidden;line-height:1.5}
 .ltbl tr.taken td{background:#fafbfc}.ltbl tr.mine td{background:#eef8f1}
 .ltbl td.num{text-align:right}
 .free-l{color:#2E7D32;font-weight:700;font-size:12.5px}
+.hint.fillh{margin:0 0 10px}.hint.fillh .btn{margin-left:6px}
 .qabar{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border:1px dashed #cdd5e1;border-radius:8px;font-size:13px;color:var(--ink2)}
 .qabar.on{border-style:solid;border-color:#9cc8a9;background:#eef8f1;color:#1d5a2f}
 .qabar select{max-width:260px}
@@ -1264,7 +1265,7 @@ const LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="18" wid
 const empty = (t, s) => '<div class="empty"><b>' + esc(t) + '</b>' + (s || '') + '</div>';
 function toast(msg, kind) { const t = $('#toast'); if (!t) return; t.textContent = msg; t.className = 'toast on' + (kind === 'err' ? ' err' : ''); clearTimeout(ST.toastT); ST.toastT = setTimeout(() => { t.className = 'toast'; }, 4200); }
 function TABS() {
-  const t = [['panel', 'Panel']].concat(isAdmin() ? [['dict', '✍ Asignar por número']] : [], [['asig', 'En directo'], ['esp', 'Espacios'], ['ban', 'Banderolas'], ['pan', 'Pancartas'], ['pri', 'Prismas'], ['partidos', 'Partidos'], ['reparto', 'Reparto']]);
+  const t = [['panel', 'Panel']].concat(isAdmin() ? [['dict', '✍ Asignar']] : [], [['asig', 'En directo'], ['esp', 'Espacios'], ['ban', 'Banderolas'], ['pan', 'Pancartas'], ['pri', 'Prismas'], ['partidos', 'Partidos'], ['reparto', 'Reparto']]);
   if (isAdmin()) t.push(['turnos', 'Turnos y reglas']);
   return t.concat([['registro', 'Registro'], ['ajustes', 'Ajustes'], ['ayuda', 'Ayuda']]);
 }
@@ -1386,7 +1387,7 @@ function viewPanel() {
       '<li class="' + (CATS.some((t) => I.items[t].length) ? 'ok' : '') + '"><b>Importa el Excel</b> de espacios, banderolas, pancartas y prismas en <button class="lnk" data-a="tab" data-v="ajustes">Ajustes</button>.</li>' +
       '<li class="' + (I.parties.length ? 'ok' : '') + '">Da de alta los <b>partidos</b> y su orden de preferencia en <button class="lnk" data-a="tab" data-v="partidos">Partidos</button> (sus usuarios solo hacen falta si van a elegir ellas mismas).</li>' +
       '<li class="' + (I.parties.some((p) => p.vot > 0) ? 'ok' : '') + '">Escribe los votos de las anteriores elecciones y calcula el orden y los cupos en <button class="lnk" data-a="tab" data-v="reparto">Reparto</button>.</li>' +
-      '<li>El día de la sesión, asigna lo que dicta cada candidatura en <button class="lnk" data-a="tab" data-v="dict">✍ Asignar por número</button> (banderolas, pancartas y prismas) y en el cuadrante de <button class="lnk" data-a="tab" data-v="esp">Espacios</button>. Si preferís que cada candidatura elija desde su ordenador, revisa <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button> y usa la tarjeta <b>Sesión de selección</b>, aquí abajo (antes podéis hacer un ensayo).</li></ol></div>';
+      '<li>El día de la sesión, asigna lo que dicta cada candidatura en <button class="lnk" data-a="tab" data-v="dict">✍ Asignar</button>: espacios, banderolas, pancartas y prismas, sin cambiar de pestaña. Si preferís que cada candidatura elija desde su ordenador, revisa <button class="lnk" data-a="tab" data-v="turnos">Turnos y reglas</button> y usa la tarjeta <b>Sesión de selección</b>, aquí abajo (antes podéis hacer un ensayo).</li></ol></div>';
   }
   if (isAdmin()) h += adminSelCard() + liveCard() + gapsCard();
   h += '<div class="grid2">' + CATS.map((t) => statusHTML(t)).join('') + '</div>';
@@ -1426,10 +1427,10 @@ function userGaps() {
 /* v2.0: la selección la hace la administración; que las candidaturas elijan ellas mismas es opcional */
 function adminSelCard() {
   if (!isAdmin()) return '';
-  const I = idx(), it = (t) => { const L = I.items[t], n = L.filter((x) => activeRes(x.id)).length; return n + ' de ' + L.length + ' asignad' + (t === 'pan' ? 'as' : 'os'); };
-  return '<div class="card adsel"><h3>✍ La selección la hace la administración</h3><p>Cuando le toque a cada candidatura, su representante dice los números que quiere (el <b>Nº</b> de las listas) y tú los escribes: se asignan y se guardan al momento, sin perder nada aunque se vaya la conexión. Todo queda en el Registro.</p>' +
-    '<div class="adbtns">' + DCATS.map((t) => '<button class="btn primary" data-a="d-open" data-t="' + t + '"><b>' + CATN[t] + '</b><small>' + it(t) + '</small></button>').join('') +
-    '<button class="btn" data-a="tab" data-v="esp"><b>Espacios electorales</b><small>en el cuadrante, con «⚡ Asignación rápida a…»</small></button></div>' +
+  const I = idx(), it = (t) => { if (t === 'esp') { const d = new Set(); Object.keys(I.res).forEach((k) => { const r = I.res[k]; if (!r.x && r.t === 'esp' && I.imap[r.i]) d.add(r.g + '|' + r.i + '|' + String(r.slot || '').slice(0, 10)); }); return d.size + (d.size === 1 ? ' día asignado' : ' días asignados'); } const L = I.items[t], n = L.filter((x) => activeRes(x.id)).length; return n + ' de ' + L.length + ' asignad' + (t === 'pan' ? 'as' : 'os'); };
+  /* v2.4: todo se asigna desde «✍ Asignar», empezando por los espacios (en cualquier momento: no hace falta abrir la selección) */
+  return '<div class="card adsel"><h3>✍ La selección la hace la administración</h3><p>Cuando le toque a cada candidatura, su representante dice lo que quiere y tú lo asignas en <b>✍ Asignar</b>: en los espacios, pulsando el día y la franja en el cuadrante; en lo demás, escribiendo los números (el <b>Nº</b> de las listas). Se asigna y se guarda al momento, en cualquier momento y sin perder nada aunque se vaya la conexión. Todo queda en el Registro.</p>' +
+    '<div class="adbtns">' + ACATS.map((t) => '<button class="btn primary" data-a="d-open" data-t="' + t + '"><b>' + CATN[t] + '</b><small>' + it(t) + '</small></button>').join('') + '</div>' +
     '<p class="small muted" style="margin:8px 0 0">Para que lo vea toda la sala, proyecta <button class="lnk" data-a="tab" data-v="asig">● En directo</button>. Si preferís que cada candidatura elija desde su ordenador, más abajo está la <b>Sesión de selección</b> (opcional).</p></div>';
 }
 function gapsCard() {
@@ -1447,7 +1448,7 @@ function viewCat(t) {
   let h = statusHTML(t, true);
   const pick = canPick(t);
   h += '<div class="card"><div class="fhead"><h3>' + CATN[t] + ' <span class="n">' + I.items[t].length + '</span></h3><div class="btnrow" style="margin:0">' +
-    (isAdmin() && DCATS.includes(t) && !edit ? '<button class="btn sm primary" data-a="d-open" data-t="' + t + '">✍ Asignar por número</button>' : '') +
+    (isAdmin() && ACATS.includes(t) && !edit ? '<button class="btn sm primary" data-a="d-open" data-t="' + t + '">✍ Asignar</button>' : '') +
     (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button>' : '') + '<button class="btn sm" data-a="xf-open" data-t="' + t + '" title="Quitar o volver a poner columnas y añadir campos propios">☰ Columnas…</button><button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
     '<button class="btn sm" data-a="csv" data-t="' + t + '">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-cat" data-t="' + t + '">🖨 Imprimir</button></div></div>';
   if (isParty() && !pick.ok) h += '<p class="hint">' + esc(pick.why) + '</p>';
@@ -1460,6 +1461,7 @@ function viewCat(t) {
     h += '<div class="numhit">Buscando ' + (nums.length === 1 ? 'el número' : 'los números') + ' <b>' + esc(nums.length > 12 ? nums.slice(0, 12).join(', ') + '…' : nums.join(', ')) + '</b>: ' + (found.length === 1 ? '1 encontrado' : found.length + ' encontrados') + '.' + (miss.length ? ' <span class="bad">No existe' + (miss.length === 1 ? ' el ' : 'n los ') + esc(miss.slice(0, 12).join(', ')) + '.</span>' : '') +
       (isAdmin() && DCATS.includes(t) && found.length ? ' <button class="btn sm primary" data-a="d-open" data-t="' + t + '" data-n="' + found.join(' ') + '">✍ Asignarlos a una candidatura…</button>' : '') + '</div>';
   }
+  if (t === 'esp' && isAdmin() && !edit) h += espFillHTML();
   if (isAdmin() && !edit && (t !== 'esp' || campDays().length)) h += qaBar(t);
   return h + (t === 'esp' ? gridHTML(edit) : listHTML(t, edit)) + '</div>';
 }
@@ -1998,7 +2000,7 @@ function liveCard() {
   let h = '<div class="card livec ph-' + ph + (ph === 'ens' ? ' ensc' : '') + '"><div class="fhead"><h3>Sesión de selección <small class="muted opt">opcional: las candidaturas eligen desde su ordenador</small> <span class="lstate s-' + ph + '">' + (ph === 'live' ? '<span class="ldot" aria-hidden="true"></span>' : '') + PHN[ph] + '</span></h3>' + (ph === 'live' || ph === 'ens' ? '<button class="btn sm" data-a="tab" data-v="asig">Ver «En directo» (para proyectar)</button>' : '') + '</div>';
   if (ph === 'prep') {
     const M = liveModes();
-    h += '<p class="lead">Solo si queréis que <b>cada candidatura elija desde su ordenador</b>; si la selección la hace la administración, usa <b>✍ Asignar por número</b>. Las candidaturas <b>no pueden elegir nada</b> hasta que pulses <b>«Empezar la selección»</b>. Si queréis practicar antes, haced un <b>ensayo</b>: se elige igual y al terminar se borra lo elegido.</p>' +
+    h += '<p class="lead">Solo si queréis que <b>cada candidatura elija desde su ordenador</b>; si la selección la hace la administración, usa <b>✍ Asignar</b> (no hace falta abrir nada). Las candidaturas <b>no pueden elegir nada</b> hasta que pulses <b>«Empezar la selección»</b>. Si queréis practicar antes, haced un <b>ensayo</b>: se elige igual y al terminar se borra lo elegido.</p>' +
       '<h4>1. Comprueba que está todo listo</h4><ul class="lcheck">' + liveChecks().map((c) => '<li class="' + c[0] + '"><span class="i">' + (c[0] === 'ok' ? '✓' : c[0] === 'no' ? '✗' : '!') + '</span><span>' + c[1] + (c[2] ? ' ' + c[2] : '') + '</span></li>').join('') + '</ul>' +
       '<h4>2. Elige qué se abre y cómo</h4><div class="lcats">' + CATS.map((t) => { const n = I.items[t].length, m = M[t]; return '<div class="lcat' + (n ? '' : ' off') + '"><label><input type="checkbox" data-a="lm-on" data-t="' + t + '"' + (m ? ' checked' : '') + (n ? '' : ' disabled') + '> ' + CATN[t] + ' <small>' + (n ? n + (n === 1 ? ' elemento' : ' elementos') : 'sin nada cargado') + '</small></label>' + (n ? '<div class="seg segsm">' + ['turnos', 'libre'].map((v) => '<button data-a="lm" data-t="' + t + '" data-v="' + v + '" class="' + ((m || 'turnos') === v && m ? 'on' : '') + '"' + (m ? '' : ' disabled') + '>' + MODEN[v] + '</button>').join('') + '</div>' : '') + '</div>'; }).join('') + '</div>' +
       '<h4>3. Empieza</h4><div class="btnrow"><button class="btn go" data-a="live-start">▶ Empezar la selección</button><button class="btn ensbtn" data-a="ens-start">Empezar un ensayo</button></div>' +
@@ -2195,8 +2197,9 @@ function helpCand() {
 function helpAdmin() {
   return '<p>Manual para la administración del programa. Las candidaturas tienen su propia ayuda («Para las candidaturas»), que conviene imprimir y entregar en la reunión previa.</p>' +
     hsec(1, 'Puesta en marcha', '<ol><li><b>Ajustes:</b> tipo de elecciones (por defecto, Generales al Congreso de los Diputados), nombre del Ayuntamiento y <b>día de la votación</b>; la campaña se calcula sola (empieza el día 38 posterior a la convocatoria, dura 15 días y acaba a las cero horas del día anterior a la votación, art. 51 LOREG).</li><li><b>Importar desde Excel</b> (Ajustes): un solo Excel con todas las hojas. Se puede descargar la plantilla.</li><li><b>Partidos:</b> revisa las candidaturas y crea un usuario para cada una con «+ Usuario».</li><li><b>Reparto:</b> votos de las anteriores elecciones equivalentes, «Ordenar por votos» y «Calcular y fijar los cupos».</li><li><b>Turnos y reglas:</b> abre cada categoría por turnos (1 elección por turno) cuando corresponda.</li><li>Para la reunión con las candidaturas, imprime la <b>ayuda para las candidaturas</b> y el <b>reparto</b> con la hoja de conformidad.</li></ol>') +
-    hsec(2, 'La selección la hace la administración: «✍ Asignar por número»', '<p>Lo habitual es que <b>la selección la haga una sola persona de la administración</b>: cuando le toca a cada candidatura, su representante dice en voz alta los números que quiere y la administración los escribe. Las candidaturas no necesitan usuario para esto; si quieren, pueden seguirlo en <b>● En directo</b>.</p>' +
-      '<ol><li>Abre <b>✍ Asignar por número</b> (pestaña o botones del Panel) y elige la categoría: <b>Banderolas</b>, <b>Pancartas</b> o <b>Prismas</b>.</li>' +
+    hsec(2, 'La selección la hace la administración: «✍ Asignar»', '<p>Lo habitual es que <b>la selección la haga una sola persona de la administración</b>: cuando le toca a cada candidatura, su representante dice en voz alta los números que quiere y la administración los escribe. Las candidaturas no necesitan usuario para esto; si quieren, pueden seguirlo en <b>● En directo</b>.</p>' +
+      '<ol><li>Abre <b>✍ Asignar</b> (pestaña o botones del Panel) y elige la categoría: <b>Espacios</b>, <b>Banderolas</b>, <b>Pancartas</b> o <b>Prismas</b>. La administración puede asignar <b>en cualquier momento</b>, con la selección abierta o cerrada: no hace falta «Empezar la selección» ni «En directo».</li>' +
+      '<li>En <b>Espacios</b>: pulsa la candidatura y, en el cuadrante, la casilla del día y la franja que pide. Queda asignada al momento (el día entero si el espacio abre mañana y tarde). Para liberar o reasignar, pulsa una casilla ocupada. Si quedan días asignados solo por la mañana o solo por la tarde (de antes de la versión 2.2), sale un aviso con <b>«Completar mañana y tarde»</b>: la otra franja pasa a la misma candidatura, salvo que ese día el espacio esté cerrado o la tenga otra candidatura. Antes se guarda una copia permanente en el servidor.</li>' +
       '<li>Pulsa la <b>candidatura</b> que va a dictar. Salen en su orden de elección, con lo que lleva y su cupo (por ejemplo «12 / 40»).</li>' +
       '<li>Escribe cada número que dicta (el <b>Nº</b> de las listas) y pulsa <b>Intro</b>. Se asigna al momento: debajo sale en verde, con la calle o el lugar para comprobarlo en voz alta. Se pueden escribir varios a la vez (<b>12 15 18</b>) o seguidos (<b>20-25</b>).</li>' +
       '<li>Si un número ya es de otra candidatura, no está disponible o no existe, sale en rojo y no se asigna. Si la candidatura ya tiene su cupo completo, sale en naranja y solo se asigna si pulsas «Asignar igualmente».</li>' +
@@ -2540,7 +2543,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '2.3 · 11/11/2026';
+const APP_VERSION = '2.4 · 11/11/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2579,7 +2582,8 @@ const ACT = {
   mypw: () => openModal('<h2>Cambiar mi contraseña</h2>' + pwFields(true) + '<div class="acts"><button class="btn" data-a="m-no">Cancelar</button><button class="btn primary" data-a="pw-save">Cambiar</button></div>'),
   res: (el) => doReserve(el.dataset.i, el.dataset.s || ''),
   rel: (el) => doRelease(el.dataset.i, el.dataset.s || ''),
-  cell: (el) => { const i = el.dataset.i, s = el.dataset.s, g = isAdmin() ? qaParty('esp') : '', it = idx().imap[i]; if (g && it && !it.nd && !activeRes(i, s) && !['nd', 'hz'].includes(slotSt(it, s))) { const now = Date.now(); if (now - ST.qaLast < 350) return; ST.qaLast = now; return doReserve(i, s, g); } modalCell(i, s); },
+  cell: (el) => { const i = el.dataset.i, s = el.dataset.s, inA = isAdmin() && ST.view === 'dict', g = isAdmin() ? (inA ? dState().g : qaParty('esp')) : '', it = idx().imap[i];
+    if (inA && !g && it && !it.nd && !activeRes(i, s) && !['nd', 'hz'].includes(slotSt(it, s))) return toast('Elige antes la candidatura a la que se asigna.', 'err'); if (g && it && !it.nd && !activeRes(i, s) && !['nd', 'hz'].includes(slotSt(it, s))) { const now = Date.now(); if (now - ST.qaLast < 350) return; ST.qaLast = now; return doReserve(i, s, g); } modalCell(i, s); },
   qa: (el) => qaClick(el.dataset.t, el.dataset.i),
   'qa-off': (el) => { ST.ui.qa[el.dataset.t] = ''; renderView(); },
   'cell-asg': (el) => { const g = $('#cellParty').value; if (!g) return toast('Elige el partido.', 'err'); doReserve(el.dataset.i, el.dataset.s, g); },
@@ -2653,11 +2657,13 @@ const ACT = {
    la conexión o se cierra la pestaña, no se pierde nada y se envía al volver. Lo dictado se conserva además en una lista en este
    navegador, y cada asignación queda en el Registro del servidor. */
 const DCATS = ['ban', 'pan', 'pri'];
+/* v2.4: dentro de «✍ Asignar» también están los espacios, los primeros (en el cuadrante, con la candidatura ya elegida) */
+const ACATS = ['esp', 'ban', 'pan', 'pri'];
 const dKey = () => 'espais.dict.' + (ST.me ? ST.me.id : '');
 function dState() {
   if (!ST.dict || ST.dict.k !== dKey()) {
     let o = {}; try { o = JSON.parse(LS.get(dKey())) || {}; } catch (e) { o = {}; }
-    ST.dict = { k: dKey(), t: DCATS.includes(o.t) ? o.t : 'ban', g: typeof o.g === 'string' ? o.g : '', log: Array.isArray(o.log) ? o.log.filter((x) => x && typeof x.i === 'string' && typeof x.g === 'string').slice(-600) : [], msg: null };
+    ST.dict = { k: dKey(), t: ACATS.includes(o.t) ? o.t : 'esp', g: typeof o.g === 'string' ? o.g : '', log: Array.isArray(o.log) ? o.log.filter((x) => x && typeof x.i === 'string' && typeof x.g === 'string').slice(-600) : [], msg: null };
   }
   return ST.dict;
 }
@@ -2743,16 +2749,17 @@ function dNext() {
 function viewDict() {
   const D = dState(), I = idx(), t = D.t, c = cfgOf(t);
   if (D.g && !I.pmap[D.g]) D.g = '';
-  const cnt = (x) => { const L = I.items[x], n = L.filter((it) => activeRes(it.id)).length; return n + ' de ' + L.length; };
-  let h = '<div class="card dict"><div class="fhead"><h3>✍ Asignar por número</h3><button class="btn sm" data-a="tab" data-v="asig">● Ver «En directo» (para proyectar)</button></div>' +
-    '<p class="muted">Elige la categoría y la candidatura, y escribe los números que dicta su representante (el <b>Nº</b> de las listas). Cada número se asigna y se guarda al momento; si se va la conexión, se guarda en este ordenador y se envía solo al volver. <b>Nada se pierde.</b></p>' +
-    '<div class="seg dseg">' + DCATS.map((x) => '<button data-a="d-t" data-v="' + x + '" class="' + (t === x ? 'on' : '') + '">' + CATN[x] + ' <small>' + cnt(x) + '</small></button>').join('') + '</div>';
+  const cnt = (x) => { const L = I.items[x]; if (x === 'esp') { const d = new Set(); Object.keys(I.res).forEach((k) => { const r = I.res[k]; if (!r.x && r.t === 'esp' && I.imap[r.i]) d.add(r.g + '|' + r.i + '|' + String(r.slot || '').slice(0, 10)); }); return d.size + (d.size === 1 ? ' día' : ' días'); } const n = L.filter((it) => activeRes(it.id)).length; return n + ' de ' + L.length; };
+  let h = '<div class="card dict"><div class="fhead"><h3>✍ Asignar</h3><button class="btn sm" data-a="tab" data-v="asig" title="Solo para proyectarlo en la sala: no hace falta para asignar">● Ver «En directo» (para proyectar)</button></div>' +
+    '<p class="muted">Elige la categoría y la candidatura' + (t === 'esp' ? ' y pulsa en el cuadrante el día y la franja que pide' : ', y escribe los números que dicta su representante (el <b>Nº</b> de las listas)') + '. Se asigna y se guarda al momento, en cualquier momento: <b>no hace falta abrir la selección ni «En directo»</b>. Si se va la conexión, se guarda en este ordenador y se envía solo al volver. <b>Nada se pierde.</b></p>' +
+    '<div class="seg dseg">' + ACATS.map((x) => '<button data-a="d-t" data-v="' + x + '" class="' + (t === x ? 'on' : '') + '">' + CATN[x] + ' <small>' + cnt(x) + '</small></button>').join('') + '</div>';
   if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), 'Impórtalas desde el Excel en Ajustes.') + '</div>';
   if (!I.parties.length) return h + empty('Todavía no hay candidaturas', 'Dalas de alta en la pestaña Partidos.') + '</div>';
   h += '<h4 class="dh">Candidatura <small class="muted">(en el orden de elección de ' + CATN[t].toLowerCase() + ')</small></h4><div class="dparties">' + dOrder(t).map((g, k) => {
     const n = myCount(t, g), L = limOf(c, g), full = Number.isFinite(L) && n >= L;
     return '<button data-a="d-g" data-g="' + g + '" class="dpg' + (g === D.g ? ' on' : '') + (full ? ' full' : '') + '" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '" title="' + esc((I.pmap[g] || {}).nom || '') + '"><span class="dpo">' + (k + 1) + '</span><b>' + esc(pName(g)) + '</b><small>' + n + (Number.isFinite(L) ? ' / ' + L : '') + (full ? ' ✓' : '') + '</small></button>';
   }).join('') + '</div>';
+  if (t === 'esp') return h + dEspHTML(D) + '</div>';
   const noNum = I.items[t].filter((it) => it.ord == null);
   if (noNum.length) h += '<div class="hint warn" style="margin-top:10px"><b>' + (noNum.length === 1 ? '1 elemento no tiene' : noNum.length + ' elementos no tienen') + ' número (Nº)</b> y no se ' + (noNum.length === 1 ? 'puede' : 'pueden') + ' asignar por número: ' + esc(noNum.slice(0, 6).map((it) => iName(it)).join(' · ')) + (noNum.length > 6 ? '…' : '') + '. <button class="btn sm" data-a="d-num" data-t="' + t + '">Ponerles número</button></div>';
   if (!D.g) return h + '<p class="hint">Pulsa la candidatura que va a dictar sus números.</p>' + dMapHTML(t, '') + '</div>';
@@ -2777,6 +2784,21 @@ function viewDict() {
     '<div><h4 class="dh">Todo lo de ' + esc(pName(g)) + ' en ' + CATN[t].toLowerCase() + ' <span class="n">' + R.length + '</span></h4>' + (R.length ? '<div class="dnums">' + R.map((it) => { const r = activeRes(it.id); return '<span class="dn' + (r && r.pend ? ' pend' : '') + '" title="' + esc(iName(it)) + (r && r.pend ? ' · guardando…' : '') + '">' + esc(shv(it, 'ord') == null ? '' : String(shv(it, 'ord'))) + '</span>'; }).join('') + '</div>' : '<p class="muted">Nada todavía.</p>') + '</div></div>';
   return h + '</div>';
 }
+/* v2.4: los espacios dentro de «✍ Asignar»: con la candidatura elegida, una casilla libre del cuadrante se asigna con un clic
+   (la misma cola rápida de siempre: se ve al momento y se guarda por detrás) */
+function dEspHTML(D) {
+  if (!campDays().length) return '<p class="hint">Para asignar espacios hace falta el día de la votación (la campaña se calcula sola). <button class="btn sm" data-a="tab" data-v="esp">Indicarlo en Espacios</button></p>';
+  const I = idx(), c = cfgOf('esp'); let h = espFillHTML();
+  if (!D.g) h += '<p class="hint">Pulsa la candidatura a la que vas a asignar y, después, las casillas del cuadrante.</p>';
+  else {
+    const g = D.g, n = myCount('esp', g), L = limOf(c, g);
+    h += '<div class="dbox" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '"><p style="margin:0">Pulsa en el cuadrante la casilla libre (día y franja) que pide <b>' + esc(pName(g)) + '</b>: queda asignada al momento, sin ventanas, y se reserva el día entero si el espacio abre mañana y tarde. Para liberar o reasignar, pulsa una casilla ocupada.</p>' +
+      '<div class="dcount">' + esc(pName(g)) + ' tiene <b>' + n + '</b> ' + (n === 1 ? 'día' : 'días') + (Number.isFinite(L) ? ' de su cupo de <b>' + L + '</b>' + (n < L ? ' · le faltan <b>' + (L - n) + '</b>' : n === L ? ' · <b class="okc">cupo completo ✓</b>' : ' · <b class="bad">' + (n - L) + ' por encima del cupo</b>') : '') + '</div>' +
+      (D.msg && D.msg.lines.length ? '<ul class="dmsg">' + D.msg.lines.map((l) => '<li class="' + l[0] + '"><span class="dmi">' + ({ ok: '✓', same: '=', err: '✗', cup: '!' }[l[0]]) + '</span>' + esc(l[2]) + '</li>').join('') + '</ul>' : '') +
+      '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end">✓ Terminar con ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
+  }
+  return h + '<div class="desp">' + gridHTML(false) + '</div>';
+}
 /* todos los números de la categoría, para marcarlos sin buscar: libres, de la candidatura elegida, de otras, guardando o no disponibles */
 function dMapHTML(t, g) {
   const I = idx(), its = I.items[t].filter((it) => it.ord != null).sort((a, b) => a.ord - b.ord), typ = dTyped(ST.drafts.dIn || '').set;
@@ -2797,15 +2819,55 @@ async function dNumber(t) {
   closeModal(); L.forEach((it, k) => { const e = ST.db.E['i:' + it.id]; if (e) putQuiet('i:' + it.id, Object.assign({}, e, { ord: max + 1 + k })); }); markDirty();
   toast('Numerados del ' + (max + 1) + ' al ' + (max + L.length) + '.');
 }
+/* ---------- v2.4: un espacio se asigna por días enteros (mañana y tarde) ----------
+   Desde la 2.2, al asignar la mañana o la tarde se asigna también la otra franja de ese día. Lo asignado antes con una sola franja
+   se puede completar de una vez: la otra franja pasa a la misma candidatura, salvo que ese día el espacio esté cerrado o fuera de su
+   horario, o que la otra franja ya sea de otra candidatura (eso se queda como está). Antes se guarda una copia permanente en el
+   servidor y cada franja queda en el Registro. Va por la misma cola de asignaciones (rápida y sin perder nada). */
+function espFillPlan() {
+  const I = idx(), add = [], clash = [], seen = new Set();
+  Object.keys(I.res).forEach((k) => {
+    const r = I.res[k]; if (r.x || r.t !== 'esp' || !r.slot || r.ens || r.pend) return;
+    const it = I.imap[r.i]; if (!it || it.nd) return;
+    const s2 = otherSlot(r.slot), b = slotSt(it, s2); if (b === 'nd' || b === 'hz') return;
+    const day = r.i + '|' + r.slot.slice(0, 10); if (seen.has(day)) return;
+    const r2 = activeRes(r.i, s2);
+    if (r2) { if (r2.g !== r.g) { seen.add(day); clash.push({ it, d: r.slot.slice(0, 10) }); } return; }
+    seen.add(day); add.push({ i: r.i, slot: s2, g: r.g });
+  });
+  return { add, clash };
+}
+function espFillHTML() {
+  if (!isAdmin() || !campDays().length) return '';
+  const P = espFillPlan(); if (!P.add.length && !P.clash.length) return '';
+  const c = cfgOf('esp'), busy = c.mode === 'turnos' && !c.done, dd = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+  return '<div class="hint fillh">' + (P.add.length ? '<b>' + P.add.length + (P.add.length === 1 ? ' día asignado' : ' días asignados') + ' solo por la mañana o solo por la tarde.</b> Un espacio se asigna por días enteros (mañana y tarde), salvo que esté cerrado o fuera de su horario. ' +
+    (busy ? 'Para completarlos, pausa o cierra antes la selección de espacios por turnos (así no se gasta el turno de nadie).' : '<button class="btn sm primary" data-a="esp-fill">Completar mañana y tarde (' + P.add.length + ')</button>') : '') +
+    (P.clash.length ? (P.add.length ? '<br>' : '') + '<small>' + P.clash.length + (P.clash.length === 1 ? ' día tiene' : ' días tienen') + ' la mañana de una candidatura y la tarde de otra; se quedan como están: ' + esc(P.clash.slice(0, 6).map((x) => eLabel(x.it) + ' ' + dd(x.d)).join(' · ')) + (P.clash.length > 6 ? '…' : '') + '.</small>' : '') + '</div>';
+}
+async function espFill() {
+  if (!adminOnly()) return;
+  const P = espFillPlan(); if (!P.add.length) return toast('No hay ningún día que completar.');
+  const c = cfgOf('esp'); if (c.mode === 'turnos' && !c.done) return toast('Pausa o cierra antes la selección de espacios por turnos.', 'err');
+  const n = P.add.length;
+  if (!(await confirmBox({ title: 'Completar mañana y tarde', text: 'Se asignará la otra franja (mañana o tarde) de <b>' + n + (n === 1 ? ' día' : ' días') + '</b> a la misma candidatura que ya tiene la primera. No se toca nada más: las franjas cerradas, fuera de horario o de otra candidatura se quedan como están.<br><br>Antes se guarda una <b>copia permanente</b> en el servidor y cada franja queda anotada en el Registro.', ok: 'Completar ' + n }))) return;
+  closeModal();
+  try { await flush(); await api('keep', { label: 'Antes de completar mañana y tarde (' + n + (n === 1 ? ' día' : ' días') + ')' }); }
+  catch (e) { return toast('No se ha podido guardar la copia previa (' + e.message + '). No se ha cambiado nada.', 'err'); }
+  const L = espFillPlan().add; if (!L.length) return toast('No queda ningún día que completar.');
+  queueAssign(L);
+  toast('Completando ' + L.length + (L.length === 1 ? ' día' : ' días') + ' (mañana y tarde). Se están guardando.');
+}
 const DICT_ACT = {
-  'd-t': (el) => { const D = dState(); D.t = el.dataset.v; D.msg = null; dSave(); renderView(); dFocus(); },
+  'esp-fill': () => espFill(),
+  'd-t': (el) => { const D = dState(); if (!ACATS.includes(el.dataset.v)) return; D.t = el.dataset.v; D.msg = null; dSave(); renderView(); dFocus(); },
   'd-g': (el) => { const D = dState(); D.g = el.dataset.g; D.msg = null; dSave(); renderView(); dFocus(); },
   'd-go': () => dRun(($('#dIn') || {}).value || ''),
   'd-force': (el) => dRun(el.dataset.n || '', true),
   'd-q': (el) => dRun('x' + el.dataset.n),
   'd-end': () => dEnd(),
   'd-next': () => dNext(),
-  'd-open': (el) => { const D = dState(); if (DCATS.includes(el.dataset.t)) { D.t = el.dataset.t; D.msg = null; dSave(); } if (el.dataset.n) ST.drafts.dIn = el.dataset.n; gotoView('dict'); dFocus(); },
+  'd-open': (el) => { const D = dState(); if (ACATS.includes(el.dataset.t)) { D.t = el.dataset.t; D.msg = null; dSave(); } if (el.dataset.n) ST.drafts.dIn = el.dataset.n; gotoView('dict'); dFocus(); },
   'd-cell': (el) => { const D = dState(); if (!D.g) { toast('Elige antes la candidatura a la que se asigna.', 'err'); return; } dRun(el.dataset.n); },
   'd-num': (el) => dNumber(el.dataset.t)
 };
