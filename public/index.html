@@ -763,6 +763,23 @@ select.bad{border-color:var(--bad);background:var(--bad-bg);color:var(--bad);fon
 .dnums{display:flex;flex-wrap:wrap;gap:4px}
 .dn{display:inline-block;min-width:30px;text-align:center;padding:3px 6px;border-radius:5px;background:var(--line2);font-weight:700;font-size:13px}
 .dn.pend{background:#fff1cc}
+/* v2.1 · cuadrícula de números y vista previa */
+.dmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px;margin:4px 0 6px;max-height:420px;overflow:auto;padding:3px}
+.dm{position:relative;border:1px solid var(--line);border-radius:6px;background:#fff;font:inherit;font-weight:700;font-size:14px;padding:6px 2px 4px;cursor:pointer;line-height:1.1;text-align:center;color:var(--ink)}
+.dm small{display:block;font-size:9px;font-weight:600;color:#fff;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dm.free:hover{border-color:var(--brand);background:#eef3fc}
+.dm.mine{background:var(--pc);color:#fff;border-color:var(--pc)}
+.dm.oth{background:color-mix(in srgb,var(--pc) 70%,#555);color:#fff;border-color:transparent;opacity:.55;cursor:default}
+.dm.pend{outline:2px dashed #e0a100;outline-offset:-2px}
+.dm.nd{background:repeating-linear-gradient(45deg,#eceff5 0 6px,#fff 6px 12px);color:var(--mute);cursor:default}
+.dm.typ{box-shadow:0 0 0 3px #f5b400;background:#fff6cc;color:var(--ink);opacity:1;z-index:1}
+.dm.lg{display:inline-block;min-width:30px;padding:2px 6px;font-size:12px;margin:0 2px 0 8px;cursor:default;vertical-align:middle}
+.dprev{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:8px;min-height:4px}
+.dpl{font-size:12px;color:var(--mute)}
+.dpv{font-size:13px;padding:3px 8px;border-radius:5px;background:#f4f6fa}
+.dpv.ok{background:var(--ok-bg);color:#14532d}.dpv.err{background:var(--bad-bg);color:#7f1d1d}.dpv.same{color:var(--ink2)}
+.numhit{margin:8px 0;padding:8px 12px;border-radius:8px;background:#fff6cc;font-size:14px}
+.ltbl tr.hit td{background:#fffbe6}
 #printdoc .pr-cred{border:1px dashed #555;padding:8px 10px;margin:0 0 10px;break-inside:avoid;page-break-inside:avoid}
 #printdoc .pr-cred-h{font-size:11pt;color:#14305f;margin-bottom:4px}
 #printdoc .pr-cred table{border-collapse:collapse;margin:2px 0 4px}
@@ -1136,7 +1153,8 @@ const tipo = () => (TIPON[conf().tipo] ? conf().tipo : 'generales');
 const xfOf = (t) => ((conf().xf || {})[t] || []).filter((d) => !d.h);
 /* columnas de siempre quitadas de la vista por el Ayuntamiento (la segunda, nombre o lugar, no se puede quitar) */
 const hcOf = (t) => ((conf().hc || {})[t] || []);
-const colsOf = (t) => COLS[t].filter((c) => hcOf(t).indexOf(c[0]) < 0).concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
+/* v2.1: el Nº siempre se ve (es el número con el que se asigna), aunque antes se hubiera quitado con «☰ Columnas…» */
+const colsOf = (t) => COLS[t].filter((c) => c[0] === 'ord' || hcOf(t).indexOf(c[0]) < 0).concat(xfOf(t).map((d) => ['x_' + d.id, d.n, 'text', 150]));
 const fv = (r, k) => (k.indexOf('x_') === 0 ? (r.xv || {})[k.slice(2)] : r[k]);
 /* centros con letra en el Excel (A, B, C…): la letra va en el nombre («A. Centre Cívic…») y el número interno (100 + fila) solo sirve
    para ordenarlos; nunca se enseña: en las listas, Nº muestra la letra y el nombre va sin ella; en el cuadrante, «A. Centre Cívic…» */
@@ -1416,17 +1434,27 @@ function viewCat(t) {
   let h = statusHTML(t, true);
   const pick = canPick(t);
   h += '<div class="card"><div class="fhead"><h3>' + CATN[t] + ' <span class="n">' + I.items[t].length + '</span></h3><div class="btnrow" style="margin:0">' +
+    (isAdmin() && DCATS.includes(t) && !edit ? '<button class="btn sm primary" data-a="d-open" data-t="' + t + '">✍ Asignar por número</button>' : '') +
     (isAdmin() ? '<button class="btn sm' + (edit ? ' primary' : '') + '" data-a="edit" data-t="' + t + '">' + (edit ? '✓ Terminar edición' : '✎ Editar lista') + '</button>' + (edit ? '<button class="btn sm" data-a="i-add" data-t="' + t + '">+ Añadir ' + CAT1[t] + '</button>' : '') + '<button class="btn sm" data-a="xf-open" data-t="' + t + '" title="Quitar o volver a poner columnas y añadir campos propios">☰ Columnas…</button><button class="btn sm" data-a="imp-xls">Importar Excel…</button>' : '') +
     '<button class="btn sm" data-a="csv" data-t="' + t + '">Exportar (.csv)</button><button class="btn sm prt" data-a="pr-cat" data-t="' + t + '">🖨 Imprimir</button></div></div>';
   if (isParty() && !pick.ok) h += '<p class="hint">' + esc(pick.why) + '</p>';
   if (!I.items[t].length) return h + empty('Todavía no hay ' + CATN[t].toLowerCase(), isAdmin() ? 'Impórtalos desde el Excel o añádelos con «Editar lista».' : 'El Ayuntamiento los cargará en breve.') + '</div>';
   h += '<div class="filters"><select id="flt-' + t + '" data-flt="' + t + '" aria-label="Mostrar"><option value="all">Todos</option><option value="free"' + (f === 'free' ? ' selected' : '') + '>Solo libres</option><option value="taken"' + (f === 'taken' ? ' selected' : '') + '>Solo reservados</option>' + (t !== 'esp' ? '<option value="nd"' + (f === 'nd' ? ' selected' : '') + '>No disponibles</option>' : '') + (isParty() ? '<option value="mine"' + (f === 'mine' ? ' selected' : '') + '>Solo los nuestros</option>' : '') + '<optgroup label="Por partido">' + I.parties.map((p) => '<option value="p:' + p.id + '"' + (f === 'p:' + p.id ? ' selected' : '') + '>' + esc(p.sig || p.nom) + '</option>').join('') + '</optgroup></select>' +
     '<input type="search" id="q-' + t + '" data-q="' + t + '" value="' + esc(q) + '" placeholder="🔍 Buscar ' + ({ esp: 'un espacio', ban: 'una calle o un tramo', pan: 'un lugar o unos límites', pri: 'un lugar o un número' }[t]) + '…" style="max-width:340px"></div>';
+  const qn = numQ(t);
+  if (qn) {
+    const nums = [...qn], have = new Set(I.items[t].map((it) => it.ord)), found = nums.filter((n) => have.has(n)), miss = nums.filter((n) => !have.has(n));
+    h += '<div class="numhit">Buscando ' + (nums.length === 1 ? 'el número' : 'los números') + ' <b>' + esc(nums.length > 12 ? nums.slice(0, 12).join(', ') + '…' : nums.join(', ')) + '</b>: ' + (found.length === 1 ? '1 encontrado' : found.length + ' encontrados') + '.' + (miss.length ? ' <span class="bad">No existe' + (miss.length === 1 ? ' el ' : 'n los ') + esc(miss.slice(0, 12).join(', ')) + '.</span>' : '') +
+      (isAdmin() && DCATS.includes(t) && found.length ? ' <button class="btn sm primary" data-a="d-open" data-t="' + t + '" data-n="' + found.join(' ') + '">✍ Asignarlos a una candidatura…</button>' : '') + '</div>';
+  }
   if (isAdmin() && !edit && (t !== 'esp' || campDays().length)) h += qaBar(t);
   return h + (t === 'esp' ? gridHTML(edit) : listHTML(t, edit)) + '</div>';
 }
+/* «12», «12, 15, 18», «20-25»: si lo que se busca son números, se buscan por Nº exacto (y no «12» dentro de 112 o de un nombre) */
+function numQ(t) { const s = (ST.ui.q[t] || '').trim(); if (!s || !/\d/.test(s)) return null; const p = dParse(s); return p.op === '+' && p.nums.length && !p.bad.length ? new Set(p.nums) : null; }
 function passFilter(t, it, r) {
-  const f = ST.ui.flt[t] || 'all', q = norm(ST.ui.q[t] || '');
+  const f = ST.ui.flt[t] || 'all', qn = numQ(t), q = qn ? '' : norm(ST.ui.q[t] || '');
+  if (qn && !qn.has(it.ord)) return false;
   if (q && norm(colsOf(t).map((c) => shv(it, c[0])).join(' ') + ' ' + (r ? pName(r.g) : '')).indexOf(q) < 0) return false;
   if (t === 'esp') return true;
   if (f === 'nd') return !!it.nd;
@@ -1439,7 +1467,7 @@ function listHTML(t, edit) {
   if (!rows.length) return '<p class="muted">Nada coincide con el filtro.</p>';
   const adm = isAdmin() && !edit, sel = isAdmin(), S = selOf(t);
   return (sel ? selBar(t) : '') + '<div class="tblwrap"><table class="tbl ftbl ltbl"><thead><tr>' + (sel ? selHead(t) : '') + colsOf(t).map((c) => '<th>' + c[1] + '</th>').join('') + '<th>Estado</th>' + (adm ? '<th>¿Elegible?</th>' : '') + '<th></th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
-    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + (r && r.pend ? ' pendr' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') +
+    rows.map(({ it, r }) => '<tr class="' + (it.nd ? 'ndr' : r ? (r.g === myParty() ? 'mine' : 'taken') : 'free') + (sel && S.has(it.id) ? ' selr' : '') + (r && r.pend ? ' pendr' : '') + (numQ(t) ? ' hit' : '') + '">' + (sel ? selCell(t, it.id) : '') + colsOf(t).map((c) => '<td' + (c[2] === 'number' ? ' class="num"' : '') + '>' + (edit ? rin('i', it, c[0], c[2], c[2] === 'number' ? 48 : Math.min(c[3], 160), c[1]) : esc(shv(it, c[0]) == null ? '' : shv(it, c[0]))) + '</td>').join('') +
       '<td' + (it.nd ? '' : ' class="nowrap"') + '>' + (it.nd ? '<span class="nd-l">No disponible</span>' + (it.ndm ? '<small class="ndm">' + esc(it.ndm) + '</small>' : '') : r ? pChip(r.g) + (r.pend ? '<small class="pendl" title="Se está guardando">guardando…</small>' : '') : adm && qaParty(t) ? qaBtn(t, it) : '<span class="free-l">Libre</span>') + '</td>' + (adm ? '<td>' + ndSelect(it, r) + '</td>' : '') + '<td class="nowrap">' + rowAction(t, it, r, pick, edit) + '</td>' + (adm ? '<td><button class="btn sm ghost" data-a="i-del" data-id="' + it.id + '" title="Borrar esta línea">🗑</button></td>' : '') + '</tr>').join('') + '</tbody></table></div>';
 }
 /* ---------- marcar varias filas y borrarlas a la vez (por ejemplo, después de importar un Excel equivocado) ---------- */
@@ -2158,9 +2186,11 @@ function helpAdmin() {
       '<li>Pulsa la <b>candidatura</b> que va a dictar. Salen en su orden de elección, con lo que lleva y su cupo (por ejemplo «12 / 40»).</li>' +
       '<li>Escribe cada número que dicta (el <b>Nº</b> de las listas) y pulsa <b>Intro</b>. Se asigna al momento: debajo sale en verde, con la calle o el lugar para comprobarlo en voz alta. Se pueden escribir varios a la vez (<b>12 15 18</b>) o seguidos (<b>20-25</b>).</li>' +
       '<li>Si un número ya es de otra candidatura, no está disponible o no existe, sale en rojo y no se asigna. Si la candidatura ya tiene su cupo completo, sale en naranja y solo se asigna si pulsas «Asignar igualmente».</li>' +
+      '<li>Debajo está la <b>cuadrícula con todos los números</b> de la categoría: libres en blanco, los de la candidatura elegida en su color y los de otras en gris. Mientras escribes, los números se marcan en amarillo y se ve qué son y si están libres, antes de pulsar Intro. También se puede asignar <b>pulsando un número libre</b> de la cuadrícula.</li>' +
       '<li>Para corregir, escribe <b>x</b> delante del número (<b>x12</b>) o pulsa «Quitar» en la lista: vuelve a estar libre y queda en el Registro.</li>' +
       '<li>Cuando la candidatura termina, pulsa <b>«✓ Terminar con…»</b>: comprueba que todo está guardado en el servidor y dice cuántos tiene. Después, <b>«Siguiente candidatura ▸»</b> pasa a la siguiente del orden que no tenga el cupo completo.</li></ol>' +
       '<p><b>Nada se pierde.</b> Cada número se guarda en el servidor al instante, en segundo plano. Si se va la conexión o se cierra la pestaña, lo escrito queda guardado en este ordenador y se envía solo al volver; el indicador de arriba dice cuántos quedan por guardar. La lista «Dictado en este ordenador» se conserva aunque se recargue la página, y cada asignación queda en el Registro con la fecha y la hora.</p>' +
+      '<p><b>Buscar por número en las listas.</b> En Banderolas, Pancartas y Prismas, si en el buscador escribes números (<b>12</b>, <b>12, 15, 18</b> o <b>20-25</b>) salen exactamente esos, y el botón <b>«✍ Asignarlos a una candidatura…»</b> los lleva ya escritos a esta pantalla. La columna <b>Nº</b> se ve siempre; si algún elemento no tiene número, el programa lo avisa y «Ponerles número» los numera a continuación del último.</p>' +
       '<p><b>Espacios electorales:</b> se asignan en el cuadrante de la pestaña Espacios (un espacio, un día y una franja) con <b>«⚡ Asignación rápida a…»</b>: eliges la candidatura y pulsas las casillas.</p>') +
     hsec(3, 'Cómo se hace el reparto en el programa', '<ol><li>En <b>Reparto</b>, escribe las <b>elecciones de referencia</b> y los <b>votos</b> que obtuvo cada candidatura en ellas. Las candidaturas nuevas, sin resultados anteriores, se dejan en 0. Los votos también pueden venir en el Excel.</li><li>Pulsa <b>«Ordenar las candidaturas por votos»</b>: la que tuvo más votos elige primero. Ese orden se aplica en Partidos y en los turnos de todas las categorías.</li><li>Elige el <b>método</b> de cada categoría y, si la Junta lo acuerda, un <b>mínimo</b> para cada candidatura:<ul><li><b>Proporcional (restos mayores):</b> cada candidatura recibe la parte entera de lo que le corresponde por sus votos y lo que sobra va a los restos más altos. Es el más fiel al porcentaje de votos.</li><li><b>Proporcional (D’Hondt):</b> el sistema del reparto de escaños; favorece un poco a las candidaturas con más votos.</li><li><b>A partes iguales:</b> lo mismo para todas; recomendado para los locales de actos (igualdad de oportunidades, art. 57).</li><li><b>Sin cupos:</b> sin límite por candidatura (se aplica, si lo hay, el máximo general de «Turnos y reglas»).</li></ul></li><li>Pulsa <b>«Calcular y fijar los cupos»</b>. Cada número se puede retocar a mano si la Junta acuerda otra cosa. Lo que esté marcado como no disponible no cuenta.</li></ol>' +
       '<div class="hint"><b>Ejemplo.</b> 30 tramos de banderolas y 4 candidaturas con 12.000, 8.000, 4.000 y 1.000 votos, con un mínimo de 1. Primero cada una recibe 1 (quedan 26). Los 26 se reparten en proporción a los votos: 12,48 · 8,32 · 4,16 · 1,04. Las partes enteras suman 25 y el tramo que sobra va al resto más alto (0,48). Cupos: <b>14, 9, 5 y 2</b>. El desarrollo ronda a ronda está en la ayuda para las candidaturas.</div>') +
@@ -2496,7 +2526,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '2.0 · 11/11/2026';
+const APP_VERSION = '2.1 · 11/11/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2635,6 +2665,21 @@ function dParse(raw) {
   return { op, nums: out.filter((n, k) => out.indexOf(n) === k), bad };
 }
 const dFocus = () => setTimeout(() => { const n = $('#dIn'); if (n) n.focus(); }, 30);
+/* mientras se escribe: cada número se marca en la cuadrícula y debajo se ve qué es y si está libre, antes de pulsar Intro */
+function dTyped(v) { const p = dParse(v); return { op: p.op, set: new Set(p.nums), nums: p.nums }; }
+function dPrevHTML(v) {
+  const D = dState(), I = idx(), p = dTyped(v); if (!p.nums.length) return '';
+  return '<span class="dpl">' + (p.op === '-' ? 'Quitar' : 'Escribiendo') + ':</span>' + p.nums.slice(0, 10).map((n) => {
+    const its = I.items[D.t].filter((it) => it.ord === n); if (!its.length) return '<span class="dpv err"><b>' + n + '</b> no existe</span>';
+    const it = its[0], r = activeRes(it.id), st = it.nd ? ['err', 'no disponible'] : r ? (r.g === D.g ? ['same', 'ya es de ' + pName(r.g)] : ['err', 'es de ' + pName(r.g)]) : ['ok', 'libre'];
+    return '<span class="dpv ' + st[0] + '" title="' + esc(iName(it)) + '"><b>' + n + '</b> ' + esc(iName(it)) + ' · ' + st[1] + '</span>';
+  }).join('') + (p.nums.length > 10 ? '<span class="dpv">… y ' + (p.nums.length - 10) + ' más</span>' : '');
+}
+function dPreview(v) {
+  const p = dTyped(v), b = $('#dPrev'); if (b) b.innerHTML = dPrevHTML(v);
+  $$('#dMap .dm').forEach((x) => x.classList.toggle('typ', p.set.has(+x.dataset.n)));
+}
+document.addEventListener('input', (e) => { if (e.target.id === 'dIn') dPreview(e.target.value); });
 async function dRun(raw, force) {
   if (!isAdmin()) return;
   const D = dState(), t = D.t, g = D.g, I = idx();
@@ -2693,11 +2738,14 @@ function viewDict() {
     const n = myCount(t, g), L = limOf(c, g), full = Number.isFinite(L) && n >= L;
     return '<button data-a="d-g" data-g="' + g + '" class="dpg' + (g === D.g ? ' on' : '') + (full ? ' full' : '') + '" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '" title="' + esc((I.pmap[g] || {}).nom || '') + '"><span class="dpo">' + (k + 1) + '</span><b>' + esc(pName(g)) + '</b><small>' + n + (Number.isFinite(L) ? ' / ' + L : '') + (full ? ' ✓' : '') + '</small></button>';
   }).join('') + '</div>';
-  if (!D.g) return h + '<p class="hint">Pulsa la candidatura que va a dictar sus números.</p></div>';
+  const noNum = I.items[t].filter((it) => it.ord == null);
+  if (noNum.length) h += '<div class="hint warn" style="margin-top:10px"><b>' + (noNum.length === 1 ? '1 elemento no tiene' : noNum.length + ' elementos no tienen') + ' número (Nº)</b> y no se ' + (noNum.length === 1 ? 'puede' : 'pueden') + ' asignar por número: ' + esc(noNum.slice(0, 6).map((it) => iName(it)).join(' · ')) + (noNum.length > 6 ? '…' : '') + '. <button class="btn sm" data-a="d-num" data-t="' + t + '">Ponerles número</button></div>';
+  if (!D.g) return h + '<p class="hint">Pulsa la candidatura que va a dictar sus números.</p>' + dMapHTML(t, '') + '</div>';
   const g = D.g, n = myCount(t, g), L = limOf(c, g);
   h += '<div class="dbox" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '"><label for="dIn">Números de <b>' + esc(pName(g)) + '</b> en <b>' + CATN[t].toLowerCase() + '</b></label>' +
     '<div class="drow"><input id="dIn" data-draft type="text" inputmode="numeric" autocomplete="off" spellcheck="false" value="' + esc(ST.drafts.dIn || '') + '" placeholder="Escribe el número y pulsa Intro" aria-label="Números para ' + esc(pName(g)) + '"><button class="btn primary" data-a="d-go">Asignar</button></div>' +
-    '<p class="small muted" style="margin:6px 0 0">Varios a la vez: <b>12 15 18</b> · seguidos: <b>20-25</b> · para quitar uno: <b>x12</b>.</p>' +
+    '<div id="dPrev" class="dprev" aria-live="polite">' + dPrevHTML(ST.drafts.dIn || '') + '</div>' +
+    '<p class="small muted" style="margin:6px 0 0">Varios a la vez: <b>12, 15, 18</b> · seguidos: <b>20-25</b> · para quitar uno: <b>x12</b> · o pulsa los números en la cuadrícula de abajo.</p>' +
     '<div class="dcount">' + esc(pName(g)) + ' tiene <b>' + n + '</b>' + (Number.isFinite(L) ? ' de su cupo de <b>' + L + '</b>' + (n < L ? ' · le faltan <b>' + (L - n) + '</b>' : n === L ? ' · <b class="okc">cupo completo ✓</b>' : ' · <b class="bad">' + (n - L) + ' por encima del cupo</b>') : '') + '</div>';
   if (D.msg && D.msg.lines.length) {
     const cupN = D.msg.lines.filter((l) => l[0] === 'cup' && l[1] !== '').map((l) => l[1]);
@@ -2705,6 +2753,7 @@ function viewDict() {
       (cupN.length ? '<div class="btnrow" style="margin:6px 0 0"><button class="btn sm" data-a="d-force" data-n="' + cupN.join(' ') + '">Asignar igualmente ' + cupN.join(', ') + ' (por encima del cupo)</button></div>' : '');
   }
   h += '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end">✓ Terminar con ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
+  h += dMapHTML(t, g);
   /* lo dictado en este ordenador (lo último primero, una línea por elemento) y todo lo que tiene la candidatura según el servidor */
   const seen = new Set(), mine = D.log.slice().reverse().filter((e) => e.t === t && e.g === g && !seen.has(e.i) && seen.add(e.i) && I.imap[e.i]).slice(0, 60);
   const st = (e) => { const r = activeRes(e.i); if (e.q) return r && r.g === g ? ['pend', 'asignado de nuevo'] : ['off', 'quitado']; if (!r) return ['off', 'no asignado']; if (r.g !== g) return ['bad', 'ahora es de ' + pName(r.g)]; return r.pend ? ['pend', 'guardando…'] : ['ok', '✓ guardado']; };
@@ -2712,6 +2761,26 @@ function viewDict() {
   h += '<div class="grid2 dcols"><div><h4 class="dh">Dictado en este ordenador <small class="muted">(lo último arriba)</small></h4>' + (mine.length ? '<table class="tbl dlog"><tbody>' + mine.map((e) => { const s2 = st(e), it = I.imap[e.i], r = activeRes(e.i); return '<tr class="' + s2[0] + '"><td class="num"><b>' + esc(String(e.n)) + '</b></td><td>' + esc(iName(it)) + '</td><td class="nowrap"><small>' + esc(fStamp(e.at).slice(11)) + '</small> ' + esc(s2[1]) + '</td><td>' + (r && r.g === g ? '<button class="btn sm ghost" data-a="d-q" data-n="' + esc(String(e.n)) + '" title="Quitar">Quitar</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">Todavía nada.</p>') + '</div>' +
     '<div><h4 class="dh">Todo lo de ' + esc(pName(g)) + ' en ' + CATN[t].toLowerCase() + ' <span class="n">' + R.length + '</span></h4>' + (R.length ? '<div class="dnums">' + R.map((it) => { const r = activeRes(it.id); return '<span class="dn' + (r && r.pend ? ' pend' : '') + '" title="' + esc(iName(it)) + (r && r.pend ? ' · guardando…' : '') + '">' + esc(shv(it, 'ord') == null ? '' : String(shv(it, 'ord'))) + '</span>'; }).join('') + '</div>' : '<p class="muted">Nada todavía.</p>') + '</div></div>';
   return h + '</div>';
+}
+/* todos los números de la categoría, para marcarlos sin buscar: libres, de la candidatura elegida, de otras, guardando o no disponibles */
+function dMapHTML(t, g) {
+  const I = idx(), its = I.items[t].filter((it) => it.ord != null).sort((a, b) => a.ord - b.ord), typ = dTyped(ST.drafts.dIn || '').set;
+  if (!its.length) return '';
+  const nF = its.filter((it) => !it.nd && !activeRes(it.id)).length;
+  return '<h4 class="dh">Todos los números de ' + CATN[t].toLowerCase() + ' <small class="muted">(' + nF + ' libres de ' + its.length + (g ? ' · pulsa un número libre para asignarlo a ' + esc(pName(g)) : ' · elige antes la candidatura') + ')</small></h4>' +
+    '<div class="dmap" id="dMap">' + its.map((it) => {
+      const r = activeRes(it.id), own = r && g && r.g === g, cls = it.nd ? 'nd' : r ? (own ? 'mine' : 'oth') + (r.pend ? ' pend' : '') : 'free';
+      return '<button type="button" class="dm ' + cls + (typ.has(it.ord) ? ' typ' : '') + '" data-a="d-cell" data-n="' + it.ord + '"' + (r ? ' style="--pc:' + esc((I.pmap[r.g] || {}).col || '#888') + '"' : '') + ' title="' + esc(it.ord + ' · ' + iName(it) + (r ? ' · ' + pName(r.g) + (r.pend ? ' (guardando…)' : '') : it.nd ? ' · No disponible' + (it.ndm ? ': ' + it.ndm : '') : ' · Libre')) + '">' + it.ord + (r && !own ? '<small>' + esc(pName(r.g)) + '</small>' : '') + '</button>';
+    }).join('') + '</div><p class="legend small"><span class="dm free lg">12</span> Libre ' + (g ? '<span class="dm mine lg" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '">12</span> De ' + esc(pName(g)) + ' ' : '') + '<span class="dm oth lg" style="--pc:#888">12</span> De otra candidatura <span class="dm nd lg">12</span> No disponible <span class="dm typ lg">12</span> Lo que estás escribiendo</p>';
+}
+/* elementos sin número: se numeran a continuación del último, en el orden de la lista; no cambia nada más */
+async function dNumber(t) {
+  if (!adminOnly()) return;
+  const I = idx(), L = I.items[t].filter((it) => it.ord == null); if (!L.length) return;
+  const max = I.items[t].reduce((m, it) => (it.ord != null && it.ord > m ? it.ord : m), 0);
+  if (!(await confirmBox({ title: 'Poner número', text: 'Se pondrá número a <b>' + L.length + '</b> ' + (L.length === 1 ? CAT1[t] : CATN[t].toLowerCase()) + ' sin número, del <b>' + (max + 1) + '</b> al <b>' + (max + L.length) + '</b>, en el orden de la lista. No se cambia ningún otro dato y queda en las copias de seguridad.', ok: 'Poner número' }))) return;
+  closeModal(); L.forEach((it, k) => { const e = ST.db.E['i:' + it.id]; if (e) putQuiet('i:' + it.id, Object.assign({}, e, { ord: max + 1 + k })); }); markDirty();
+  toast('Numerados del ' + (max + 1) + ' al ' + (max + L.length) + '.');
 }
 const DICT_ACT = {
   'd-t': (el) => { const D = dState(); D.t = el.dataset.v; D.msg = null; dSave(); renderView(); dFocus(); },
@@ -2721,7 +2790,9 @@ const DICT_ACT = {
   'd-q': (el) => dRun('x' + el.dataset.n),
   'd-end': () => dEnd(),
   'd-next': () => dNext(),
-  'd-open': (el) => { const D = dState(); if (DCATS.includes(el.dataset.t)) { D.t = el.dataset.t; dSave(); } gotoView('dict'); dFocus(); }
+  'd-open': (el) => { const D = dState(); if (DCATS.includes(el.dataset.t)) { D.t = el.dataset.t; D.msg = null; dSave(); } if (el.dataset.n) ST.drafts.dIn = el.dataset.n; gotoView('dict'); dFocus(); },
+  'd-cell': (el) => { const D = dState(); if (!D.g) { toast('Elige antes la candidatura a la que se asigna.', 'err'); return; } dRun(el.dataset.n); },
+  'd-num': (el) => dNumber(el.dataset.t)
 };
 Object.assign(ACT, REP_ACT, ASIG_ACT, DICT_ACT);
 /* campos propios de cada lista: añadir, renombrar, quitar de la vista (los datos nunca se borran) */
@@ -2733,7 +2804,7 @@ function hcHTML(t) {
   if (!COLS[t]) return '';
   const H = hcOf(t);
   return '<h3 style="margin:14px 0 6px">Columnas de la lista</h3><p class="muted small" style="margin:0 0 8px">Desmarca las que no hagan falta. Quitar una columna solo la oculta en las listas, la impresión y el CSV: <b>sus datos no se borran</b> y vuelven al marcarla otra vez.</p><div class="olist">' +
-    COLS[t].map((c, i) => '<label class="chk orow"><input type="checkbox" data-a="hc-tog" data-t="' + t + '" data-k="' + c[0] + '"' + (H.indexOf(c[0]) < 0 ? ' checked' : '') + (i === 1 ? ' disabled title="Esta columna siempre se ve"' : '') + '> <span>' + esc(c[1]) + (i === 1 ? ' <span class="muted small">(siempre se ve)</span>' : '') + '</span></label>').join('') + '</div><h3 style="margin:16px 0 6px">Campos propios</h3>';
+    COLS[t].map((c, i) => '<label class="chk orow"><input type="checkbox" data-a="hc-tog" data-t="' + t + '" data-k="' + c[0] + '"' + (H.indexOf(c[0]) < 0 || c[0] === 'ord' ? ' checked' : '') + (i === 1 || c[0] === 'ord' ? ' disabled title="Esta columna siempre se ve"' : '') + '> <span>' + esc(c[1]) + (c[0] === 'ord' ? ' <span class="muted small">(siempre se ve: es el número con el que se asigna)</span>' : i === 1 ? ' <span class="muted small">(siempre se ve)</span>' : '') + '</span></label>').join('') + '</div><h3 style="margin:16px 0 6px">Campos propios</h3>';
 }
 async function hcToggle(el) {
   const t = el.dataset.t, k = el.dataset.k, H = hcOf(t), col = (COLS[t] || []).find((c) => c[0] === k); if (!col) return;

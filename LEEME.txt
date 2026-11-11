@@ -18,7 +18,10 @@ números que dicta su representante (el Nº de las listas): 12, varios a la vez 
 o seguidos (20-25); con «x» delante (x12) se quitan. Cada número se asigna y se guarda al
 momento; si se va la conexión o se cierra la pestaña, queda guardado en ese ordenador y
 se envía solo al volver. «✓ Terminar con…» comprueba que todo está en el servidor y
-«Siguiente candidatura ▸» pasa a la siguiente del orden. Los espacios se asignan en el
+«Siguiente candidatura ▸» pasa a la siguiente del orden. Debajo está la
+cuadrícula con todos los números: lo que se escribe se marca al momento y un número libre
+se asigna también con un clic. En las listas, buscar números (12, 12, 15 o 20-25) saca
+exactamente esos; la columna Nº se ve siempre. Los espacios se asignan en el
 cuadrante de Espacios con «⚡ Asignación rápida a…». Que cada candidatura elija desde su
 ordenador sigue siendo posible (tarjeta «Sesión de selección» del Panel), pero es opcional:
 sin ella, las candidaturas no necesitan usuario.

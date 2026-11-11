@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.0\b/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.1\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -763,6 +763,34 @@ const pdfInfo = (f) => {
   ok('Escribir un número y pulsar Intro lo asigna al momento, con el nombre del lugar para comprobarlo', L1.length === 1 && /^ok:✓ ?/.test(L1[0]) && L1[0].includes(String(fr[0])) && (await A.inputValue('#dIn')) === '', L1.join(' | '));
   await dType(fr[1] + ',' + fr[2]); L1 = await dLines(); ok('Varios a la vez, con comas («12,15»)', L1.length === 2 && L1.every((l) => /^ok/.test(l)), L1.join(' | '));
   await dType('del ' + pair + ' al ' + (pair + 1)); L1 = await dLines(); ok('Seguidos («del 20 al 21»)', L1.length === 2 && L1.every((l) => /^ok/.test(l)), L1.join(' | '));
+  /* v2.1 · cuadrícula de números, marcado al escribir, Nº siempre visible y búsqueda por números */
+  ok('v2.1 · Cuadrícula con todos los números de pancartas', (await A.locator('#dMap .dm').count()) === Object.keys(panId).length);
+  const spare = fr.filter((n) => ![fr[0], fr[1], fr[2], fr[3], fr[4], pair, pair + 1].includes(n));
+  ok('Quedan pancartas libres para las pruebas de la cuadrícula', spare.length >= 4, spare.join(','));
+  await A.fill('#dIn', String(spare[0])); await wait(150);
+  ok('Al escribir un número (sin pulsar Intro) se marca en la cuadrícula y se ve qué es y si está libre', (await A.locator('#dMap .dm.typ[data-n="' + spare[0] + '"]').count()) === 1 && (await A.locator('#dMap .dm.typ').count()) === 1 && /libre/.test(await txt(A, '#dPrev')), await txt(A, '#dPrev'));
+  await A.fill('#dIn', ''); await wait(100);
+  ok('…y al borrarlo se desmarca', (await A.locator('#dMap .dm.typ').count()) === 0);
+  await A.click('#dMap .dm.free[data-n="' + spare[0] + '"]'); await wait(300); L1 = await dLines();
+  ok('Pulsar un número libre de la cuadrícula lo asigna a la candidatura elegida', /^ok/.test(L1[0] || '') && (await A.locator('#dMap .dm.mine[data-n="' + spare[0] + '"]').count()) === 1, L1.join(' | '));
+  { const cfg0 = Object.assign({}, (await apiAs(A, 'data')).E['s:conf']); ['u', 'b', 's'].forEach((f) => delete cfg0[f]);
+    const hc0 = cfg0.hc, setHc = (hc) => A.evaluate(async ([c, h]) => { const x = Object.assign({}, c); if (h === undefined) delete x.hc; else x.hc = h; await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { 's:conf': x }, since: 0 }) }); }, [cfg0, hc]);
+    await setHc(Object.assign({}, hc0 || {}, { pan: ['ord'] }));
+    A.once('dialog', (dg) => dg.accept().catch(() => {})); await A.reload(); await A.waitForSelector('#tabs [data-v=pan]'); await tab(A, 'pan'); await A.selectOption('#flt-pan', 'all');
+    ok('El Nº se ve aunque se haya quitado la columna con «☰ Columnas…»', /N[ºo]/i.test(await txt(A, '#view table.ltbl thead')), await txt(A, '#view table.ltbl thead'));
+    await A.fill('#q-pan', spare[1] + ', ' + spare[2] + ', 999'); await wait(300);
+    ok('Buscar números en la lista: Nº exacto, varios a la vez, y avisa de los que no existen', (await A.locator('#view table.ltbl tbody tr').count()) === 2 && /2 encontrados/.test(await txt(A, '#view .numhit')) && /No existe el 999/.test(await txt(A, '#view .numhit')), await txt(A, '#view .numhit'));
+    await A.click('#view .numhit [data-a=d-open]'); await A.waitForSelector('#tabs [data-v=dict].on'); await A.waitForSelector('#dIn');
+    ok('«Asignarlos a una candidatura…» lleva a Asignar por número con esos números ya escritos y marcados', (await A.inputValue('#dIn')) === spare[1] + ' ' + spare[2] && (await A.locator('#dMap .dm.typ').count()) === 2, await A.inputValue('#dIn'));
+    await A.fill('#dIn', ''); await tab(A, 'pan'); await A.fill('#q-pan', ''); await setHc(hc0); await tab(A, 'dict'); await A.waitForSelector('#dIn'); }
+  { d = await apiAs(A, 'data'); const k0 = 'i:' + panId[spare[3]], e0 = Object.assign({}, d.E[k0]); ['u', 'b', 's'].forEach((f) => delete e0[f]); const ord0 = e0.ord; e0.ord = null;
+    const maxO = Math.max(...Object.values(d.E).filter((e) => e.k === 'i' && e.t === 'pan' && !e.x && e.ord != null).map((e) => e.ord));
+    await A.evaluate(async ([k, e]) => { await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('espais.tok') }, body: JSON.stringify({ changes: { [k]: e }, since: 0 }) }); }, [k0, e0]);
+    await A.waitForFunction(() => /no tiene número/.test((document.querySelector('#view') || {}).innerText || ''), null, { timeout: 20000 }).catch(() => {});
+    ok('Si alguna pancarta no tiene número, lo avisa', /1 elemento no tiene número/.test(await txt(A, '#view')) && (await A.locator('#view [data-a=d-num]').count()) === 1);
+    await A.click('#view [data-a=d-num]'); await A.waitForSelector('#cfYes'); ok('«Ponerles número» dice qué número tendrá', new RegExp('del ' + (maxO + 1) + ' al ' + (maxO + 1)).test(await txt(A, '#modal'))); await yes(A); await settled(A); d = await apiAs(A, 'data');
+    ok('…y la numera a continuación de la última, sin tocar nada más', d.E[k0].ord === maxO + 1 && d.E[k0].lloc === e0.lloc && !/no tiene número/.test(await txt(A, '#view')), ord0 + ' → ' + d.E[k0].ord);
+    panId[maxO + 1] = panId[ord0]; delete panId[ord0]; }
   if (takenP != null) { await dType(takenP); L1 = await dLines(); ok('Un número que ya es de otra candidatura no se asigna y lo dice', L1.length === 1 && /^err.*ya es de/.test(L1[0]), L1.join(' | ')); }
   await dType('999'); L1 = await dLines(); ok('Un número que no existe: aviso', /^err.*no hay ninguna pancarta/.test(L1[0] || ''), L1.join(' | '));
   await dType('hola'); L1 = await dLines(); ok('Algo que no es un número: aviso', /^err.*no se entiende/.test(L1[0] || ''), L1.join(' | '));
