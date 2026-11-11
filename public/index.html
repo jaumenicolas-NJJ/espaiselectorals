@@ -2205,7 +2205,7 @@ function helpAdmin() {
       '<li>Si un número ya es de otra candidatura, no está disponible o no existe, sale en rojo y no se asigna. Si la candidatura ya tiene su cupo completo, sale en naranja y solo se asigna si pulsas «Asignar igualmente».</li>' +
       '<li>Debajo está la <b>cuadrícula con todos los números</b> de la categoría: libres en blanco, los de la candidatura elegida en su color y los de otras en gris. Mientras escribes, los números se marcan en amarillo y se ve qué son y si están libres, antes de pulsar Intro. También se puede asignar <b>pulsando un número libre</b> de la cuadrícula.</li>' +
       '<li>Para corregir, escribe <b>x</b> delante del número (<b>x12</b>) o pulsa «Quitar» en la lista: vuelve a estar libre y queda en el Registro.</li>' +
-      '<li>Cuando la candidatura termina, pulsa <b>«✓ Terminar con…»</b>: comprueba que todo está guardado en el servidor y dice cuántos tiene. Después, <b>«Siguiente candidatura ▸»</b> pasa a la siguiente del orden que no tenga el cupo completo.</li></ol>' +
+      '<li>Todo se guarda solo a medida que se selecciona. Si quieres confirmarlo al acabar con una candidatura, pulsa <b>«✓ Comprobar lo de…»</b> (no es obligatorio): comprueba que todo está guardado en el servidor y dice cuántos tiene. Después, <b>«Siguiente candidatura ▸»</b> pasa a la siguiente del orden que no tenga el cupo completo.</li></ol>' +
       '<p><b>Nada se pierde.</b> Cada número se guarda en el servidor al instante, en segundo plano. Si se va la conexión o se cierra la pestaña, lo escrito queda guardado en este ordenador y se envía solo al volver; el indicador de arriba dice cuántos quedan por guardar. La lista «Dictado en este ordenador» se conserva aunque se recargue la página, y cada asignación queda en el Registro con la fecha y la hora.</p>' +
       '<p><b>Buscar por número en las listas.</b> En Banderolas, Pancartas y Prismas, si en el buscador escribes números (<b>12</b>, <b>12, 15, 18</b> o <b>20-25</b>) salen exactamente esos, y el botón <b>«✍ Asignarlos a una candidatura…»</b> los lleva ya escritos a esta pantalla. La columna <b>Nº</b> se ve siempre; si algún elemento no tiene número, el programa lo avisa y «Ponerles número» los numera a continuación del último.</p>' +
       '<p><b>Espacios electorales:</b> se asignan en el cuadrante de la pestaña Espacios con <b>«⚡ Asignación rápida a…»</b>: eliges la candidatura y pulsas las casillas. <b>Se asigna el día entero:</b> al pulsar la mañana o la tarde, la otra franja de ese día también queda para la misma candidatura, salvo que el espacio no abra entonces (fuera de su horario o no disponible) o que ya la tenga otra. Liberar o reasignar también va por día entero, y los cupos de espacios se cuentan por días.</p>') +
@@ -2543,7 +2543,7 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '2.4 · 11/11/2026';
+const APP_VERSION = '2.4.1 · 11/11/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
@@ -2774,7 +2774,7 @@ function viewDict() {
     h += '<ul class="dmsg">' + D.msg.lines.map((l) => '<li class="' + l[0] + '"><span class="dmi">' + ({ ok: '✓', same: '=', err: '✗', cup: '!' }[l[0]]) + '</span>' + (l[1] !== '' ? '<b>' + esc(String(l[1])) + '</b> · ' : '') + esc(l[2]) + '</li>').join('') + '</ul>' +
       (cupN.length ? '<div class="btnrow" style="margin:6px 0 0"><button class="btn sm" data-a="d-force" data-n="' + cupN.join(' ') + '">Asignar igualmente ' + cupN.join(', ') + ' (por encima del cupo)</button></div>' : '');
   }
-  h += '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end">✓ Terminar con ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
+  h += '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end" title="No hace falta para guardar: lo seleccionado ya se guarda solo. Comprueba que todo está en el servidor y dice cuánto tiene">✓ Comprobar lo de ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
   h += dMapHTML(t, g);
   /* lo dictado en este ordenador (lo último primero, una línea por elemento) y todo lo que tiene la candidatura según el servidor */
   const seen = new Set(), mine = D.log.slice().reverse().filter((e) => e.t === t && e.g === g && !seen.has(e.i) && seen.add(e.i) && I.imap[e.i]).slice(0, 60);
@@ -2795,7 +2795,7 @@ function dEspHTML(D) {
     h += '<div class="dbox" style="--pc:' + esc((I.pmap[g] || {}).col || '#888') + '"><p style="margin:0">Pulsa en el cuadrante la casilla libre (día y franja) que pide <b>' + esc(pName(g)) + '</b>: queda asignada al momento, sin ventanas, y se reserva el día entero si el espacio abre mañana y tarde. Para liberar o reasignar, pulsa una casilla ocupada.</p>' +
       '<div class="dcount">' + esc(pName(g)) + ' tiene <b>' + n + '</b> ' + (n === 1 ? 'día' : 'días') + (Number.isFinite(L) ? ' de su cupo de <b>' + L + '</b>' + (n < L ? ' · le faltan <b>' + (L - n) + '</b>' : n === L ? ' · <b class="okc">cupo completo ✓</b>' : ' · <b class="bad">' + (n - L) + ' por encima del cupo</b>') : '') + '</div>' +
       (D.msg && D.msg.lines.length ? '<ul class="dmsg">' + D.msg.lines.map((l) => '<li class="' + l[0] + '"><span class="dmi">' + ({ ok: '✓', same: '=', err: '✗', cup: '!' }[l[0]]) + '</span>' + esc(l[2]) + '</li>').join('') + '</ul>' : '') +
-      '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end">✓ Terminar con ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
+      '<div class="btnrow" style="margin:12px 0 0"><button class="btn go" data-a="d-end" title="No hace falta para guardar: lo seleccionado ya se guarda solo. Comprueba que todo está en el servidor y dice cuánto tiene">✓ Comprobar lo de ' + esc(pName(g)) + '</button><button class="btn" data-a="d-next">Siguiente candidatura ▸</button><button class="btn prt" data-a="pr-party" data-g="' + g + '">🖨 Imprimir lo de ' + esc(pName(g)) + '</button></div></div>';
   }
   return h + '<div class="desp">' + gridHTML(false) + '</div>';
 }

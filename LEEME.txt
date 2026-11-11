@@ -23,7 +23,8 @@ banderolas, pancartas y prismas se elige la candidatura y se escriben los
 números que dicta su representante (el Nº de las listas): 12, varios a la vez (12 15 18)
 o seguidos (20-25); con «x» delante (x12) se quitan. Cada número se asigna y se guarda al
 momento; si se va la conexión o se cierra la pestaña, queda guardado en ese ordenador y
-se envía solo al volver. «✓ Terminar con…» comprueba que todo está en el servidor y
+se envía solo al volver. Todo se guarda solo; «✓ Comprobar lo de…» (opcional) comprueba
+que todo está en el servidor y
 «Siguiente candidatura ▸» pasa a la siguiente del orden. Debajo está la
 cuadrícula con todos los números: lo que se escribe se marca al momento y un número libre
 se asigna también con un clic. En las listas, buscar números (12, 12, 15 o 20-25) saca

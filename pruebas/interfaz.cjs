@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.4\b/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.4\.1\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -846,7 +846,7 @@ const pdfInfo = (f) => {
   ok('Al volver a la pestaña sigue en Pancartas, con la misma candidatura y lo dictado', /Pancartas/.test(await txt(A, '#view .dseg button.on')) && (await A.locator('#view [data-a=d-g].on[data-g="' + DG + '"]').count()) === 1 && (await A.locator('#view .dlog tr').count()) >= 6);
   await A.click('#view [data-a=d-end]'); await A.waitForFunction(() => /Guardado en el servidor/.test(document.querySelector('#view .dmsg') ? document.querySelector('#view .dmsg').innerText : ''), null, { timeout: 15000 }).catch(() => {});
   d = await apiAs(A, 'data');
-  ok('«✓ Terminar con…» confirma que todo está en el servidor y cuántos tiene', new RegExp('Guardado en el servidor\\. ' + dName + ' tiene ' + cntG(d.E, DG)).test(await txt(A, '#view .dmsg')), await txt(A, '#view .dmsg'));
+  ok('«✓ Comprobar lo de…» confirma que todo está en el servidor y cuántos tiene', new RegExp('Guardado en el servidor\\. ' + dName + ' tiene ' + cntG(d.E, DG)).test(await txt(A, '#view .dmsg')), await txt(A, '#view .dmsg'));
   await A.click('#view [data-a=d-next]'); await wait(200);
   ok('«Siguiente candidatura ▸» pasa a la siguiente', (await A.locator('#view [data-a=d-g].on').count()) === 1 && !(await A.locator('#view [data-a=d-g].on[data-g="' + DG + '"]').count()));
   // cupo: una candidatura con el cupo completo no recibe más sin «Asignar igualmente»
