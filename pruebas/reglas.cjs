@@ -214,6 +214,48 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   r = await api('sync', { changes: { [lk]: { x: true } }, since: 0 }, A); ok('…ni borrar', r.j.rejected.length === 1);
   r = await api('import', { E: { [lk]: Object.assign({}, d.E[lk], { a: 'manipulado', u: Date.now() + 1e9 }) } }, A); d = (await api('data', null, A)).j;
   ok('…ni sobrescribir importando una copia', d.E[lk].a === la && !d.E[lk].x, d.E[lk].a);
+  // v2.2 · espacios: se elige el día entero (mañana y tarde), salvo que el espacio solo abra en una franja
+  r = await api('sync', { changes: {
+    'i:wd1': { k: 'i', t: 'esp', ord: 71, nom: 'Plaça Dia Sencer', hor: '' },
+    'i:wd2': { k: 'i', t: 'esp', ord: 72, nom: 'Centre Cívic Tardes', hor: 'De dilluns a divendres de 17 a 20:30 hores' },
+    'c:esp': { k: 'c', mode: 'libre', order: [], quota: 1, max: 0 } }, since: 0 }, A);
+  ok('v2.2 · Datos de prueba de espacios', r.status === 200 && !r.j.rejected.length, JSON.stringify(r.j.rejected));
+  const live = (E, k) => E[k] && !E[k].x ? E[k].g : '';
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-12M' }, T.PSC); d = (await api('data', null, A)).j;
+  ok('Reservar la mañana reserva el día entero (también la tarde)', r.status === 200 && live(d.E, 'r:wd1:2027-07-12M') === 'p0' && live(d.E, 'r:wd1:2027-07-12T') === 'p0', r.j && r.j.error);
+  ok('…y el registro lo dice en una sola anotación', Object.values(d.E).filter((e) => e.k === 'h' && /Plaça Dia Sencer · 12\/07/.test(e.a)).length === 1 && Object.values(d.E).some((e) => e.k === 'h' && /reservó «Plaça Dia Sencer · 12\/07 todo el día \(mañana y tarde\)»/.test(e.a)));
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-12T' }, T.PP); ok('…otra candidatura ya no puede coger la tarde', r.status === 409);
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-13T' }, T.PP); d = (await api('data', null, A)).j;
+  ok('Reservar la tarde también reserva la mañana', r.status === 200 && live(d.E, 'r:wd1:2027-07-13M') === 'p1' && live(d.E, 'r:wd1:2027-07-13T') === 'p1');
+  r = await api('reserve', { i: 'wd2', slot: '2027-07-12T' }, T.PSC); d = (await api('data', null, A)).j;
+  ok('Si el centro solo abre por la tarde, se reserva solo la tarde', r.status === 200 && live(d.E, 'r:wd2:2027-07-12T') === 'p0' && !live(d.E, 'r:wd2:2027-07-12M') && Object.values(d.E).some((e) => e.k === 'h' && /reservó «Centre Cívic Tardes · 12\/07 tarde»/.test(e.a)));
+  // día partido de antes (cada franja de una candidatura): no se toca lo de la otra
+  await api('sync', { changes: { 'i:wd1': { k: 'i', t: 'esp', ord: 71, nom: 'Plaça Dia Sencer', hor: '', blk: { '2027-07-14T': 'nd' } } }, since: 0 }, A);
+  await api('reserve', { i: 'wd1', slot: '2027-07-14M', g: 'p1' }, A);
+  await api('sync', { changes: { 'i:wd1': { k: 'i', t: 'esp', ord: 71, nom: 'Plaça Dia Sencer', hor: '', blk: {} } }, since: 0 }, A);
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-14T' }, T.PSC); d = (await api('data', null, A)).j;
+  ok('Si la otra franja ya es de otra candidatura, se reserva solo la libre', r.status === 200 && live(d.E, 'r:wd1:2027-07-14M') === 'p1' && live(d.E, 'r:wd1:2027-07-14T') === 'p0');
+  r = await api('release', { i: 'wd1', slot: '2027-07-14T' }, T.PSC); d = (await api('data', null, A)).j;
+  ok('…y al liberar la suya no se toca la de la otra', r.status === 200 && !live(d.E, 'r:wd1:2027-07-14T') && live(d.E, 'r:wd1:2027-07-14M') === 'p1');
+  r = await api('release', { i: 'wd1', slot: '2027-07-12T' }, T.PSC); d = (await api('data', null, A)).j;
+  ok('Liberar una franja libera el día entero', r.status === 200 && !live(d.E, 'r:wd1:2027-07-12M') && !live(d.E, 'r:wd1:2027-07-12T') && Object.values(d.E).some((e) => e.k === 'h' && /liberó «Plaça Dia Sencer · 12\/07 todo el día/.test(e.a)));
+  r = await api('reassign', { i: 'wd1', slot: '2027-07-13M', g: 'p0' }, A); d = (await api('data', null, A)).j;
+  ok('Reasignar pasa el día entero a la otra candidatura', r.status === 200 && live(d.E, 'r:wd1:2027-07-13M') === 'p0' && live(d.E, 'r:wd1:2027-07-13T') === 'p0' && Object.values(d.E).some((e) => e.k === 'h' && /reasignó «Plaça Dia Sencer · 13\/07 todo el día \(mañana y tarde\)» de PP a PSC/.test(e.a)));
+  // cupos por días: la mañana y la tarde de un día cuentan 1
+  await api('sync', { changes: { 'c:esp': { k: 'c', mode: 'libre', order: [], quota: 1, max: 1 } }, since: 0 }, A);
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-15M' }, TB); d = (await api('data', null, A)).j;
+  ok('Con un máximo de 1, un día entero (2 franjas) cuenta 1 y se puede', r.status === 200 && live(d.E, 'r:wd1:2027-07-15T') === 'p4', r.j && r.j.error);
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-16M' }, TB); ok('…pero un segundo día ya no', r.status === 403 && /máximo de 1/.test(r.j.error), r.j && r.j.error);
+  // por turnos: el día entero es una sola elección
+  await api('sync', { changes: { 'c:esp': { k: 'c', mode: 'turnos', order: ['p1', 'p4'], quota: 1, max: 0 } }, since: 0 }, A); await api('turn', { t: 'esp', op: 'reset' }, A);
+  r = await api('reserve', { i: 'wd1', slot: '2027-07-17M' }, T.PP); d = (await api('data', null, A)).j;
+  ok('Por turnos, el día entero es una sola elección: el turno pasa al siguiente', r.status === 200 && live(d.E, 'r:wd1:2027-07-17T') === 'p1' && d.E['c:esp'].turn === 1 && !d.E['c:esp'].used, JSON.stringify({ turn: d.E['c:esp'].turn, used: d.E['c:esp'].used }));
+  // asignaciones de la administración en lote (v1.10)
+  r = await api('reserve', { items: [{ i: 'wd1', slot: '2027-07-18T', g: 'p1' }] }, A); d = (await api('data', null, A)).j;
+  ok('La administración asigna en lote: también el día entero', r.status === 200 && r.j.results[0].ok && live(d.E, 'r:wd1:2027-07-18M') === 'p1' && live(d.E, 'r:wd1:2027-07-18T') === 'p1');
+  r = await api('reserve', { items: [{ i: 'wd1', slot: '2027-07-18M', g: 'p1' }] }, A); ok('…y reenviar la otra franja no da error ni duplica', r.status === 200 && r.j.results[0].ok && r.j.results[0].ya);
+  await api('sync', { changes: { 'c:esp': { k: 'c', mode: 'cerrado', order: [], quota: 1, max: 2 } }, since: 0 }, A);
+
   // v1.5 · borrar datos de prueba
   r = await api('purge', { sel: true, confirm: 'BORRAR' }, TB); ok('Un partido no puede borrar datos', r.status === 403);
   r = await api('purge', { sel: true }, A); ok('Borrar datos exige escribir BORRAR', r.status === 400);

@@ -115,7 +115,7 @@ function hcOK(hc) {
   return o;
 }
 /* enlace con Eleccions: una clave de solo lectura con la que Eleccions trae el reparto (GET /api/reparto) */
-const APP_VER = '2.1 · 11/11/2026';
+const APP_VER = '2.2 · 11/11/2026';
 const LINK_RE = /^Bearer (ee1_[\w-]{20,80})$/;
 const PALETTE = ['#D32F2F', '#1E88E5', '#2E7D32', '#F9A825', '#6A1B9A', '#00838F', '#EF6C00', '#AD1457', '#5D4037', '#3949AB', '#7CB342', '#546E7A', '#C2185B', '#00897B', '#8E24AA', '#FB8C00'];
 /* el reparto tal como ha quedado, con todos los datos de cada punto y de las candidaturas (también su contacto, porque Eleccions es
@@ -159,7 +159,14 @@ function repartoOut(db, t) {
     pri: I.pri.map((e) => Object.assign({ id: e.id, orden: e.ord == null ? null : e.ord, lugar: e.lloc || '', numero: e.num || '' }, comun('pri', e), owner(e)))
   };
 }
-function totals(db, t) { const n = {}; for (const k in db.E) { const e = db.E[k]; if (e.k === 'r' && !e.x && e.t === t) n[e.g] = (n[e.g] || 0) + 1; } return n; }
+/* cuánto tiene cada partido en una categoría. En los espacios se cuenta por días (v2.2): la mañana y la tarde de un mismo día son 1 */
+function totals(db, t) {
+  const n = {}, seen = new Set();
+  for (const k in db.E) { const e = db.E[k]; if (e.k !== 'r' || e.x || e.t !== t) continue; if (t === 'esp') { const d = e.g + '|' + e.i + '|' + String(e.slot || '').slice(0, 10); if (seen.has(d)) continue; seen.add(d); } n[e.g] = (n[e.g] || 0) + 1; }
+  return n;
+}
+/* la otra franja del mismo día (mañana ↔ tarde) */
+const otherSlot = (s) => s.slice(0, 10) + (s[10] === 'M' ? 'T' : 'M');
 function freeLeft(db, t) {
   /* ¿queda algo libre en esta categoría? (para dar por terminada la selección) */
   const conf = db.E['s:conf'] || {}, days = [];
@@ -356,6 +363,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
   const pname = (db, g) => { const p = db.E['g:' + g]; return p ? p.sig || p.nom : '?'; };
   const iname = (e) => (e.nom || e.lloc || '(sin nombre)') + (e.tram ? ' · ' + e.tram : e.lim ? ' · ' + e.lim : e.num ? ' · ' + e.num : '');
   const slotTxt = (s) => (s ? ' · ' + s.slice(8, 10) + '/' + s.slice(5, 7) + ' ' + (s[10] === 'M' ? 'mañana' : 'tarde') : '');
+  const dayTxt = (s) => ' · ' + s.slice(8, 10) + '/' + s.slice(5, 7) + ' todo el día (mañana y tarde)';
 
   /* ---------- cambios del Ayuntamiento (partidos, elementos, configuración) ---------- */
   function applyChange(db, key, ch, who, t) {
@@ -468,7 +476,14 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     const r = { k: 'r', t: cat, i: body.i, slot, g, by: who.u.name, ts: t, rk: inTurn ? (c.round || 1) + '.' + (c.turn || 0) : '' };
     if (ensOn(db)) r.ens = true;
     stamp(db, key, r, who, t);
-    log(db, who, t, (admin && who.u.party !== g ? 'asignó a ' + pname(db, g) + ' ' : 'reservó ') + '«' + iname(it) + slotTxt(slot) + '»', cat, g);
+    /* v2.2: en los espacios se elige el día entero. Al reservar la mañana o la tarde, también se reserva la otra franja de ese
+       día, salvo que el espacio no abra entonces (fuera de su horario o no disponible) o que ya la tenga otra candidatura */
+    let both = false;
+    if (cat === 'esp') {
+      const s2 = otherSlot(slot), k2 = 'r:' + body.i + ':' + s2, c2 = db.E[k2];
+      if (!slotOff(it, s2) && !(c2 && !c2.x)) { stamp(db, k2, Object.assign({}, r, { slot: s2 }), who, t); both = true; }
+    }
+    log(db, who, t, (admin && who.u.party !== g ? 'asignó a ' + pname(db, g) + ' ' : 'reservó ') + '«' + iname(it) + (both ? dayTxt(slot) : slotTxt(slot)) + '»', cat, g);
     if (inTurn) {
       const nc = Object.assign({}, c); nc.used = (c.used || 0) + 1;
       /* el turno pasa solo al completar las elecciones del turno, o si el partido ya ha llegado a su máximo (no puede elegir más) */
@@ -489,7 +504,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     }
     const it = db.E['i:' + r.i] || {};
     stamp(db, key, Object.assign({}, r, { x: true }), who, t);
-    log(db, who, t, 'liberó «' + iname(it) + slotTxt(r.slot) + '»' + (admin && who.u.party !== r.g ? ' de ' + pname(db, r.g) : ''), r.t, r.g);
+    /* v2.2: se libera el día entero (la otra franja de ese día, si es de la misma candidatura) */
+    let both = false;
+    if (r.t === 'esp' && r.slot) { const k2 = 'r:' + r.i + ':' + otherSlot(r.slot), r2 = db.E[k2]; if (r2 && !r2.x && r2.g === r.g && !!r2.ens === !!r.ens) { stamp(db, k2, Object.assign({}, r2, { x: true }), who, t); both = true; } }
+    log(db, who, t, 'liberó «' + iname(it) + (both ? dayTxt(r.slot) : slotTxt(r.slot)) + '»' + (admin && who.u.party !== r.g ? ' de ' + pname(db, r.g) : ''), r.t, r.g);
     const c = db.E['c:' + r.t];
     if (c && c.mode === 'turnos' && r.rk && r.rk === (c.round || 1) + '.' + (c.turn || 0) && curParty(c) === r.g && (c.used || 0) > 0) stamp(db, 'c:' + r.t, Object.assign({}, c, { used: c.used - 1, done: false }), who, t);
   }
@@ -755,7 +773,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
         /* conserva su naturaleza: lo elegido de verdad sigue siendo de verdad aunque haya un ensayo en marcha */
         if (r.ens) nr.ens = true;
         stamp(d, key, nr, who, t);
-        stamp(d, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a: 'reasignó «' + iname(it) + slotTxt(r.slot) + '» de ' + pname(d, r.g) + ' a ' + pname(d, g), t: r.t, g }, r.ens ? { ens: true } : {}), who, t);
+        /* v2.2: en los espacios se reasigna el día entero (la otra franja de ese día, si era de la misma candidatura) */
+        let both = false;
+        if (r.t === 'esp' && r.slot) { const k2 = 'r:' + r.i + ':' + otherSlot(r.slot), r2 = d.E[k2]; if (r2 && !r2.x && r2.g === r.g) { const n2 = Object.assign({}, nr, { slot: otherSlot(r.slot) }); if (r2.ens) n2.ens = true; else delete n2.ens; stamp(d, k2, n2, who, t); both = true; } }
+        stamp(d, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a: 'reasignó «' + iname(it) + (both ? dayTxt(r.slot) : slotTxt(r.slot)) + '» de ' + pname(d, r.g) + ' a ' + pname(d, g), t: r.t, g }, r.ens ? { ens: true } : {}), who, t);
         return null;
       });
       await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'reasignación'), autoSnap(db)]);

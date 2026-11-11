@@ -22,7 +22,11 @@ se envía solo al volver. «✓ Terminar con…» comprueba que todo está en el
 cuadrícula con todos los números: lo que se escribe se marca al momento y un número libre
 se asigna también con un clic. En las listas, buscar números (12, 12, 15 o 20-25) saca
 exactamente esos; la columna Nº se ve siempre. Los espacios se asignan en el
-cuadrante de Espacios con «⚡ Asignación rápida a…». Que cada candidatura elija desde su
+cuadrante de Espacios con «⚡ Asignación rápida a…». En los espacios se elige el día
+entero (versión 2.2): el cuadrante sigue con mañana y tarde, pero al elegir una de las dos
+se reserva también la otra franja de ese día para la misma candidatura, salvo que el centro
+no abra entonces (fuera de su horario o no disponible) o que ya la tenga otra. Liberar o
+reasignar va también por día entero y los cupos de espacios se cuentan por días. Que cada candidatura elija desde su
 ordenador sigue siendo posible (tarjeta «Sesión de selección» del Panel), pero es opcional:
 sin ella, las candidaturas no necesitan usuario.
 

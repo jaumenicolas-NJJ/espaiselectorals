@@ -34,7 +34,7 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.1\b/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.2\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
@@ -243,6 +243,7 @@ const pdfInfo = (f) => {
   d = await apiAs(A, 'data'); const rr = d.E['r:' + e5 + ':2023-07-10T'];
   ok('Misma casilla a la vez: solo uno se la queda', (wV !== wP) && rr && !rr.x && (rr.g === (wV ? V : PS)), tV + ' / ' + tP);
   ok('…y el otro recibe el aviso de quién la tiene', /Lo acaba de reservar/.test(wV ? tP : tV));
+  ok('v2.2 · Al reservar la tarde, la candidatura se queda el día entero (también la mañana)', (d.E['r:' + e5 + ':2023-07-10M'] || {}).g === rr.g && !d.E['r:' + e5 + ':2023-07-10M'].x && /todo el día \(mañana y tarde\)/.test(wV ? tV : tP), wV ? tV : tP);
   const loser = wV ? PP : PV;
   await loser.waitForFunction((c) => document.querySelector(c).parentNode.classList.contains('taken'), cell, { timeout: 9000 }).catch(() => {});
   ok('La casilla aparece ocupada para el otro partido', await loser.evaluate((c) => document.querySelector(c).parentNode.classList.contains('taken'), cell));
@@ -259,7 +260,8 @@ const pdfInfo = (f) => {
   ok('Administradora: en una franja reservada solo puede liberar', (await A.locator('#modal [data-a=rel]').count()) === 1 && !(await A.locator('#modal [data-a=blk]').count())); await A.click('#modal [data-a=m-no]');
   // asignación por la administradora desde la casilla
   await A.click('.cc button[data-i="' + e0 + '"][data-s="2023-07-12M"]'); await A.waitForSelector('#cellParty'); await A.selectOption('#cellParty', CU); await A.click("#modal [data-a=cell-asg]");
-  ok('La administradora asigna una franja a CUP', await toastIs(A, /Asignado a CUP-GG-AMUNT/));
+  ok('La administradora asigna a CUP: el día entero', await toastIs(A, /Asignado a CUP-GG-AMUNT: .*todo el día/), await txt(A, '#toast'));
+  await settled(A); d = await apiAs(A, 'data'); ok('…mañana y tarde, en el servidor', (d.E['r:' + e0 + ':2023-07-12M'] || {}).g === CU && (d.E['r:' + e0 + ':2023-07-12T'] || {}).g === CU);
 
   /* ================= PANCARTAS: CERRADA, SOLO ASIGNA EL AYUNTAMIENTO ================= */
   await tab(PV, 'pan'); ok('Pancartas cerrada: el partido no puede reservar', (await PV.locator('[data-a=res]').count()) === 0 && /no está abierta/.test(await txt(PV, '#view')));
@@ -269,7 +271,8 @@ const pdfInfo = (f) => {
   await PV.waitForFunction(() => /Vuestras reservas\s*\d/.test(document.querySelector('#view').innerText));
   await wait(4500);
   const pvPanel = await txt(PV, '#view');
-  ok('VALENTS ve la pancarta en «Vuestras reservas»', /Pancartas/.test(pvPanel) && new RegExp('Vuestras reservas\\s*' + (3 + (wV ? 1 : 0))).test(pvPanel), (/Vuestras reservas\s*\d+/.exec(pvPanel) || [''])[0]);
+  { const dv0 = await apiAs(A, 'data'), nV = Object.values(dv0.E).filter((e) => e.k === 'r' && !e.x && e.g === V).length;
+    ok('VALENTS ve la pancarta en «Vuestras reservas»', /Pancartas/.test(pvPanel) && new RegExp('Vuestras reservas\\s*' + nV + '\\b').test(pvPanel) && nV >= 3, (/Vuestras reservas\s*\d+/.exec(pvPanel) || [''])[0] + ' · esperadas ' + nV); }
   ok('…y no la puede liberar mientras esté cerrada', !(await PV.locator('#view [data-a=rel][data-i="' + p0 + '"]').count()));
 
   /* ================= PRISMAS: TURNOS EN SERPIENTE ================= */
@@ -734,7 +737,9 @@ const pdfInfo = (f) => {
   const cfree = await A.evaluate(() => { const b = document.querySelector('#view .cc.free:not(.rs) button'); return b ? [b.dataset.i, b.dataset.s] : null; });
   await A.click('#view .cc button[data-i="' + cfree[0] + '"][data-s="' + cfree[1] + '"]');
   ok('Cuadrante: un clic en una casilla libre la asigna, sin ventanas', (await A.locator('#modal:not([hidden])').count()) === 0 && /VALENTS/.test(await A.evaluate((c) => document.querySelector('#view .cc button[data-i="' + c[0] + '"][data-s="' + c[1] + '"]').innerText, cfree)));
-  await settled(A); d = await apiAs(A, 'data'); ok('…y llega al servidor', (d.E['r:' + cfree[0] + ':' + cfree[1]] || {}).g === V);
+  { const sib = cfree[1].slice(0, 10) + (cfree[1][10] === 'M' ? 'T' : 'M'), sibTxt = await A.evaluate(([i, s2]) => { const b = document.querySelector('#view .cc button[data-i="' + i + '"][data-s="' + s2 + '"]'); return b ? b.parentNode.className + ' ' + b.innerText : ''; }, [cfree[0], sib]);
+    await settled(A); d = await apiAs(A, 'data');
+    ok('…y llega al servidor, con el día entero', (d.E['r:' + cfree[0] + ':' + cfree[1]] || {}).g === V && (/hz|nd/.test(sibTxt) || (d.E['r:' + cfree[0] + ':' + sib] || {}).g === V), sibTxt); }
   await A.click('#view [data-a=qa-off]');
 
   /* ================= ASIGNAR POR NÚMERO: LA SELECCIÓN LA HACE LA ADMINISTRACIÓN (v2.0) ================= */

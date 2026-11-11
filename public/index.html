@@ -975,9 +975,13 @@ function aqShow(q) {
   const cur = ST.db.E[q.key]; if (!cur || !cur.pend) q.prev = cur;
   q.opt = { k: 'r', t: it ? it.t : '', i: q.i, slot: q.slot, g: q.g, by: ST.user, ts: Date.now(), rk: '', pend: true };
   ST.db.E[q.key] = q.opt;
+  /* v2.2: en los espacios, la otra franja del día también se ve como provisional (el servidor la reserva con esta) */
+  q.sib = null;
+  if (it && it.t === 'esp' && q.slot) { const s2 = otherSlot(q.slot), k2 = 'r:' + q.i + ':' + s2, c2 = ST.db.E[k2], b = slotSt(it, s2); if (b !== 'nd' && b !== 'hz' && !(c2 && !c2.x)) { q.sib = { key: k2, prev: c2 }; ST.db.E[k2] = Object.assign({}, q.opt, { slot: s2 }); } }
 }
-function aqUnshow(q) { const cur = ST.db.E[q.key]; if (cur && cur.pend && !ST.aq.some((o) => o.key === q.key)) { if (q.prev && !q.prev.pend) ST.db.E[q.key] = q.prev; else delete ST.db.E[q.key]; } }
-const aqKeys = () => (ST.aq.length ? new Set(ST.aq.map((q) => q.key)) : null);
+function aqSibUnshow(q) { if (!q.sib) return; const c2 = ST.db.E[q.sib.key]; if (c2 && c2.pend && !ST.aq.some((o) => o.sib && o.sib.key === q.sib.key)) { if (q.sib.prev && !q.sib.prev.pend) ST.db.E[q.sib.key] = q.sib.prev; else delete ST.db.E[q.sib.key]; } }
+function aqUnshow(q) { const cur = ST.db.E[q.key]; if (cur && cur.pend && !ST.aq.some((o) => o.key === q.key)) { if (q.prev && !q.prev.pend) ST.db.E[q.key] = q.prev; else delete ST.db.E[q.key]; }  aqSibUnshow(q); }
+const aqKeys = () => (ST.aq.length ? new Set(ST.aq.flatMap((q) => (q.sib ? [q.key, q.sib.key] : [q.key]))) : null);
 function queueAssign(list) {
   list.forEach((x) => { const q = { i: x.i, slot: x.slot || '', g: x.g }; aqShow(q); ST.aq.push(q); });
   saveAQ(); ST.rev++; renderAll();
@@ -1007,6 +1011,7 @@ async function aflush() {
     applyServer(r);
     /* si ya era suyo de antes (reenvío tras un corte), queda la reserva del servidor, que este navegador ya tenía */
     batch.forEach((b) => { const cur = ST.db.E[b.key]; if (cur && cur.pend && !ST.aq.some((q) => q.key === b.key)) { if (b.prev && !b.prev.x && b.prev.g === b.g) ST.db.E[b.key] = b.prev; else { const c = Object.assign({}, cur); delete c.pend; ST.db.E[b.key] = c; } } });
+    batch.forEach(aqSibUnshow); /* la otra franja que el servidor no ha podido reservar (por ejemplo, otra candidatura la cogió antes) */
     ST.rev++; renderAll();
     const wasOff = !ST.online; ST.online = true; ST.failN = 0; ST.lastSaved = Date.now(); if (wasOff) paintBanner();
     if (bad.length) { const [b, why] = bad[0], it = idx().imap[b.i]; toast('No se ha podido asignar «' + (it ? iName(it) : '?') + (b.slot ? ' · ' + slotTxt(b.slot) : '') + '» a ' + pName(b.g) + ': ' + why + (bad.length > 1 ? ' (y ' + (bad.length - 1) + ' más; mira el Registro)' : ''), 'err'); }
@@ -1029,9 +1034,10 @@ async function aflush() {
 }
 /* anular una asignación que todavía no ha llegado al servidor */
 function aqCancel(key) {
-  if (ST.aqBatch && ST.aqBatch.some((q) => q.key === key)) { toast('Se está guardando en este momento. Cuando acabe, pulsa «Liberar».', 'err'); return false; }
-  const L = ST.aq.filter((q) => q.key === key); if (!L.length) return false;
-  ST.aq = ST.aq.filter((q) => q.key !== key); L.forEach(aqUnshow); saveAQ(); ST.rev++; renderAll(); return true;
+  const mine = (q) => q.key === key || (q.sib && q.sib.key === key);
+  if (ST.aqBatch && ST.aqBatch.some(mine)) { toast('Se está guardando en este momento. Cuando acabe, pulsa «Liberar».', 'err'); return false; }
+  const L = ST.aq.filter(mine); if (!L.length) return false;
+  ST.aq = ST.aq.filter((q) => !mine(q)); L.forEach(aqUnshow); saveAQ(); ST.rev++; renderAll(); return true;
 }
 
 /* ---------- lector de Excel propio (xlsx/xlsm y csv), sin librerías externas ----------
@@ -1171,7 +1177,14 @@ const curParty = (c) => (c && c.mode === 'turnos' && !c.done ? effOrder(c)[c.tur
 const resKey = (i, slot) => i + (slot ? ':' + slot : '');
 const resOf = (i, slot) => idx().res[resKey(i, slot)];
 const activeRes = (i, slot) => { const r = resOf(i, slot); return r && !r.x ? r : null; };
-function myCount(t, g) { const R = idx().res; let n = 0; for (const k in R) { const r = R[k]; if (!r.x && r.t === t && r.g === g) n++; } return n; }
+/* cuánto tiene un partido en una categoría; en los espacios, por días (v2.2: la mañana y la tarde de un mismo día cuentan 1) */
+function myCount(t, g) { const R = idx().res, seen = new Set(); let n = 0; for (const k in R) { const r = R[k]; if (r.x || r.t !== t || r.g !== g) continue; if (t === 'esp') { const d = r.i + '|' + String(r.slot || '').slice(0, 10); if (seen.has(d)) continue; seen.add(d); } n++; } return n; }
+/* v2.2 · en los espacios se elige el día entero: al reservar la mañana o la tarde se reserva también la otra franja de ese día,
+   salvo que el espacio no abra entonces (fuera de horario o no disponible) o que ya la tenga otra candidatura */
+const otherSlot = (s) => s.slice(0, 10) + (s[10] === 'M' ? 'T' : 'M');
+const dayTxt = (s) => cap(fShort(parseISO(s.slice(0, 10)))) + ' · todo el día (mañana y tarde)';
+function sibFree(i, s) { const it = idx().imap[i]; if (!it || !s) return null; const s2 = otherSlot(s), b = slotSt(it, s2); return b !== 'nd' && b !== 'hz' && !activeRes(i, s2) ? s2 : null; }
+function sibSame(i, s, g) { if (!s) return null; const s2 = otherSlot(s), r2 = activeRes(i, s2); return r2 && r2.g === g ? s2 : null; }
 /* disponibilidad según el «Horario de uso» de cada espacio (castellano o catalán):
    días de la semana (rangos «de lunes a viernes», listas, «excepto sábado»…) y franjas por las horas («de 17 a 20:30» → solo tarde).
    Devuelve null si el texto no dice nada reconocible (todo disponible) o, por día (0 = domingo … 6 = sábado), si hay mañana (M) y tarde (T). */
@@ -2085,7 +2098,8 @@ document.addEventListener('input', (e) => { if (e.target.id === 'gsq') gsRender(
 async function doReassign(i, s, g) {
   const it = idx().imap[i], r = activeRes(i, s); if (!it || !r || !g) return renderView();
   if (r.pend) { renderView(); return toast('Todavía se está guardando la asignación. Espera un segundo y vuelve a probar.', 'err'); }
-  if (!(await confirmBox({ title: 'Reasignar', text: '«' + esc(iName(it)) + '»' + (s ? ' · ' + esc(slotTxt(s)) : '') + ' pasará de <b>' + esc(pName(r.g)) + '</b> a <b>' + esc(pName(g)) + '</b>. Queda anotado en el registro.', ok: 'Reasignar' }))) return renderView();
+  const whole = sibSame(i, s, r.g);
+  if (!(await confirmBox({ title: 'Reasignar', text: '«' + esc(iName(it)) + '»' + (s ? ' · ' + esc(whole ? dayTxt(s) : slotTxt(s)) : '') + ' pasará de <b>' + esc(pName(r.g)) + '</b> a <b>' + esc(pName(g)) + '</b>. Queda anotado en el registro.', ok: 'Reasignar' }))) return renderView();
   closeModal(); if (await act('reassign', { i, slot: s || '', g })) toast('Reasignado a ' + pName(g) + ': ' + iName(it) + (s ? ' · ' + slotTxt(s) : '') + '.');
 }
 function purgeOpen() {
@@ -2163,7 +2177,7 @@ function helpCand() {
     hsec(2, 'Entrar', '<p>Abrid <b>' + esc(appUrl()) + '</b> con Edge o Chrome (también funciona en el móvil) y entrad con el usuario y la contraseña provisional que os ha dado el Ayuntamiento. La primera vez el programa os pedirá que elijáis vuestra propia contraseña. Cada candidatura tiene su usuario, vinculado a ella: así el programa sabe cuándo os toca y lo que elegís queda a vuestro nombre. Si al entrar aparece el aviso rojo «Tu usuario no está vinculado a ninguna candidatura», avisad al Ayuntamiento antes de la sesión. No compartáis el usuario, porque todo lo que se hace queda registrado con el nombre de quien lo hace. Si olvidáis la contraseña, el Ayuntamiento os da una nueva.</p>') +
     hsec(3, 'Cómo se reparte según la ley', legalHTML(), 'h-ley') +
     hsec(4, 'Turnos, rondas y cupos: cómo se elige', TURNOS_HTML(), 'h-turnos') +
-    hsec(5, 'Cómo elegir y cómo liberar', '<p><b>Banderolas, pancartas y prismas:</b> cuando sea vuestro turno, pulsad <b>«Reservar»</b> en la fila que queráis. Con el filtro podéis ver solo lo libre y con el buscador encontrar una calle o un lugar. <b>Espacios electorales:</b> hay un cuadrante con una fila por espacio y la mañana (M) y la tarde (T) de cada día de campaña; pulsad una casilla libre y confirmad. Las casillas con ⚠ tienen restricciones de uso; las grises (N/D) no están disponibles. Las rayadas (—) quedan fuera del horario de ese espacio según la lista de espacios (por ejemplo, un centro cívico que solo abre de lunes a viernes por la tarde): no se pueden reservar. Cada candidatura elige día a día y espacio a espacio; ningún espacio queda asignado a una candidatura para toda la campaña. Lo que el Ayuntamiento ha marcado como <b>no disponible</b> aparece en gris con el motivo y no se puede elegir.</p>' +
+    hsec(5, 'Cómo elegir y cómo liberar', '<p><b>Banderolas, pancartas y prismas:</b> cuando sea vuestro turno, pulsad <b>«Reservar»</b> en la fila que queráis. Con el filtro podéis ver solo lo libre y con el buscador encontrar una calle o un lugar. <b>Espacios electorales:</b> hay un cuadrante con una fila por espacio y la mañana (M) y la tarde (T) de cada día de campaña; pulsad una casilla libre y confirmad. <b>Se elige el día entero:</b> al reservar la mañana o la tarde se reserva también la otra franja de ese día, salvo que el espacio solo abra en una de las dos (y entonces se reserva esa). Las casillas con ⚠ tienen restricciones de uso; las grises (N/D) no están disponibles. Las rayadas (—) quedan fuera del horario de ese espacio según la lista de espacios (por ejemplo, un centro cívico que solo abre de lunes a viernes por la tarde): no se pueden reservar. Cada candidatura elige día a día y espacio a espacio; ningún espacio queda asignado a una candidatura para toda la campaña. Lo que el Ayuntamiento ha marcado como <b>no disponible</b> aparece en gris con el motivo y no se puede elegir.</p>' +
       '<p><b>Buscar.</b> Si no encontráis un espacio, una calle o un lugar, el botón <b>«🔍 Buscar»</b> de la barra de pestañas busca a la vez en las cuatro categorías y dice si cada cosa está libre, de quién es o si no está disponible. Desde ahí se puede reservar directamente cuando es vuestro turno, o ir a ese elemento en su lista o en el cuadrante. Cada pestaña tiene también su propio buscador.</p>' +
       '<p>Antes de reservar, el programa pide confirmación. En cuanto confirmáis, queda reservado y aparece ocupado para las demás candidaturas. Mientras la selección esté abierta podéis <b>liberar</b> lo vuestro (botón «Liberar» en la fila, en la casilla o en «Vuestras reservas» del Panel); si lo hacéis durante vuestro turno, recuperáis esa elección. Con la selección cerrada, pedídselo al Ayuntamiento.</p>') +
     hsec(6, 'Dónde ver lo que ha elegido cada candidatura', '<p>La pestaña <b>● En directo</b> (la del punto rojo, que late mientras la selección está abierta) lo reúne todo en una sola pantalla: arriba, de quién es el turno en cada categoría y las últimas elecciones a medida que se hacen; debajo, todo lo que tiene cada candidatura en las cuatro categorías, con filtros por candidatura y por categoría. En el <b>Panel</b> se ve el estado de cada categoría, el orden con lo que lleva cada candidatura y su cupo (por ejemplo, «3/14») y vuestras reservas. En cada pestaña (Espacios, Banderolas, Pancartas y Prismas) lo elegido aparece con las siglas de quien lo tiene. Todo se actualiza solo cada pocos segundos, sin recargar la página.</p>') +
@@ -2191,7 +2205,7 @@ function helpAdmin() {
       '<li>Cuando la candidatura termina, pulsa <b>«✓ Terminar con…»</b>: comprueba que todo está guardado en el servidor y dice cuántos tiene. Después, <b>«Siguiente candidatura ▸»</b> pasa a la siguiente del orden que no tenga el cupo completo.</li></ol>' +
       '<p><b>Nada se pierde.</b> Cada número se guarda en el servidor al instante, en segundo plano. Si se va la conexión o se cierra la pestaña, lo escrito queda guardado en este ordenador y se envía solo al volver; el indicador de arriba dice cuántos quedan por guardar. La lista «Dictado en este ordenador» se conserva aunque se recargue la página, y cada asignación queda en el Registro con la fecha y la hora.</p>' +
       '<p><b>Buscar por número en las listas.</b> En Banderolas, Pancartas y Prismas, si en el buscador escribes números (<b>12</b>, <b>12, 15, 18</b> o <b>20-25</b>) salen exactamente esos, y el botón <b>«✍ Asignarlos a una candidatura…»</b> los lleva ya escritos a esta pantalla. La columna <b>Nº</b> se ve siempre; si algún elemento no tiene número, el programa lo avisa y «Ponerles número» los numera a continuación del último.</p>' +
-      '<p><b>Espacios electorales:</b> se asignan en el cuadrante de la pestaña Espacios (un espacio, un día y una franja) con <b>«⚡ Asignación rápida a…»</b>: eliges la candidatura y pulsas las casillas.</p>') +
+      '<p><b>Espacios electorales:</b> se asignan en el cuadrante de la pestaña Espacios con <b>«⚡ Asignación rápida a…»</b>: eliges la candidatura y pulsas las casillas. <b>Se asigna el día entero:</b> al pulsar la mañana o la tarde, la otra franja de ese día también queda para la misma candidatura, salvo que el espacio no abra entonces (fuera de su horario o no disponible) o que ya la tenga otra. Liberar o reasignar también va por día entero, y los cupos de espacios se cuentan por días.</p>') +
     hsec(3, 'Cómo se hace el reparto en el programa', '<ol><li>En <b>Reparto</b>, escribe las <b>elecciones de referencia</b> y los <b>votos</b> que obtuvo cada candidatura en ellas. Las candidaturas nuevas, sin resultados anteriores, se dejan en 0. Los votos también pueden venir en el Excel.</li><li>Pulsa <b>«Ordenar las candidaturas por votos»</b>: la que tuvo más votos elige primero. Ese orden se aplica en Partidos y en los turnos de todas las categorías.</li><li>Elige el <b>método</b> de cada categoría y, si la Junta lo acuerda, un <b>mínimo</b> para cada candidatura:<ul><li><b>Proporcional (restos mayores):</b> cada candidatura recibe la parte entera de lo que le corresponde por sus votos y lo que sobra va a los restos más altos. Es el más fiel al porcentaje de votos.</li><li><b>Proporcional (D’Hondt):</b> el sistema del reparto de escaños; favorece un poco a las candidaturas con más votos.</li><li><b>A partes iguales:</b> lo mismo para todas; recomendado para los locales de actos (igualdad de oportunidades, art. 57).</li><li><b>Sin cupos:</b> sin límite por candidatura (se aplica, si lo hay, el máximo general de «Turnos y reglas»).</li></ul></li><li>Pulsa <b>«Calcular y fijar los cupos»</b>. Cada número se puede retocar a mano si la Junta acuerda otra cosa. Lo que esté marcado como no disponible no cuenta.</li></ol>' +
       '<div class="hint"><b>Ejemplo.</b> 30 tramos de banderolas y 4 candidaturas con 12.000, 8.000, 4.000 y 1.000 votos, con un mínimo de 1. Primero cada una recibe 1 (quedan 26). Los 26 se reparten en proporción a los votos: 12,48 · 8,32 · 4,16 · 1,04. Las partes enteras suman 25 y el tramo que sobra va al resto más alto (0,48). Cupos: <b>14, 9, 5 y 2</b>. El desarrollo ronda a ronda está en la ayuda para las candidaturas.</div>') +
     hsec(4, 'Turnos y reglas', '<p>Cada categoría puede estar <b>cerrada</b> (solo asigna el Ayuntamiento), <b>por turnos</b> o <b>libre</b> (cada candidatura elige cuando quiere, hasta su cupo o el máximo). En modo por turnos se fija el <b>orden</b>, las <b>elecciones por turno</b> y, si no hay cupos del reparto, un <b>máximo por candidatura</b>. El turno pasa solo al completar las elecciones del turno, cuando la candidatura completa su cupo o cuando pulsa «Terminar mi turno»; las que ya lo tienen completo se saltan. El Ayuntamiento puede avanzar, retroceder, dar el turno a una candidatura o reiniciar, y escribir un aviso que verán todas. Existe la opción de invertir el orden en cada ronda, pero no se recomienda: el art. 56 LOREG habla de orden decreciente de votos.</p>') +
@@ -2526,11 +2540,11 @@ async function historyRestore(key) {
 /* ============================================================
    ACCIONES
    ============================================================ */
-const APP_VERSION = '2.1 · 11/11/2026';
+const APP_VERSION = '2.2 · 11/11/2026';
 const adminOnly = () => { if (!isAdmin()) { toast('Esta acción la hace el Ayuntamiento.', 'err'); return false; } return true; };
 async function doReserve(i, slot, g) {
   const it = idx().imap[i]; if (!it) return;
-  const forParty = g || myParty(), what = '«' + iName(it) + '»' + (slot ? ' · ' + slotTxt(slot) : '');
+  const forParty = g || myParty(), whole = it.t === 'esp' && sibFree(i, slot), what = '«' + iName(it) + '»' + (slot ? ' · ' + (whole ? dayTxt(slot) : slotTxt(slot)) : '');
   if (slot && slotSt(it, slot) === 'hz') return toast('Esa franja queda fuera del horario de «' + iName(it) + '».', 'err');
   if (isAdmin()) {
     /* v1.10: la administración asigna al momento, sin ventana de confirmación ni esperas (se guarda en lotes); si se equivoca, «Anular» o «Liberar» */
@@ -2538,18 +2552,19 @@ async function doReserve(i, slot, g) {
     if (activeRes(i, slot)) return toast('«' + iName(it) + '» ya está asignado a ' + pName(activeRes(i, slot).g) + '.', 'err');
     if (it.nd) return toast('«' + iName(it) + '» no está disponible.', 'err');
     closeModal(); queueAssign([{ i, slot: slot || '', g: forParty }]);
-    toast('Asignado a ' + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + slotTxt(slot) : '') + ((it.blk || {})[slot] === 'rs' ? ' (⚠ franja con restricciones)' : '') + '.');
+    toast('Asignado a ' + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + (whole ? dayTxt(slot) : slotTxt(slot)) : '') + ((it.blk || {})[slot] === 'rs' ? ' (⚠ franja con restricciones)' : '') + '.');
     return;
   }
   if (!(await confirmBox({ title: isAdmin() ? 'Asignar' : 'Reservar', text: (isAdmin() ? 'Asignar ' : 'Reservar ') + esc(what) + ' para <b>' + esc(pName(forParty)) + '</b>.' + ((it.blk || {})[slot] === 'rs' ? '<br><br>⚠ Esta franja tiene restricciones de uso.' : ''), ok: isAdmin() ? 'Asignar' : 'Reservar' }))) return;
   closeModal();
   const ok = await act('reserve', { i, slot: slot || '', g: isAdmin() ? forParty : undefined });
-  if (ok) toast((isAdmin() ? 'Asignado a ' : 'Reservado para ') + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + slotTxt(slot) : '') + '.');
+  if (ok) toast((isAdmin() ? 'Asignado a ' : 'Reservado para ') + pName(forParty) + ': ' + iName(it) + (slot ? ' · ' + (whole ? dayTxt(slot) : slotTxt(slot)) : '') + '.');
 }
 async function doRelease(i, slot) {
   const r = activeRes(i, slot), it = idx().imap[i]; if (!r || !it) return;
   if (r.pend) { if (aqCancel('r:' + resKey(i, slot))) { closeModal(); toast('Anulado: «' + iName(it) + '» vuelve a estar libre.'); } return; }
-  if (!(await confirmBox({ title: 'Liberar', text: 'Se liberará «' + esc(iName(it)) + '»' + (slot ? ' · ' + esc(slotTxt(slot)) : '') + ', ahora de <b>' + esc(pName(r.g)) + '</b>, y quedará libre para cualquier partido.', ok: 'Liberar', danger: true }))) return;
+  const whole = sibSame(i, slot, r.g);
+  if (!(await confirmBox({ title: 'Liberar', text: 'Se liberará «' + esc(iName(it)) + '»' + (slot ? ' · ' + esc(whole ? dayTxt(slot) : slotTxt(slot)) : '') + ', ahora de <b>' + esc(pName(r.g)) + '</b>, y quedará libre para cualquier partido.', ok: 'Liberar', danger: true }))) return;
   closeModal();
   if (await act('release', { i, slot: slot || '' })) toast('Liberado.');
 }
