@@ -34,13 +34,13 @@ const pdfInfo = (f) => {
   /* ================= INSTALACIÓN ================= */
   const A = await open('Rosana');
   await A.waitForSelector('#lkCode');
-  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 1\.10\b/.test(await txt(A, '#lock')));
+  ok('Primera vez: pantalla de instalación, con la versión del programa', /Instalación/.test(await txt(A, '#lock')) && /Versión 2\.0\b/.test(await txt(A, '#lock')));
   await A.fill('#lkCode', 'mala'); await A.fill('#lkName', 'Rosana'); await A.fill('#lkPass', 'Rosana-2027'); await A.fill('#lkPass2', 'Rosana-2027'); await A.click('[data-a=lk-setup]');
   await A.waitForSelector('#lock .err'); ok('Clave de instalación incorrecta: se rechaza', /no es correcta/.test(await txt(A, '#lock .err')));
   await A.fill('#lkCode', 'clave-prueba'); await A.click('[data-a=lk-setup]'); await A.waitForSelector('#tabs [data-v=panel]');
   ok('Administradora creada y dentro', /Rosana · Administración/.test(await txt(A, '#who')));
   ok('Panel con la puesta en marcha guiada', /Puesta en marcha/.test(await txt(A, '#view')));
-  ok('Pestañas de administración', (await A.locator('#tabs button[data-a=tab]').allInnerTexts()).join('|') === 'Panel|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
+  ok('Pestañas de administración', (await A.locator('#tabs button[data-a=tab]').allInnerTexts()).join('|') === 'Panel|✍ Asignar por número|En directo|Espacios|Banderolas|Pancartas|Prismas|Partidos|Reparto|Turnos y reglas|Registro|Ajustes|Ayuda');
 
   /* ================= AJUSTES ================= */
   await tab(A, 'ajustes');
@@ -552,7 +552,7 @@ const pdfInfo = (f) => {
   const hc = await txt(PP, '#view');
   ok('…explica la ley, los turnos y rondas con el ejemplo, cómo elegir y dónde verlo todo', /arts\. 55 y 56/.test(hc) && /Turnos, rondas y cupos/.test(hc) && /10 a 14/.test(hc) && /Terminar mi turno/.test(hc) && /En directo/.test(hc) && /Preguntas frecuentes/.test(hc) && !/Importar desde Excel/.test(hc));
   await PP.click('[data-a=help-part][data-v=man]'); const hm = await txt(PP, '#view');
-  ok('Manual del programa separado (13 apartados): reparto, ensayo, inhabilitar, Excel, copias, enlace con Eleccions', (await PP.locator('#view .help h3').count()) === 13 && /Enlace con Eleccions/.test(hm) && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
+  ok('Manual del programa separado (14 apartados): asignar por número, reparto, ensayo, inhabilitar, Excel, copias, enlace con Eleccions', (await PP.locator('#view .help h3').count()) === 14 && /Asignar por número/.test(await txt(PP, '#view')) && /Enlace con Eleccions/.test(hm) && /Ensayo antes de la sesión/.test(hm) && /Manual de Espais electorals/.test(hm) && /en bloque/.test(hm) && /no elegible con un motivo/.test(hm) && /Elegible \/ No elegible/.test(hm) && /plantilla/.test(hm) && /💾 Copia/.test(hm));
   await tab(A, 'ayuda'); ok('La administración abre por defecto el manual', /Manual de Espais electorals/.test(await txt(A, '#view h2')));
   await A.evaluate(() => { window.__p = 0; window.print = () => { window.__p++; }; });
   await A.click('#view [data-a=pr-help]'); await A.waitForTimeout(300);
@@ -736,6 +736,76 @@ const pdfInfo = (f) => {
   ok('Cuadrante: un clic en una casilla libre la asigna, sin ventanas', (await A.locator('#modal:not([hidden])').count()) === 0 && /VALENTS/.test(await A.evaluate((c) => document.querySelector('#view .cc button[data-i="' + c[0] + '"][data-s="' + c[1] + '"]').innerText, cfree)));
   await settled(A); d = await apiAs(A, 'data'); ok('…y llega al servidor', (d.E['r:' + cfree[0] + ':' + cfree[1]] || {}).g === V);
   await A.click('#view [data-a=qa-off]');
+
+  /* ================= ASIGNAR POR NÚMERO: LA SELECCIÓN LA HACE LA ADMINISTRACIÓN (v2.0) ================= */
+  await tab(A, 'panel');
+  ok('v2.0 · Panel: «La selección la hace la administración», con un botón por categoría, y la sesión de las candidaturas como opcional', (await A.locator('#view .adsel [data-a=d-open]').count()) === 3 && /opcional/.test(await txt(A, '#view .livec h3')));
+  ok('…los partidos no ven la pestaña «Asignar por número»', !(await PP.locator('#tabs [data-v=dict]').count()) && !(await PV.locator('#tabs [data-v=dict]').count()));
+  await A.click('#view .adsel [data-a=d-open][data-t=pan]'); await A.waitForSelector('#tabs [data-v=dict].on');
+  ok('…el botón lleva a «✍ Asignar por número» con Pancartas elegida', /Pancartas/.test(await txt(A, '#view .dseg button.on')));
+  d = await apiAs(A, 'data');
+  const limG = (c, g) => (c && c.cup && c.cup[g] != null ? c.cup[g] : c && c.max > 0 ? c.max : Infinity);
+  const cntG = (E, g) => Object.values(E).filter((e) => e.k === 'r' && !e.x && e.t === 'pan' && e.g === g).length;
+  const panId = {}; Object.entries(d.E).forEach(([k, e]) => { if (e.k === 'i' && e.t === 'pan' && !e.x) panId[e.ord] = k.slice(2); });
+  const freeP = (E, n) => { const id = panId[n]; if (!id) return false; const r = E['r:' + id]; return !(r && !r.x) && !E['i:' + id].nd; };
+  const cP = d.E['c:pan'] || {}, gs = Object.values(P), DG = gs.slice().sort((a, b) => (limG(cP, b) - cntG(d.E, b)) - (limG(cP, a) - cntG(d.E, a)))[0];
+  const fr = Object.keys(panId).map(Number).sort((a, b) => a - b).filter((n) => freeP(d.E, n));
+  const pair = fr.find((n) => fr.includes(n + 1) && n > fr[4]);
+  const takenP = Object.keys(panId).map(Number).find((n) => { const r = d.E['r:' + panId[n]]; return r && !r.x && r.g !== DG; });
+  ok('Datos para la prueba: una candidatura con cupo de sobra y pancartas libres', !!DG && fr.length >= 8 && pair != null, 'cupo libre ' + (limG(cP, DG) - cntG(d.E, DG)) + ' · ' + fr.length + ' libres');
+  const dName = await A.evaluate((g) => (document.querySelector('#view [data-a=d-g][data-g="' + g + '"] b') || {}).textContent || '', DG);
+  await A.click('#view [data-a=d-g][data-g="' + DG + '"]'); await A.waitForSelector('#dIn'); await A.waitForFunction(() => document.activeElement && document.activeElement.id === 'dIn', null, { timeout: 3000 }).catch(() => {});
+  { const foc = await A.evaluate(() => (document.activeElement || {}).id || ''), dbx = await txt(A, '#view .dbox');
+    ok('Al elegir la candidatura aparece la casilla de números, lista para escribir', foc === 'dIn' && dbx.includes('Números de ' + dName), 'foco: ' + foc + ' · ' + dbx.slice(0, 60).replace(/\s+/g, ' ')); }
+  const dType = async (x) => { await A.fill('#dIn', String(x)); await A.press('#dIn', 'Enter'); await wait(250); };
+  const dLines = () => A.evaluate(() => [...document.querySelectorAll('#view .dmsg li')].map((l) => l.className + ':' + l.innerText.replace(/\s+/g, ' ')));
+  await dType(fr[0]); let L1 = await dLines();
+  ok('Escribir un número y pulsar Intro lo asigna al momento, con el nombre del lugar para comprobarlo', L1.length === 1 && /^ok:✓ ?/.test(L1[0]) && L1[0].includes(String(fr[0])) && (await A.inputValue('#dIn')) === '', L1.join(' | '));
+  await dType(fr[1] + ',' + fr[2]); L1 = await dLines(); ok('Varios a la vez, con comas («12,15»)', L1.length === 2 && L1.every((l) => /^ok/.test(l)), L1.join(' | '));
+  await dType('del ' + pair + ' al ' + (pair + 1)); L1 = await dLines(); ok('Seguidos («del 20 al 21»)', L1.length === 2 && L1.every((l) => /^ok/.test(l)), L1.join(' | '));
+  if (takenP != null) { await dType(takenP); L1 = await dLines(); ok('Un número que ya es de otra candidatura no se asigna y lo dice', L1.length === 1 && /^err.*ya es de/.test(L1[0]), L1.join(' | ')); }
+  await dType('999'); L1 = await dLines(); ok('Un número que no existe: aviso', /^err.*no hay ninguna pancarta/.test(L1[0] || ''), L1.join(' | '));
+  await dType('hola'); L1 = await dLines(); ok('Algo que no es un número: aviso', /^err.*no se entiende/.test(L1[0] || ''), L1.join(' | '));
+  await settled(A); d = await apiAs(A, 'data');
+  const dGot = [fr[0], fr[1], fr[2], pair, pair + 1];
+  ok('Todo lo dictado llega al servidor, a nombre de la candidatura', dGot.every((n) => (d.E['r:' + panId[n]] || {}).g === DG && !d.E['r:' + panId[n]].x));
+  ok('…y queda en el Registro', dGot.every((n) => Object.values(d.E).some((e) => e.k === 'h' && /asignó a/.test(e.a) && e.g === DG && e.t === 'pan')));
+  await dType('x' + fr[0]); L1 = await dLines(); await settled(A); d = await apiAs(A, 'data');
+  ok('«x12» lo quita y vuelve a estar libre', /^ok.*quitado/.test(L1[0] || '') && (!d.E['r:' + panId[fr[0]]] || d.E['r:' + panId[fr[0]]].x), L1.join(' | '));
+  const dnums = await A.evaluate(() => [...document.querySelectorAll('#view .dnums .dn')].map((x) => x.textContent.trim()));
+  ok('«Todo lo de…» muestra sus números (sin el quitado)', [fr[1], fr[2], pair, pair + 1].every((n) => dnums.includes(String(n))) && !dnums.includes(String(fr[0])), dnums.join(' '));
+  // sin conexión: se ve al momento, queda en el navegador y se envía sola al volver
+  const dn0 = cons.length;
+  await A.context().setOffline(true); await wait(300); await dType(fr[3]); L1 = await dLines();
+  ok('Sin conexión: se asigna en pantalla y queda guardado en este ordenador', /^ok/.test(L1[0] || '') && (await aqLS()) === 1 && /guardando/.test(await txt(A, '#view .dlog')), L1.join(' | '));
+  await A.context().setOffline(false); await settled(A); d = await apiAs(A, 'data');
+  ok('…y al volver la conexión se envía sola', (d.E['r:' + panId[fr[3]]] || {}).g === DG && (await aqLS()) === 0);
+  // se recarga la página antes de que llegue al servidor: no se pierde
+  await A.route('**/api/reserve', (rt) => rt.abort()); await dType(fr[4]); await wait(400);
+  ok('Si no puede enviarse, sigue guardado en este ordenador', (await aqLS()) === 1);
+  await A.unroute('**/api/reserve'); A.once('dialog', (dg) => dg.accept().catch(() => {}));
+  await A.reload(); await A.waitForSelector('#tabs [data-v=dict]'); await settled(A); d = await apiAs(A, 'data');
+  ok('Recargar no pierde nada: se envía al volver', (d.E['r:' + panId[fr[4]]] || {}).g === DG && (await aqLS()) === 0);
+  for (let k = cons.length - 1; k >= dn0; k--) if (/ERR_INTERNET_DISCONNECTED|ERR_FAILED|Failed to load resource|net::/.test(cons[k])) cons.splice(k, 1);
+  await tab(A, 'dict');
+  ok('Al volver a la pestaña sigue en Pancartas, con la misma candidatura y lo dictado', /Pancartas/.test(await txt(A, '#view .dseg button.on')) && (await A.locator('#view [data-a=d-g].on[data-g="' + DG + '"]').count()) === 1 && (await A.locator('#view .dlog tr').count()) >= 6);
+  await A.click('#view [data-a=d-end]'); await A.waitForFunction(() => /Guardado en el servidor/.test(document.querySelector('#view .dmsg') ? document.querySelector('#view .dmsg').innerText : ''), null, { timeout: 15000 }).catch(() => {});
+  d = await apiAs(A, 'data');
+  ok('«✓ Terminar con…» confirma que todo está en el servidor y cuántos tiene', new RegExp('Guardado en el servidor\\. ' + dName + ' tiene ' + cntG(d.E, DG)).test(await txt(A, '#view .dmsg')), await txt(A, '#view .dmsg'));
+  await A.click('#view [data-a=d-next]'); await wait(200);
+  ok('«Siguiente candidatura ▸» pasa a la siguiente', (await A.locator('#view [data-a=d-g].on').count()) === 1 && !(await A.locator('#view [data-a=d-g].on[data-g="' + DG + '"]').count()));
+  // cupo: una candidatura con el cupo completo no recibe más sin «Asignar igualmente»
+  d = await apiAs(A, 'data');
+  const cupG = gs.find((g) => Number.isFinite(limG(d.E['c:pan'], g)) && cntG(d.E, g) >= limG(d.E['c:pan'], g));
+  if (cupG) {
+    const fr2 = Object.keys(panId).map(Number).sort((a, b) => a - b).filter((n) => freeP(d.E, n));
+    await A.click('#view [data-a=d-g][data-g="' + cupG + '"]'); await A.waitForSelector('#dIn'); await dType(fr2[0]); L1 = await dLines();
+    ok('Con el cupo completo, sale en naranja y no se asigna', /^cup.*cupo completo/.test(L1[0] || '') && (await A.locator('#view [data-a=d-force]').count()) === 1, L1.join(' | '));
+    await A.click('#view [data-a=d-force]'); await wait(300); L1 = await dLines(); await settled(A); d = await apiAs(A, 'data');
+    ok('…«Asignar igualmente» lo asigna por encima del cupo', /^ok/.test(L1[0] || '') && (d.E['r:' + panId[fr2[0]]] || {}).g === cupG, L1.join(' | '));
+    await dType('x' + fr2[0]); await settled(A);
+  } else ok('Cupo: ninguna candidatura tiene el cupo de pancartas completo en esta prueba (comprobación omitida)', true);
+  const dPV2 = await apiAs(PV, 'data'); ok('Las candidaturas ven lo asignado por la administración', (dPV2.E['r:' + panId[fr[1]]] || {}).g === DG);
 
   /* ================= BORRAR DATOS DE PRUEBA (v1.5) ================= */
   d = await apiAs(A, 'data'); const nItems = Object.values(d.E).filter((e) => e.k === 'i' && !e.x).length, nRes = Object.values(d.E).filter((e) => e.k === 'r' && !e.x).length, nLog = Object.values(d.E).filter((e) => e.k === 'h').length;

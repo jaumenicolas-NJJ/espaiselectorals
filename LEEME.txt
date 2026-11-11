@@ -5,13 +5,23 @@ Ajuntament de Santa Coloma de Gramenet
 
 Qué hace
 --------
-Las candidaturas eligen, por turnos y según su orden de preferencia, los espacios
+Reparte entre las candidaturas, por turnos y según su orden de preferencia, los espacios
 electorales (por día y franja de mañana o tarde), las banderolas, las pancartas y los
-prismas. El Ajuntament carga los datos desde el Excel, da de alta las candidaturas y sus
-usuarios, hace el reparto según la ley (votos de las anteriores elecciones equivalentes,
-orden de elección y cupo de cada candidatura), abre cada categoría por turnos o libre y
-supervisa todo. Lo que elige una candidatura queda reservado al instante y nadie más
-puede cogerlo, salvo que esa candidatura lo libere o lo haga la administración.
+prismas. El Ajuntament carga los datos desde el Excel, hace el reparto según la ley (votos
+de las anteriores elecciones equivalentes, orden de elección y cupo de cada candidatura) y
+supervisa todo. Lo asignado a una candidatura queda reservado al instante y nadie más
+puede tenerlo.
+
+Desde la versión 2.0 la selección la hace la administración: en «✍ Asignar por número»
+elige la categoría (banderolas, pancartas o prismas) y la candidatura, y escribe los
+números que dicta su representante (el Nº de las listas): 12, varios a la vez (12 15 18)
+o seguidos (20-25); con «x» delante (x12) se quitan. Cada número se asigna y se guarda al
+momento; si se va la conexión o se cierra la pestaña, queda guardado en ese ordenador y
+se envía solo al volver. «✓ Terminar con…» comprueba que todo está en el servidor y
+«Siguiente candidatura ▸» pasa a la siguiente del orden. Los espacios se asignan en el
+cuadrante de Espacios con «⚡ Asignación rápida a…». Que cada candidatura elija desde su
+ordenador sigue siendo posible (tarjeta «Sesión de selección» del Panel), pero es opcional:
+sin ella, las candidaturas no necesitan usuario.
 
 Dirección: https://espaiselectorals.netlify.app
 
