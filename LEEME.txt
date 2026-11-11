@@ -26,7 +26,9 @@ cuadrante de Espacios con «⚡ Asignación rápida a…». En los espacios se e
 entero (versión 2.2): el cuadrante sigue con mañana y tarde, pero al elegir una de las dos
 se reserva también la otra franja de ese día para la misma candidatura, salvo que el centro
 no abra entonces (fuera de su horario o no disponible) o que ya la tenga otra. Liberar o
-reasignar va también por día entero y los cupos de espacios se cuentan por días. Que cada candidatura elija desde su
+reasignar va también por día entero y los cupos de espacios se cuentan por días. Desde la
+versión 2.3 el servidor contesta en cuanto la asignación queda guardada (ver «Guardar más
+deprisa», más abajo). Que cada candidatura elija desde su
 ordenador sigue siendo posible (tarjeta «Sesión de selección» del Panel), pero es opcional:
 sin ella, las candidaturas no necesitan usuario.
 
@@ -123,6 +125,21 @@ banderola: 295 banderolas llevaron 1 h 46 min el 4/11/2026). Ahora:
   - Arreglado: una segunda pulsación mientras se guardaba la anterior se perdía sin
     avisar; ahora se avisa (partidos) o va a la cola (administración).
 Funciona igual con el plan gratuito de Netlify. Los datos no cambian de formato.
+
+GUARDAR MÁS DEPRISA (versión 2.3)
+---------------------------------
+Al asignar, liberar o reasignar (sobre todo en el cuadrante de Espacios, donde cada clic
+reserva el día entero) el aviso «Guardando…» duraba demasiado. El servidor esperaba a
+cuatro pasos seguidos con el almacén de Frankfurt antes de contestar, y cada 10 minutos a
+la copia automática (unos trece pasos). Ahora:
+  - Comprueba la sesión y lee los datos a la vez, no uno detrás de otro.
+  - Contesta en cuanto la asignación queda guardada. El aviso para las demás pantallas, la
+    copia de cada modificación y la copia automática se terminan justo después, sin que
+    nadie espere (context.waitUntil de Netlify).
+Resultado con la misma latencia simulada: de 4 pasos a 2 por asignación, de 13 a 3
+cuando toca la copia automática y de 8 a 4 en un servidor recién arrancado. La seguridad
+no cambia: dos candidaturas no pueden quedarse con la misma franja, porque el guardado
+sigue siendo condicional, y no se pierde ninguna copia. Los datos no cambian de formato.
 
 Si te equivocas al importar el Excel: en cada lista (y en Espacios con «✎ Editar lista»)
 marca varias filas en la primera columna, o «Marcar todos», y pulsa «🗑 Borrar las filas

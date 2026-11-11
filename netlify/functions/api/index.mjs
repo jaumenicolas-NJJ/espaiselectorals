@@ -4,14 +4,15 @@ import { makeHandler } from './core.mjs';
 
 const envGet = (k) => (globalThis.Netlify && Netlify.env && Netlify.env.get(k)) || process.env[k] || '';
 
-export default async (req) => {
+export default async (req, context) => {
   // El almacén se crea en cada petición: el permiso temporal de Blobs caduca si se reutiliza.
   const handler = makeHandler({
     store: getStore({ name: 'espais', consistency: 'strong', region: 'eu-central-1' }),
     backup: getStore({ name: 'espais-copias', consistency: 'strong', region: 'eu-central-1' }),
     env: { ESPAIS_CLAVE_INICIAL: envGet('ESPAIS_CLAVE_INICIAL'), ESPAIS_SECRET: envGet('ESPAIS_SECRET') }
   });
-  return handler(req);
+  /* context.waitUntil (v2.3): lo que no hace falta para contestar termina después de la respuesta */
+  return handler(req, context);
 };
 
 export const config = { path: '/api/*' };

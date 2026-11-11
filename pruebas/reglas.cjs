@@ -325,6 +325,16 @@ const api = async (p, body, tok) => { const r = await fetch(B + '/api/' + p, { m
   r = await api('reparto', null, TQ); ok('Una candidatura no puede descargar el reparto', r.status === 403, r.status);
   r = await api('enlace', { op: 'crear' }, TQ); ok('Una candidatura no puede crear la clave', r.status === 403, r.status);
   r = await api('enlace', { op: 'crear' }, T.JEZ); ok('Consulta no puede crear la clave', r.status === 403);
+  // v2.3 · el servidor contesta en cuanto la asignación queda guardada; el aviso a las demás pantallas y la copia de la modificación llegan justo después
+  { const s1 = (await api('changes?since=0&urev=0&force=1', null, A)).j.seq, j1 = (await api('history', null, A)).j.changes;
+    r = await api('reserve', { items: [{ i: 'wd1', slot: '2027-07-20M', g: 'p2' }], since: s1 }, A);
+    let seen = false, j2 = j1;
+    for (let k = 0; k < 60 && !(seen && j2 > j1); k++) {
+      const q = (await api('changes?since=' + s1 + '&urev=0', null, A)).j; seen = !!(q.E && q.E['r:wd1:2027-07-20M']); j2 = (await api('history', null, A)).j.changes;
+      if (!(seen && j2 > j1)) await new Promise((w) => setTimeout(w, 50));
+    }
+    ok('v2.3 · Asignar contesta con el día entero y las demás pantallas lo ven sin forzar la consulta', r.status === 200 && r.j.results[0].ok && !!r.j.E['r:wd1:2027-07-20T'] && seen, JSON.stringify({ res: r.j.results, tarde: !!r.j.E['r:wd1:2027-07-20T'], seen }));
+    ok('…y la copia de la modificación queda hecha después', j2 > j1, j1 + ' → ' + j2); }
   r = await api('enlace', { op: 'crear' }, A); const K = r.j.clave; ok('La administración crea la clave de enlace', r.status === 200 && /^ee1_/.test(K));
   r = await api('reparto', null, K); const rep = r.j;
   ok('Con la clave: reparto completo', r.status === 200 && rep.formato === 'espaiselectorals-reparto' && rep.partidos.length >= 4 && rep.ban.length >= 6 && rep.reglas.ban.modo);

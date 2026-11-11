@@ -41,7 +41,9 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/__ops') { res.end(String(OPS)); return; }
   if (u.pathname.startsWith('/api/')) {
     const chunks = []; for await (const c of req) chunks.push(c);
-    const r = await handler(new Request(u, { method: req.method, headers: req.headers, body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }));
+    /* como Netlify (v2.3): context.waitUntil deja terminar después de contestar lo que no hace falta para la respuesta */
+    const ctx = { waitUntil: (p) => { Promise.resolve(p).catch((e) => console.error('waitUntil', e)); } };
+    const r = await handler(new Request(u, { method: req.method, headers: req.headers, body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), ctx);
     res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(Buffer.from(await r.arrayBuffer())); return;
   }
   const f = path.join(PUB, path.normalize(u.pathname === '/' ? 'index.html' : u.pathname).replace(/^(\.\.[/\\])+/, ''));

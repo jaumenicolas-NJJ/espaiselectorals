@@ -241,15 +241,22 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     if (!C || now() - C.at >= DB_TTL) return null;
     try { const [cur, nx] = await Promise.all([store.getMetadata('db@' + pad(C.v)), store.getMetadata('db@' + pad(C.v + 1))]); return cur && !nx ? C : null; } catch (e) { return null; }
   }
-  async function update(name, init, fn) {
-    const M0 = name === 'db' ? await memLatest() : null;
-    let fast = !!M0;
+  /* v2.3: lo primero que necesita update('db') (la copia de memoria si sigue siendo la última o, si no, la última versión del
+     almacén) se puede pedir a la vez que se comprueba la sesión, en lugar de después. El guardado sigue siendo condicional:
+     si entretanto otra instancia guarda, se repite con los datos del almacén. Nunca falla: si algo va mal, update lee como siempre */
+  function dbHead() {
+    return memLatest().then((C) => (C ? { fast: true, v: C.v, data: C.data } : vread('db').then((h) => ({ fast: false, v: h.v, data: h.data })))).catch(() => null);
+  }
+  async function update(name, init, fn, pre) {
+    let first = name === 'db' ? await (pre || dbHead()) : null;
     for (let i = 0; i < 40; i++) {
-      const head = fast ? { v: M0.v, data: structuredClone(M0.data) } : await vread(name);
+      const fast = !!(first && first.fast);
+      const head = first ? { v: first.v, data: fast ? structuredClone(first.data) : first.data } : await vread(name);
+      first = null;
       const cur = head.data || init();
       let out;
-      try { out = await fn(cur); } catch (e) { if (fast) { fast = false; i--; continue; } throw e; }
-      if (out && out.noWrite) { if (fast) { fast = false; i--; continue; } return { cur, out }; }
+      try { out = await fn(cur); } catch (e) { if (fast) { i--; continue; } throw e; }
+      if (out && out.noWrite) { if (fast) { i--; continue; } return { cur, out }; }
       const rec = { v: head.v + 1, at: now(), data: cur };
       const r = await store.setJSON(name + '@' + pad(rec.v), rec, { onlyIfNew: true });
       if (r && r.modified) {
@@ -259,7 +266,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
         if (rec.v % 50 === 0) prune(name, rec.v);
         return { cur, out };
       }
-      if (fast) { fast = false; continue; }
+      if (fast) continue;
       await sleep(10 + Math.random() * Math.min(400, 30 * (i + 1)));
     }
     throw new HttpErr(503, 'El servidor está muy ocupado. Inténtalo de nuevo.');
@@ -326,8 +333,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
 
   /* copia automática cada 10 minutos de actividad, con la base ya en memoria (sin volver a leerla) */
   async function autoSnap(db) {
-    if (!db || !Object.keys(db.E).length || now() - (db.lastSnap || 0) <= SNAP_EVERY) return;
+    if (!db || !Object.keys(db.E).length || now() - (db.lastSnap || 0) <= SNAP_EVERY || mem.snapBusy) return;
+    mem.snapBusy = true; /* v2.3: va después de contestar; si llega otra petición mientras tanto, no hace una segunda copia */
     try { await snapshot(db, ''); await update('db', initDB, (d) => { d.lastSnap = now(); return null; }); } catch (e) { console.error('copia automática', e); }
+    finally { mem.snapBusy = false; }
   }
 
   /* ---------- sesiones firmadas ---------- */
@@ -358,6 +367,10 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     const o = {}; for (const k in E) { const e = E[k]; o[k] = e && e.k === 'g' && !(who.u.role === 'partido' && k === 'g:' + who.u.party) ? Object.assign({}, e, { rep: '', tel: '', mail: '', nota: '', xv: {} }) : e; } return o;
   };
   const since = (db, n) => { const o = {}; for (const k in db.E) if ((db.E[k].s || 0) > n) o[k] = db.E[k]; return o; };
+  /* v2.3: tras guardar una asignación, liberación o reasignación, el contador del sondeo, la copia de la modificación y la copia
+     automática se hacen después de contestar (context.waitUntil de Netlify): quien asigna no espera por ellas. Sin waitUntil
+     (servidor antiguo o pruebas sin él) se esperan antes de contestar, como hasta la 2.2 */
+  const after = (db, s0, who, what) => { later(bumpMeta(db.seq, null)); later(journal(since(db, s0), who, what)); later(autoSnap(db)); };
   const stamp = (db, key, e, who, t) => { e.u = Math.max(t, ((db.E[key] && db.E[key].u) || 0) + 1); e.b = who.u.name; e.s = ++db.seq; db.E[key] = e; };
   const log = (db, who, t, a, cat, g) => stamp(db, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a, t: cat || '', g: g || '' }, ensOn(db) ? { ens: true } : {}), who, t);
   const pname = (db, g) => { const p = db.E['g:' + g]; return p ? p.sig || p.nom : '?'; };
@@ -626,6 +639,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     },
 
     'POST reserve': async (req, body) => {
+      const pre = dbHead(); /* v2.3: a la vez que se comprueba la sesión */
       const who = await authed(req); need(who, ['admin', 'partido']);
       /* varias asignaciones de la administración en un solo guardado (v1.10): cada una se comprueba por separado y se
          contesta una por una (las que no se pueden hacer no impiden las demás) */
@@ -645,22 +659,23 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
             catch (e) { if (!(e instanceof HttpErr)) throw e; results.push({ i: String(x.i), slot: x.slot || '', ok: false, error: e.message }); }
           }
           return results.some((r) => r.ok && !r.ya) ? null : { noWrite: true }; /* si no cambia nada, no se guarda */
-        });
-        if (results.some((r) => r.ok && !r.ya)) await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'asignaciones'), autoSnap(db)]);
+        }, pre);
+        if (results.some((r) => r.ok && !r.ya)) after(db, s0, who, 'asignaciones');
         return json({ seq: db.seq, E: since(db, +body.since || 0), results });
       }
       if (!/^[\w-]{1,60}$/.test(String(body.i || ''))) throw new HttpErr(400, 'Reserva no válida.');
       let s0 = 0;
-      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; reserve(d, body, who, now()); return null; });
-      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'reserva'), autoSnap(db)]);
+      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; reserve(d, body, who, now()); return null; }, pre);
+      after(db, s0, who, 'reserva');
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST release': async (req, body) => {
+      const pre = dbHead();
       const who = await authed(req); need(who, ['admin', 'partido']);
       if (!/^[\w-]{1,60}$/.test(String(body.i || '')) || !(body.slot == null || body.slot === '' || slotOK(body.slot))) throw new HttpErr(400, 'Reserva no válida.');
       let s0 = 0;
-      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; release(d, body, who, now()); return null; });
-      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'liberación'), autoSnap(db)]);
+      const { cur: db } = await update('db', initDB, (d) => { s0 = d.seq; release(d, body, who, now()); return null; }, pre);
+      after(db, s0, who, 'liberación');
       return json({ seq: db.seq, E: redact(since(db, +body.since || 0), who) });
     },
     'POST turn': async (req, body) => {
@@ -761,6 +776,7 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     },
     /* reasignar una reserva a otra candidatura en un solo paso (administración) */
     'POST reassign': async (req, body) => {
+      const pre = dbHead();
       const who = await authed(req); need(who, ['admin']);
       if (!/^[\w-]{1,60}$/.test(String(body.i || '')) || !(body.slot == null || body.slot === '' || slotOK(body.slot))) throw new HttpErr(400, 'Reserva no válida.');
       let s0 = 0;
@@ -778,8 +794,8 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
         if (r.t === 'esp' && r.slot) { const k2 = 'r:' + r.i + ':' + otherSlot(r.slot), r2 = d.E[k2]; if (r2 && !r2.x && r2.g === r.g) { const n2 = Object.assign({}, nr, { slot: otherSlot(r.slot) }); if (r2.ens) n2.ens = true; else delete n2.ens; stamp(d, k2, n2, who, t); both = true; } }
         stamp(d, 'h:' + newId(), Object.assign({ k: 'h', ts: t, by: who.u.name, a: 'reasignó «' + iname(it) + (both ? dayTxt(r.slot) : slotTxt(r.slot)) + '» de ' + pname(d, r.g) + ' a ' + pname(d, g), t: r.t, g }, r.ens ? { ens: true } : {}), who, t);
         return null;
-      });
-      await Promise.all([bumpMeta(db.seq, null), journal(since(db, s0), who, 'reasignación'), autoSnap(db)]);
+      }, pre);
+      after(db, s0, who, 'reasignación');
       return json({ seq: db.seq, E: since(db, +body.since || 0) });
     },
     /* borrar datos de prueba: selecciones y, si se pide, candidaturas con sus usuarios. Nunca los espacios, las reglas ni el registro */
@@ -960,7 +976,9 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
     }
   };
 
-  return async function handler(req) {
+  /* todo lo pendiente, también lo que se añada mientras se espera (la copia automática guarda los datos otra vez) */
+  const drain = async () => { while (PEND.size) await Promise.all([...PEND]); };
+  return async function handler(req, ctx) {
     try {
       const url = new URL(req.url);
       const route = url.pathname.replace(/^\/(?:\.netlify\/functions\/)?api\/?/, '').replace(/\/$/, '');
@@ -979,7 +997,8 @@ export function makeHandler({ store, backup, env = {}, now = () => Date.now(), m
       console.error(e);
       return fail(500, 'Error interno del servidor.');
     } finally {
-      if (PEND.size) await Promise.all([...PEND]);
+      /* v2.3: con context.waitUntil (Netlify) la respuesta sale ya y lo pendiente termina después; sin él, se espera como antes */
+      if (PEND.size) { if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(drain()); else await drain(); }
     }
   };
 }
